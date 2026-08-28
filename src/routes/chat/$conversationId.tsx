@@ -1,14 +1,17 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { authClient } from '@/lib/auth/auth-client'
+import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
   regenerateMessage,
   sendMessage,
   stopGeneration,
 } from '@/server/functions/chat'
+import { getConversation } from '@/server/functions/conversations'
+import { getMessages } from '@/server/functions/messages'
 
 export const Route = createFileRoute('/chat/$conversationId')({
   beforeLoad: async () => {
@@ -17,12 +20,47 @@ export const Route = createFileRoute('/chat/$conversationId')({
       throw redirect({ to: '/auth/sign-in' })
     }
   },
+  loader: async ({ params }) => {
+    const [conversation, persistedMessages] = await Promise.all([
+      getConversation({ data: { id: params.conversationId } }),
+      getMessages({ data: { conversationId: params.conversationId } }),
+    ])
+    return { conversation, persistedMessages }
+  },
+  errorComponent: ConversationError,
   component: ChatThread,
 })
 
+function ConversationError() {
+  return (
+    <WorkspaceShell>
+      <div className="flex min-h-[60vh] items-center justify-center text-center">
+        <div>
+          <h1 className="text-[30px] font-medium text-ink-black">
+            Percakapan tidak ditemukan
+          </h1>
+          <p className="mt-2 text-[15px] text-stone-gray">
+            Percakapan ini tidak tersedia atau tidak dapat diakses.
+          </p>
+          <Link
+            to="/chat"
+            className="mt-5 inline-flex rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone"
+          >
+            Kembali ke chat
+          </Link>
+        </div>
+      </div>
+    </WorkspaceShell>
+  )
+}
+
 function ChatThread() {
   const { conversationId } = Route.useParams()
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const { conversation, persistedMessages } = Route.useLoaderData()
+  const navigate = Route.useNavigate()
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    hydrateMessages(persistedMessages),
+  )
   const [isStreaming, setIsStreaming] = useState(false)
   const [generationId, setGenerationId] = useState<string | null>(null)
   const credits = 85
@@ -239,10 +277,24 @@ function ChatThread() {
       credits={credits}
       activeConversationId={conversationId}
       onNewChat={() => {
-        window.location.href = '/chat'
+        void navigate({ to: '/chat' })
+      }}
+      onSelectConversation={(id) => {
+        void navigate({
+          to: '/chat/$conversationId',
+          params: { conversationId: id },
+        })
       }}
     >
       <div className="flex h-[calc(100vh-2rem)] flex-col">
+        <header className="mb-4 flex items-center justify-between border-b border-hairline-mist px-1 pb-3">
+          <h1 className="truncate text-[20px] font-medium text-ink-black">
+            {conversation.title ?? 'New Chat'}
+          </h1>
+          <span className="rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-[13px] text-stone-gray">
+            {conversation.mode}
+          </span>
+        </header>
         <MessageList messages={messages} />
         {messages.some((m) => m.role === 'assistant' && !m.streaming) && (
           <div className="mx-auto mb-2 flex gap-2">

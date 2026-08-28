@@ -13,15 +13,23 @@ export const Route = createFileRoute('/chat/')({
 })
 
 function ChatPlaceholder() {
+  const navigate = Route.useNavigate()
   return (
-    <WorkspaceShell>
+    <WorkspaceShell
+      onSelectConversation={(conversationId) => {
+        void navigate({
+          to: '/chat/$conversationId',
+          params: { conversationId },
+        })
+      }}
+    >
       <div className="flex flex-1 items-center justify-center p-10">
         <div className="text-center">
           <h2 className="font-medium text-[30px] text-ink-black">
-            Selamat datang di Zona.ai
+            Tanyakan apa saja ke Zona.ai
           </h2>
           <p className="mt-2 text-[15px] text-stone-gray">
-            Chat workspace akan hadir di Fase 03. Auth & DB siap.
+            Pilih model, tulis pertanyaan, atau buka percakapan sebelumnya.
           </p>
         </div>
       </div>
