@@ -15,3 +15,8 @@ test('sign-in card 50px no shadow-xl', async ({ page }) => {
   const radius = await card.evaluate((el) => getComputedStyle(el).borderRadius)
   expect(radius).toContain('50px')
 })
+
+test('chat redirects to sign-in when unauthenticated', async ({ page }) => {
+  await page.goto('/chat')
+  await expect(page).toHaveURL(/\/auth\/sign-in/)
+})

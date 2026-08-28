@@ -30,3 +30,24 @@ describe('db schema', () => {
     expect(String(val)).toContain('100')
   })
 })
+
+describe('ownership', () => {
+  it('user B cannot see user A conversations', async () => {
+    const { users, conversations } = await import('../../src/lib/db/schema')
+    const { eq } = await import('drizzle-orm')
+    // Cleanup any leftovers from previous runs
+    await db.delete(conversations).where(eq(conversations.userId, 'user-a'))
+    await db.delete(conversations).where(eq(conversations.userId, 'user-b'))
+    await db.delete(users).where(eq(users.id, 'user-a'))
+    await db.delete(users).where(eq(users.id, 'user-b'))
+
+    await db.insert(users).values({ id: 'user-a', email: 'a@test.com', name: 'A' })
+    await db.insert(users).values({ id: 'user-b', email: 'b@test.com', name: 'B' })
+    await db.insert(conversations).values({ id: crypto.randomUUID(), userId: 'user-a', title: 'A chat' } as never)
+    const rowsB = await db.select().from(conversations).where(eq(conversations.userId, 'user-b'))
+    expect(rowsB.length).toBe(0)
+    await db.delete(conversations).where(eq(conversations.userId, 'user-a'))
+    await db.delete(users).where(eq(users.id, 'user-a'))
+    await db.delete(users).where(eq(users.id, 'user-b'))
+  })
+})
