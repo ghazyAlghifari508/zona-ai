@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 const validEnv = {
   DATABASE_URL: 'postgresql://zona:password@localhost:5432/zona_ai',
@@ -53,30 +53,51 @@ describe('env.server', () => {
   })
 
   it('rejects DATABASE_URL without postgresql:// prefix', () => {
-    expect(() => envSchema.parse({ ...validEnv, DATABASE_URL: 'http://localhost/db' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, DATABASE_URL: 'mysql://user@host/db' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, DATABASE_URL: 'http://localhost/db' }),
+    ).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, DATABASE_URL: 'mysql://user@host/db' }),
+    ).toThrow()
   })
 
   it('rejects DATABASE_URL that is not a URL', () => {
-    expect(() => envSchema.parse({ ...validEnv, DATABASE_URL: 'not-a-url' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, DATABASE_URL: 'not-a-url' }),
+    ).toThrow()
   })
 
   it('rejects BETTER_AUTH_SECRET <32 chars', () => {
-    expect(() => envSchema.parse({ ...validEnv, BETTER_AUTH_SECRET: 'short' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, BETTER_AUTH_SECRET: '1234567890123456789012345678901' })).toThrow() // 31
+    expect(() =>
+      envSchema.parse({ ...validEnv, BETTER_AUTH_SECRET: 'short' }),
+    ).toThrow()
+    expect(() =>
+      envSchema.parse({
+        ...validEnv,
+        BETTER_AUTH_SECRET: '1234567890123456789012345678901',
+      }),
+    ).toThrow() // 31
   })
 
   it('accepts BETTER_AUTH_SECRET exactly 32', () => {
-    expect(() => envSchema.parse({ ...validEnv, BETTER_AUTH_SECRET: 'a'.repeat(32) })).not.toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, BETTER_AUTH_SECRET: 'a'.repeat(32) }),
+    ).not.toThrow()
   })
 
   it('rejects invalid BETTER_AUTH_URL', () => {
-    expect(() => envSchema.parse({ ...validEnv, BETTER_AUTH_URL: 'not-a-url' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, BETTER_AUTH_URL: 'not-a-url' }),
+    ).toThrow()
   })
 
   it('rejects GOOGLE_CLIENT_ID without .apps.googleusercontent.com', () => {
-    expect(() => envSchema.parse({ ...validEnv, GOOGLE_CLIENT_ID: 'invalid-client-id' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, GOOGLE_CLIENT_ID: '123.apps.other.com' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, GOOGLE_CLIENT_ID: 'invalid-client-id' }),
+    ).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, GOOGLE_CLIENT_ID: '123.apps.other.com' }),
+    ).toThrow()
   })
 
   it('accepts valid GOOGLE_CLIENT_ID', () => {
@@ -84,26 +105,46 @@ describe('env.server', () => {
   })
 
   it('rejects GOOGLE_CLIENT_SECRET <10 chars', () => {
-    expect(() => envSchema.parse({ ...validEnv, GOOGLE_CLIENT_SECRET: 'short' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, GOOGLE_CLIENT_SECRET: 'short' }),
+    ).toThrow()
   })
 
   it('rejects NINE_ROUTER_BASE_URL without /v1 suffix', () => {
-    expect(() => envSchema.parse({ ...validEnv, NINE_ROUTER_BASE_URL: 'http://localhost:20128' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, NINE_ROUTER_BASE_URL: 'http://localhost:20128/v2' })).toThrow()
+    expect(() =>
+      envSchema.parse({
+        ...validEnv,
+        NINE_ROUTER_BASE_URL: 'http://localhost:20128',
+      }),
+    ).toThrow()
+    expect(() =>
+      envSchema.parse({
+        ...validEnv,
+        NINE_ROUTER_BASE_URL: 'http://localhost:20128/v2',
+      }),
+    ).toThrow()
   })
 
   it('rejects NINE_ROUTER_BASE_URL that is not a URL', () => {
-    expect(() => envSchema.parse({ ...validEnv, NINE_ROUTER_BASE_URL: 'not-a-url' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, NINE_ROUTER_BASE_URL: 'not-a-url' }),
+    ).toThrow()
   })
 
   it('rejects missing NINE_ROUTER_API_KEY', () => {
-    expect(() => envSchema.parse({ ...validEnv, NINE_ROUTER_API_KEY: '' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, NINE_ROUTER_API_KEY: '' }),
+    ).toThrow()
   })
 
   it('rejects missing R2 vars', () => {
     expect(() => envSchema.parse({ ...validEnv, R2_ACCOUNT_ID: '' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, R2_ACCESS_KEY_ID: '' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, R2_SECRET_ACCESS_KEY: '' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, R2_ACCESS_KEY_ID: '' }),
+    ).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, R2_SECRET_ACCESS_KEY: '' }),
+    ).toThrow()
     expect(() => envSchema.parse({ ...validEnv, R2_BUCKET_NAME: '' })).toThrow()
   })
 
@@ -113,16 +154,24 @@ describe('env.server', () => {
   })
 
   it('rejects invalid R2_PUBLIC_URL', () => {
-    expect(() => envSchema.parse({ ...validEnv, R2_PUBLIC_URL: 'not-a-url' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, R2_PUBLIC_URL: 'not-a-url' }),
+    ).toThrow()
   })
 
   it('rejects TAVILY_API_KEY without tvly- prefix', () => {
-    expect(() => envSchema.parse({ ...validEnv, TAVILY_API_KEY: 'invalid-key' })).toThrow()
-    expect(() => envSchema.parse({ ...validEnv, TAVILY_API_KEY: 'sk-123' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, TAVILY_API_KEY: 'invalid-key' }),
+    ).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, TAVILY_API_KEY: 'sk-123' }),
+    ).toThrow()
   })
 
   it('accepts valid TAVILY_API_KEY', () => {
-    expect(() => envSchema.parse({ ...validEnv, TAVILY_API_KEY: 'tvly-abc123' })).not.toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, TAVILY_API_KEY: 'tvly-abc123' }),
+    ).not.toThrow()
   })
 
   it('accepts missing EXA_API_KEY (optional 19th var)', () => {
@@ -131,7 +180,11 @@ describe('env.server', () => {
   })
 
   it('accepts missing LANGFUSE_SECRET_KEY and LANGFUSE_PUBLIC_KEY (optional)', () => {
-    const { LANGFUSE_SECRET_KEY: _a, LANGFUSE_PUBLIC_KEY: _b, ...rest } = validEnv
+    const {
+      LANGFUSE_SECRET_KEY: _a,
+      LANGFUSE_PUBLIC_KEY: _b,
+      ...rest
+    } = validEnv
     expect(() => envSchema.parse(rest)).not.toThrow()
   })
 
@@ -142,7 +195,9 @@ describe('env.server', () => {
   })
 
   it('rejects invalid LANGFUSE_BASE_URL', () => {
-    expect(() => envSchema.parse({ ...validEnv, LANGFUSE_BASE_URL: 'not-a-url' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, LANGFUSE_BASE_URL: 'not-a-url' }),
+    ).toThrow()
   })
 
   it('accepts missing APP_URL as required', () => {
@@ -151,7 +206,9 @@ describe('env.server', () => {
   })
 
   it('rejects invalid APP_URL', () => {
-    expect(() => envSchema.parse({ ...validEnv, APP_URL: 'not-a-url' })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, APP_URL: 'not-a-url' }),
+    ).toThrow()
   })
 
   it('defaults NODE_ENV to development when missing', () => {
@@ -161,6 +218,8 @@ describe('env.server', () => {
   })
 
   it('rejects invalid NODE_ENV', () => {
-    expect(() => envSchema.parse({ ...validEnv, NODE_ENV: 'staging' as never })).toThrow()
+    expect(() =>
+      envSchema.parse({ ...validEnv, NODE_ENV: 'staging' as never }),
+    ).toThrow()
   })
 })

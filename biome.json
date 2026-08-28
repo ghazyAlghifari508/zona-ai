@@ -22,9 +22,26 @@
       "semicolons": "asNeeded"
     }
   },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "overrides": [
     {
       "includes": ["src/routeTree.gen.ts"],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
+      }
+    },
+    {
+      "includes": [".output/**", ".vinxi/**"],
       "formatter": {
         "enabled": false
       },
