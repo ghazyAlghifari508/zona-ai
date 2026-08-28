@@ -1,7 +1,9 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 
 if (typeof window !== 'undefined') {
-  throw new Error('src/lib/ai/9router.ts is server-only — do not import on the client')
+  throw new Error(
+    'src/lib/ai/9router.ts is server-only — do not import on the client',
+  )
 }
 
 export const nineRouter = createOpenAICompatible({

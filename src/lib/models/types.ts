@@ -18,7 +18,10 @@ export interface ModelRegistryEntry {
   metadata: {
     contextWindow: number | null
     maxOutput?: number
-    pricing: { inputPerMillion: number | null; outputPerMillion: number | null } | null
+    pricing: {
+      inputPerMillion: number | null
+      outputPerMillion: number | null
+    } | null
     category: string
     speedClass: string
   }

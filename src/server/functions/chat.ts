@@ -1,17 +1,22 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/start-server-core'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
-import { z } from 'zod'
 import { asc, eq, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import { nineRouter } from '../../lib/ai/9router'
-import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import { deductCredits } from '../../lib/ai/credits'
+import { buildSystemPrompt } from '../../lib/ai/system-prompt'
+import { getAuthSession } from '../../lib/auth/session'
+import { db } from '../../lib/db/index'
+import {
+  conversations,
+  generationRuns,
+  messages,
+  usageRecords,
+} from '../../lib/db/schema'
 import { getModelById } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
 import { chatSchema } from '../../lib/utils/validation'
-import { getAuthSession } from '../../lib/auth/session'
-import { db } from '../../lib/db/index'
-import { conversations, generationRuns, messages, usageRecords } from '../../lib/db/schema'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/functions/chat.ts is server-only')
@@ -44,12 +49,16 @@ export async function sendMessageCore({
   let cost: number
   let routingReason: string | undefined
 
-  const creditRes = await db.execute(sql`SELECT credits FROM users WHERE id=${userId}`)
+  const creditRes = await db.execute(
+    sql`SELECT credits FROM users WHERE id=${userId}`,
+  )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
 
   if (input.modelId === 'auto') {
-    const resolved = resolveAutoModel(input.content, { credits: currentCredits })
+    const resolved = resolveAutoModel(input.content, {
+      credits: currentCredits,
+    })
     routerModelId = resolved.routerModelId
     cost = resolved.cost
     routingReason = resolved.reason
@@ -58,7 +67,10 @@ export async function sendMessageCore({
   }
 
   if (currentCredits < cost) {
-    const e = new Error('Kredit tidak mencukupi') as Error & { status: number; code: string }
+    const e = new Error('Kredit tidak mencukupi') as Error & {
+      status: number
+      code: string
+    }
     e.status = 402
     e.code = 'ERR-019'
     throw e
@@ -66,7 +78,10 @@ export async function sendMessageCore({
 
   let convId = input.conversationId
   if (convId) {
-    const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId))
+    const [conv] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, convId))
     if (!conv || conv.userId !== userId) {
       const e = new Error('Forbidden') as Error & { status: number }
       e.status = 403
@@ -112,7 +127,12 @@ export async function sendMessageCore({
   })
 
   try {
-    await deductCredits({ userId, generationRunId: genId, modelId: input.modelId, amount: cost })
+    await deductCredits({
+      userId,
+      generationRunId: genId,
+      modelId: input.modelId,
+      amount: cost,
+    })
   } catch (e) {
     await db.delete(generationRuns).where(eq(generationRuns.id, genId))
     throw e
@@ -167,7 +187,10 @@ export async function sendMessageCore({
             })
             .where(eq(generationRuns.id, genId))
 
-          await db.update(messages).set({ content: text }).where(eq(messages.id, assistantMsg.id))
+          await db
+            .update(messages)
+            .set({ content: text })
+            .where(eq(messages.id, assistantMsg.id))
 
           if (usage) {
             await db.insert(usageRecords).values({
@@ -203,7 +226,9 @@ export async function sendMessageCore({
     const anyResult = result as unknown as Record<string, unknown>
     let response: Response
     if (typeof anyResult['toUIMessageStreamResponse'] === 'function') {
-      response = (anyResult['toUIMessageStreamResponse'] as (o?: unknown) => Response).call(result, {
+      response = (
+        anyResult['toUIMessageStreamResponse'] as (o?: unknown) => Response
+      ).call(result, {
         headers: {
           'X-Generation-Id': genId,
           'X-Conversation-Id': convId,
@@ -212,10 +237,14 @@ export async function sendMessageCore({
         },
       })
     } else if (typeof anyResult['toTextStreamResponse'] === 'function') {
-      response = (anyResult['toTextStreamResponse'] as () => Response).call(result)
+      response = (anyResult['toTextStreamResponse'] as () => Response).call(
+        result,
+      )
     } else {
       response = createTextStreamResponse({
-        stream: toTextStream({ stream: (result as { stream: ReadableStream }).stream }),
+        stream: toTextStream({
+          stream: (result as { stream: ReadableStream }).stream,
+        }),
         headers: {
           'X-Generation-Id': genId,
           'X-Conversation-Id': convId,
@@ -228,7 +257,11 @@ export async function sendMessageCore({
     controllers.delete(genId)
     await db
       .update(generationRuns)
-      .set({ status: 'failed', error: { message: (err as Error).message } as unknown as never, completedAt: new Date() })
+      .set({
+        status: 'failed',
+        error: { message: (err as Error).message } as unknown as never,
+        completedAt: new Date(),
+      })
       .where(eq(generationRuns.id, genId))
     throw err
   }
@@ -238,7 +271,10 @@ export const sendMessage = createServerFn({ method: 'POST' })
   .validator((data: unknown) => chatSchema.parse(data))
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    return sendMessageCore({ data: data as z.infer<typeof chatSchema>, request })
+    return sendMessageCore({
+      data: data as z.infer<typeof chatSchema>,
+      request,
+    })
   })
 
 export async function stopGenerationCore({
@@ -251,16 +287,24 @@ export async function stopGenerationCore({
   await getAuthSession(request)
   const ctrl = controllers.get(generationId)
   if (ctrl) ctrl.abort()
-  await db.update(generationRuns).set({ status: 'cancelled', completedAt: new Date() }).where(eq(generationRuns.id, generationId))
+  await db
+    .update(generationRuns)
+    .set({ status: 'cancelled', completedAt: new Date() })
+    .where(eq(generationRuns.id, generationId))
   controllers.delete(generationId)
   return { ok: true as const }
 }
 
 export const stopGeneration = createServerFn({ method: 'POST' })
-  .validator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) =>
+    z.object({ generationId: z.string().uuid() }).parse(data),
+  )
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    return stopGenerationCore({ generationId: (data as { generationId: string }).generationId, request })
+    return stopGenerationCore({
+      generationId: (data as { generationId: string }).generationId,
+      request,
+    })
   })
 
 export async function regenerateMessageCore({
@@ -272,10 +316,18 @@ export async function regenerateMessageCore({
   modelId?: string
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as { user: { id: string } }
-  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId))
+  const session = (await getAuthSession(request)) as unknown as {
+    user: { id: string }
+  }
+  const [msg] = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.id, messageId))
   if (!msg) throw new Error('Message not found')
-  const [conv] = await db.select().from(conversations).where(eq(conversations.id, msg.conversationId))
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, msg.conversationId))
   if (!conv || conv.userId !== session.user.id) {
     const e = new Error('Forbidden') as Error & { status: number }
     e.status = 403
@@ -288,26 +340,42 @@ export async function regenerateMessageCore({
   let routerModelId = modelEntry.routerModelId
   let cost: number
   if (targetModelId === 'auto') {
-    const historyForCost = await db.select().from(messages).where(eq(messages.conversationId, conv.id)).orderBy(asc(messages.createdAt))
-    const lastUser = [...historyForCost].reverse().find((m) => m.role === 'user')
-    const resolved = resolveAutoModel(lastUser?.content ?? 'hello', { credits: 100 })
+    const historyForCost = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conv.id))
+      .orderBy(asc(messages.createdAt))
+    const lastUser = [...historyForCost]
+      .reverse()
+      .find((m) => m.role === 'user')
+    const resolved = resolveAutoModel(lastUser?.content ?? 'hello', {
+      credits: 100,
+    })
     routerModelId = resolved.routerModelId
     cost = resolved.cost
   } else {
     cost = modelEntry.creditCost as number
   }
 
-  const creditRes = await db.execute(sql`SELECT credits FROM users WHERE id=${session.user.id}`)
+  const creditRes = await db.execute(
+    sql`SELECT credits FROM users WHERE id=${session.user.id}`,
+  )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
   if (currentCredits < cost) {
-    const e = new Error('Kredit tidak mencukupi') as Error & { status: number; code: string }
+    const e = new Error('Kredit tidak mencukupi') as Error & {
+      status: number
+      code: string
+    }
     e.status = 402
     e.code = 'ERR-019'
     throw e
   }
 
-  const [assistantMsg] = await db.insert(messages).values({ conversationId: conv.id, role: 'assistant', content: '' }).returning()
+  const [assistantMsg] = await db
+    .insert(messages)
+    .values({ conversationId: conv.id, role: 'assistant', content: '' })
+    .returning()
 
   const genId = crypto.randomUUID()
 
@@ -323,13 +391,22 @@ export async function regenerateMessageCore({
   })
 
   try {
-    await deductCredits({ userId: session.user.id, generationRunId: genId, modelId: targetModelId, amount: cost })
+    await deductCredits({
+      userId: session.user.id,
+      generationRunId: genId,
+      modelId: targetModelId,
+      amount: cost,
+    })
   } catch (e) {
     await db.delete(generationRuns).where(eq(generationRuns.id, genId))
     throw e
   }
 
-  const history = await db.select().from(messages).where(eq(messages.conversationId, conv.id)).orderBy(asc(messages.createdAt))
+  const history = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conv.id))
+    .orderBy(asc(messages.createdAt))
 
   const abortController = new AbortController()
   controllers.set(genId, abortController)
@@ -337,10 +414,17 @@ export async function regenerateMessageCore({
   const result = streamText({
     model: nineRouter(routerModelId),
     system: buildSystemPrompt({ skillId: 'none' }),
-    messages: history.map((m) => ({ role: m.role as unknown as 'user', content: m.content })),
+    messages: history.map((m) => ({
+      role: m.role as unknown as 'user',
+      content: m.content,
+    })),
     abortSignal: abortController.signal,
     onFinish: async ({ text, usage }) => {
-      const u = usage as unknown as { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+      const u = usage as unknown as {
+        inputTokens?: number
+        outputTokens?: number
+        totalTokens?: number
+      }
       await db
         .update(generationRuns)
         .set({
@@ -352,25 +436,39 @@ export async function regenerateMessageCore({
           completedAt: new Date(),
         })
         .where(eq(generationRuns.id, genId))
-      await db.update(messages).set({ content: text }).where(eq(messages.id, assistantMsg.id))
+      await db
+        .update(messages)
+        .set({ content: text })
+        .where(eq(messages.id, assistantMsg.id))
       controllers.delete(genId)
     },
   })
 
   const anyResult = result as unknown as Record<string, unknown>
   if (typeof anyResult['toUIMessageStreamResponse'] === 'function') {
-    return (anyResult['toUIMessageStreamResponse'] as () => Response).call(result)
+    return (anyResult['toUIMessageStreamResponse'] as () => Response).call(
+      result,
+    )
   }
   return createTextStreamResponse({
-    stream: toTextStream({ stream: (result as { stream: unknown }).stream as ReadableStream }),
+    stream: toTextStream({
+      stream: (result as { stream: unknown }).stream as ReadableStream,
+    }),
   } as never)
 }
 
 export const regenerateMessage = createServerFn({ method: 'POST' })
-  .validator((data: unknown) => z.object({ messageId: z.string().uuid(), modelId: z.string().optional() }).parse(data))
+  .validator((data: unknown) =>
+    z
+      .object({ messageId: z.string().uuid(), modelId: z.string().optional() })
+      .parse(data),
+  )
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    const { messageId, modelId } = data as { messageId: string; modelId?: string }
+    const { messageId, modelId } = data as {
+      messageId: string
+      modelId?: string
+    }
     return regenerateMessageCore({ messageId, modelId, request })
   })
 

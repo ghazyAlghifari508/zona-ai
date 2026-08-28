@@ -144,9 +144,12 @@ export const creditTransactions = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    generationRunId: uuid('generation_run_id').references(() => generationRuns.id, {
-      onDelete: 'set null',
-    }),
+    generationRunId: uuid('generation_run_id').references(
+      () => generationRuns.id,
+      {
+        onDelete: 'set null',
+      },
+    ),
     amount: integer('amount').notNull(),
     type: text('type').notNull(),
     modelId: text('model_id'),
@@ -156,7 +159,9 @@ export const creditTransactions = pgTable(
   },
   (table) => [
     index('credit_transactions_user_id_idx').on(table.userId),
-    index('credit_transactions_generation_run_id_idx').on(table.generationRunId),
+    index('credit_transactions_generation_run_id_idx').on(
+      table.generationRunId,
+    ),
     index('credit_transactions_created_at_idx').on(table.createdAt),
   ],
 )
@@ -178,6 +183,9 @@ export const usageRecords = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
-    index('usage_records_user_id_created_at_idx').on(table.userId, table.createdAt),
+    index('usage_records_user_id_created_at_idx').on(
+      table.userId,
+      table.createdAt,
+    ),
   ],
 )

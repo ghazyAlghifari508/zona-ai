@@ -5,7 +5,9 @@ export function resolveAutoModel(
   const lower = prompt.toLowerCase()
   const wordCount = prompt.trim().split(/\s+/).filter(Boolean).length
   const isCode =
-    /```|refactor|debug|implement|endpoint|regex|sql|schema|stack trace/i.test(prompt)
+    /```|refactor|debug|implement|endpoint|regex|sql|schema|stack trace/i.test(
+      prompt,
+    )
   const isReasoning =
     /langkah demi langkah|analisis|jelaskan mendalam|multi-step|logika|dokumen/i.test(
       lower,

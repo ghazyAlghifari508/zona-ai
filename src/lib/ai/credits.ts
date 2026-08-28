@@ -3,7 +3,9 @@ import { db } from '../db/index'
 import { creditTransactions } from '../db/schema'
 
 if (typeof window !== 'undefined') {
-  throw new Error('src/lib/ai/credits.ts is server-only — do not import on the client')
+  throw new Error(
+    'src/lib/ai/credits.ts is server-only — do not import on the client',
+  )
 }
 
 function getRows<T>(result: unknown): T[] {
@@ -72,7 +74,8 @@ export async function refundCredits(opts: {
 }
 
 export async function resetDevCredits(userId: string): Promise<number> {
-  if (process.env.NODE_ENV === 'production') throw new Error('Forbidden in production')
+  if (process.env.NODE_ENV === 'production')
+    throw new Error('Forbidden in production')
   const res = await db.execute(
     sql`UPDATE users SET credits=100 WHERE id=${userId} RETURNING credits`,
   )
