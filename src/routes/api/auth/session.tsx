@@ -11,10 +11,13 @@ export const Route = createFileRoute('/api/auth/session')({
         } catch (e: unknown) {
           const err = e as { status?: number; code?: string; message?: string }
           if (err.status === 401) {
-            return new Response(JSON.stringify({ code: err.code, message: err.message }), {
-              status: 401,
-              headers: { 'Content-Type': 'application/json' },
-            })
+            return new Response(
+              JSON.stringify({ code: err.code, message: err.message }),
+              {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
           }
           throw e
         }
