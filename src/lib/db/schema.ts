@@ -1,11 +1,11 @@
 import {
+  boolean,
+  index,
+  integer,
   pgTable,
   text,
-  uuid,
   timestamp,
-  boolean,
-  integer,
-  index,
+  uuid,
 } from 'drizzle-orm/pg-core'
 
 // users — Better Auth managed + credits
@@ -100,5 +100,3 @@ export const messages = pgTable(
     ),
   ],
 )
-
-

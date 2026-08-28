@@ -1,7 +1,9 @@
 import { auth } from './auth'
 
 if (typeof window !== 'undefined') {
-  throw new Error('src/lib/auth/session.ts is server-only — do not import on the client')
+  throw new Error(
+    'src/lib/auth/session.ts is server-only — do not import on the client',
+  )
 }
 
 export async function getAuthSession(request: Request) {

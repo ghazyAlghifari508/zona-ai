@@ -4,7 +4,9 @@ import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { db } from '../db/index'
 
 if (typeof window !== 'undefined') {
-  throw new Error('src/lib/auth/auth.ts is server-only — do not import on the client')
+  throw new Error(
+    'src/lib/auth/auth.ts is server-only — do not import on the client',
+  )
 }
 
 export const auth = betterAuth({
@@ -12,8 +14,8 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: false },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     },
   },
   plugins: [tanstackStartCookies()],
