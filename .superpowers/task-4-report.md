@@ -59,3 +59,22 @@ Checked 8 files in 29ms. No fixes applied.
 ```
 
 The actual landing E2E remains RED/deferred until Task 7 supplies the application and landing page.
+
+## Review Fix Round 2
+
+The round 1 `document.fonts.check` assertion could pass through font fallback without a registered Inter face. It is superseded by an assertion that, after `document.fonts.ready`, `Array.from(document.fonts)` contains a normalized `Inter` `FontFace` with `status === 'loaded'`. The computed primary family must still equal `Inter`.
+
+```text
+bunx playwright test --list
+Listing tests:
+  [chromium] › landing.spec.ts:3:1 › landing renders the cream canvas and floating navigation
+Total: 1 test in 1 file
+
+bunx tsc --noEmit
+exit code: 0
+
+bunx biome check .
+Checked 8 files in 20ms. No fixes applied.
+```
+
+The actual landing E2E remains RED/deferred until Task 7 supplies the application and landing page.

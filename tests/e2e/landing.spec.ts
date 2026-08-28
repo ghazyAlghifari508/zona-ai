@@ -18,6 +18,8 @@ test('landing renders the cream canvas and floating navigation', async ({
 
   const font = await page.locator('body').evaluate(async (body) => {
     await document.fonts.ready
+    const normalizeFamily = (family: string) =>
+      family.trim().replaceAll(/["']/g, '').toLowerCase()
     const family = getComputedStyle(body)
       .fontFamily.split(',')[0]
       .trim()
@@ -25,7 +27,11 @@ test('landing renders the cream canvas and floating navigation', async ({
 
     return {
       family,
-      loaded: document.fonts.check(`16px "${family}"`),
+      loaded: Array.from(document.fonts).some(
+        (fontFace) =>
+          normalizeFamily(fontFace.family) === normalizeFamily(family) &&
+          fontFace.status === 'loaded',
+      ),
     }
   })
   expect(font.family).toBe('Inter')
