@@ -10,16 +10,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from '../../src/components/layout/Sidebar'
 
 const serverMocks = vi.hoisted(() => ({
+  archiveConversation: vi.fn(),
   createConversation: vi.fn(),
+  deleteConversation: vi.fn(),
   getConversations: vi.fn(),
+  updateConversation: vi.fn(),
 }))
 
 vi.mock('../../src/server/functions/conversations', () => ({
   createConversation: serverMocks.createConversation,
   getConversations: serverMocks.getConversations,
-  updateConversation: vi.fn(),
-  deleteConversation: vi.fn(),
-  archiveConversation: vi.fn(),
+  updateConversation: serverMocks.updateConversation,
+  deleteConversation: serverMocks.deleteConversation,
+  archiveConversation: serverMocks.archiveConversation,
 }))
 
 vi.mock('../../src/lib/auth/auth-client', () => ({
@@ -89,6 +92,94 @@ describe('Sidebar persistence', () => {
       expect(onSelectConversation).toHaveBeenCalledWith(
         '10000000-0000-4000-8000-000000000010',
       ),
+    )
+  })
+
+  it('renames a conversation from its accessible menu', async () => {
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: '10000000-0000-4000-8000-000000000011',
+          title: 'Old title',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+    serverMocks.updateConversation.mockResolvedValue({ title: 'New title' })
+    renderSidebar()
+
+    fireEvent.pointerDown(
+      await screen.findByRole('button', { name: 'Menu Old title' }),
+      { button: 0, ctrlKey: false },
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+    const input = await screen.findByRole('textbox', {
+      name: 'Rename Old title',
+    })
+    fireEvent.change(input, { target: { value: 'New title' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() =>
+      expect(serverMocks.updateConversation).toHaveBeenCalledWith({
+        data: {
+          id: '10000000-0000-4000-8000-000000000011',
+          title: 'New title',
+        },
+      }),
+    )
+  })
+
+  it('archives immediately and confirms before soft delete', async () => {
+    const id = '10000000-0000-4000-8000-000000000012'
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id,
+          title: 'Disposable',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+    serverMocks.archiveConversation.mockResolvedValue({ success: true })
+    serverMocks.deleteConversation.mockResolvedValue({ success: true })
+    renderSidebar()
+
+    fireEvent.pointerDown(
+      await screen.findByRole('button', { name: 'Menu Disposable' }),
+      { button: 0, ctrlKey: false },
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }))
+    await waitFor(() =>
+      expect(serverMocks.archiveConversation).toHaveBeenCalledWith({
+        data: { id },
+      }),
+    )
+
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id,
+          title: 'Disposable',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+    renderSidebar()
+    fireEvent.pointerDown(
+      await screen.findByRole('button', { name: 'Menu Disposable' }),
+      { button: 0, ctrlKey: false },
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(serverMocks.deleteConversation).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
+    await waitFor(() =>
+      expect(serverMocks.deleteConversation).toHaveBeenCalledWith({
+        data: { id, hard: false },
+      }),
     )
   })
 })
