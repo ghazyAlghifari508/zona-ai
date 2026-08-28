@@ -1,0 +1,97 @@
+import type { ModelRegistryEntry } from './types'
+
+export const modelRegistry: ModelRegistryEntry[] = [
+  {
+    id: 'auto',
+    routerModelId: 'auto',
+    displayName: 'Auto (Smart Router)',
+    provider: 'zona-router',
+    description:
+      'Automatically routes prompts to the best model based on complexity and task type',
+    enabled: true,
+    isDefault: true,
+    creditCost: { min: 1, max: 4 },
+    creditTier: 'adaptive',
+    capabilities: {
+      text: true,
+      vision: true,
+      files: true,
+      tools: true,
+      reasoning: true,
+    },
+    metadata: {
+      contextWindow: 1048576,
+      maxOutput: 128000,
+      pricing: null,
+      category: 'smart-router',
+      speedClass: 'adaptive',
+    },
+    routingRules: {
+      lightweight: 'ag/gemini-3.7-flash-low',
+      reasoning: 'ag/gemini-3.7-flash-high',
+      coding: 'cx/gpt-5.6-sol',
+    },
+  },
+  {
+    id: 'gemini-3.7-flash-high',
+    routerModelId: 'ag/gemini-3.7-flash-high',
+    displayName: 'Gemini 3.7 Flash (High)',
+    provider: 'antigravity',
+    description: "Google's next-gen hybrid reasoning model",
+    enabled: true,
+    creditCost: 4,
+    creditTier: 'balanced',
+    capabilities: {
+      text: true,
+      vision: true,
+      files: true,
+      tools: true,
+      reasoning: true,
+    },
+    metadata: {
+      contextWindow: 1048576,
+      maxOutput: 65536,
+      pricing: null,
+      category: 'reasoning',
+      speedClass: 'fast',
+    },
+  },
+  {
+    id: 'gpt-5.6-sol',
+    routerModelId: 'cx/gpt-5.6-sol',
+    displayName: 'GPT 5.6 (Sol)',
+    provider: 'codex',
+    description: "OpenAI's high-tier flagship model",
+    enabled: true,
+    creditCost: 15,
+    creditTier: 'premium',
+    capabilities: {
+      text: true,
+      vision: true,
+      files: true,
+      tools: true,
+      reasoning: true,
+    },
+    metadata: {
+      contextWindow: 372000,
+      maxOutput: 128000,
+      pricing: null,
+      category: 'flagship',
+      speedClass: 'medium',
+    },
+  },
+]
+
+export function getAvailableModels(): ModelRegistryEntry[] {
+  return modelRegistry.filter((m) => m.enabled)
+}
+
+export function getModelById(id: string): ModelRegistryEntry {
+  const m = modelRegistry.find((x) => x.id === id && x.enabled)
+  if (!m) throw new Error(`ERR-003: model ${id} not available`)
+  return m
+}
+
+export function isVisionCapable(id: string): boolean {
+  return getModelById(id).capabilities.vision
+}
