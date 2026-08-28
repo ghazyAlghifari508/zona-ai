@@ -8,11 +8,13 @@
     "start": "bun .output/server/index.mjs"
   },
   "dependencies": {
+    "@tailwindcss/vite": "4.1.13",
     "@tanstack/react-router": "1.170.32",
     "@tanstack/react-start": "1.168.49",
     "nitro": "3.0.260610-beta",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tailwindcss": "4.1.13"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
