@@ -14,14 +14,20 @@ test('landing renders the cream canvas and floating navigation', async ({
     'rgb(245, 241, 228)',
   )
   await expect(page.getByRole('navigation')).toHaveCSS('border-radius', '50px')
+  await expect(page.locator('input[type="password"]')).toHaveCount(0)
 
-  const fontFamily = await page
-    .locator('body')
-    .evaluate((body) =>
-      getComputedStyle(body)
-        .fontFamily.split(',')[0]
-        .trim()
-        .replaceAll(/["']/g, ''),
-    )
-  expect(fontFamily).toBe('Inter')
+  const font = await page.locator('body').evaluate(async (body) => {
+    await document.fonts.ready
+    const family = getComputedStyle(body)
+      .fontFamily.split(',')[0]
+      .trim()
+      .replaceAll(/["']/g, '')
+
+    return {
+      family,
+      loaded: document.fonts.check(`16px "${family}"`),
+    }
+  })
+  expect(font.family).toBe('Inter')
+  expect(font.loaded).toBe(true)
 })

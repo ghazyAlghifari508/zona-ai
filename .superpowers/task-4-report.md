@@ -39,3 +39,23 @@ Checked 8 files in 28ms. No fixes applied.
 ## Deferred
 
 The actual landing E2E remains RED/deferred. Task 7 creates the routes, cream body, navigation, heading, and Inter styling required for runtime GREEN. Task 4's final gate is collection via `--list` only.
+
+## Review Fix
+
+- Added an explicit zero-count assertion for `input[type="password"]`.
+- Awaited `document.fonts.ready`, retained the computed primary-family assertion for `Inter`, and verified that computed family through `document.fonts.check`.
+
+```text
+bunx playwright test --list
+Listing tests:
+  [chromium] › landing.spec.ts:3:1 › landing renders the cream canvas and floating navigation
+Total: 1 test in 1 file
+
+bunx tsc --noEmit
+exit code: 0
+
+bunx biome check .
+Checked 8 files in 29ms. No fixes applied.
+```
+
+The actual landing E2E remains RED/deferred until Task 7 supplies the application and landing page.
