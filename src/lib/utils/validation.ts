@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  CONVERSATION_TITLE_MAX_LENGTH,
+  CONVERSATIONS_MAX_PAGE_SIZE,
+  CONVERSATIONS_PAGE_SIZE,
+} from './constants'
 
 export const chatSchema = z.object({
   conversationId: z.string().uuid().optional(),
@@ -12,3 +17,32 @@ export const chatSchema = z.object({
 })
 
 export type ChatInput = z.infer<typeof chatSchema>
+
+export const getConversationsSchema = z.object({
+  cursor: z.string().min(1).optional(),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(CONVERSATIONS_MAX_PAGE_SIZE)
+    .default(CONVERSATIONS_PAGE_SIZE),
+  includeArchived: z.boolean().default(false),
+  search: z.string().trim().max(CONVERSATION_TITLE_MAX_LENGTH).optional(),
+})
+
+export const getConversationSchema = z.object({ id: z.string().uuid() })
+
+export const createConversationSchema = z.object({
+  title: z.string().trim().max(CONVERSATION_TITLE_MAX_LENGTH).optional(),
+  mode: z.enum(['normal', 'compare']).default('normal'),
+})
+
+export const updateConversationSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1).max(CONVERSATION_TITLE_MAX_LENGTH),
+})
+
+export const deleteConversationSchema = z.object({
+  id: z.string().uuid(),
+  hard: z.boolean().default(false),
+})

@@ -15,6 +15,13 @@
       "when": 1787926500094,
       "tag": "0001_gray_queen_noir",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787938304140,
+      "tag": "0002_phase_04_conversation_cursor",
+      "breakpoints": true
     }
   ]
 }

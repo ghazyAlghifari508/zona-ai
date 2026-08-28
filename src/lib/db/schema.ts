@@ -80,6 +80,11 @@ export const conversations = pgTable(
   (table) => [
     index('conversations_user_id_idx').on(table.userId),
     index('conversations_created_at_idx').on(table.createdAt),
+    index('conversations_user_updated_id_idx').on(
+      table.userId,
+      table.updatedAt.desc(),
+      table.id,
+    ),
   ],
 )
 
