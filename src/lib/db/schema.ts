@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -98,5 +99,85 @@ export const messages = pgTable(
       table.conversationId,
       table.createdAt,
     ),
+  ],
+)
+
+export const generationRuns = pgTable(
+  'generation_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    comparisonRunId: uuid('comparison_run_id'),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    modelId: text('model_id').notNull(),
+    routerModelId: text('router_model_id').notNull(),
+    skillId: text('skill_id'),
+    status: text('status').notNull(),
+    content: text('content'),
+    reasoningContent: text('reasoning_content'),
+    error: jsonb('error'),
+    promptTokens: integer('prompt_tokens'),
+    completionTokens: integer('completion_tokens'),
+    totalTokens: integer('total_tokens'),
+    latencyMs: integer('latency_ms'),
+    timeToFirstTokenMs: integer('time_to_first_token_ms'),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('generation_runs_conversation_id_idx').on(table.conversationId),
+    index('generation_runs_comparison_run_id_idx').on(table.comparisonRunId),
+    index('generation_runs_message_id_idx').on(table.messageId),
+    index('generation_runs_status_idx').on(table.status),
+  ],
+)
+
+export const creditTransactions = pgTable(
+  'credit_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    generationRunId: uuid('generation_run_id').references(() => generationRuns.id, {
+      onDelete: 'set null',
+    }),
+    amount: integer('amount').notNull(),
+    type: text('type').notNull(),
+    modelId: text('model_id'),
+    balanceAfter: integer('balance_after').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('credit_transactions_user_id_idx').on(table.userId),
+    index('credit_transactions_generation_run_id_idx').on(table.generationRunId),
+    index('credit_transactions_created_at_idx').on(table.createdAt),
+  ],
+)
+
+export const usageRecords = pgTable(
+  'usage_records',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    generationRunId: uuid('generation_run_id')
+      .notNull()
+      .references(() => generationRuns.id, { onDelete: 'cascade' }),
+    modelId: text('model_id').notNull(),
+    promptTokens: integer('prompt_tokens').notNull(),
+    completionTokens: integer('completion_tokens').notNull(),
+    totalTokens: integer('total_tokens').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('usage_records_user_id_created_at_idx').on(table.userId, table.createdAt),
   ],
 )
