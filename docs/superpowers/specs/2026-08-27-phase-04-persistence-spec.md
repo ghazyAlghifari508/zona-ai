@@ -1,6 +1,6 @@
 # Fase 04 — Conversation Persistence — Spec
 
-> Status: DRAFT — Menunggu review. DILARANG bikin plan/code sebelum approve.
+> Status: APPROVED — Disetujui 2026-08-29 dengan koreksi composite cursor/index dan dependency TanStack.
 > Referensi: `docs/MILESTONES.md` Milestone 4, `docs/PRD.md` FR-012/013 + Acceptance Normal Chat Done, `docs/ARCHITECTURE.md` §7 DB, `docs/DATABASE.md` §2 conversations/messages + §3 generation_runs, `docs/API.md` §4 Conversations API + §5 Messages API, `docs/UI-UX.md` Sidebar/Virtual/Empty States, `DESIGN.md`, `docs/SECURITY.md` §3-4, `docs/ERROR-HANDLING.md` ERR-002/009, `docs/TESTING.md`
 
 ## 1. Tujuan
@@ -11,7 +11,7 @@ Membuat persistensi penuh sebagai source of truth: `conversations`/`messages`/`g
 
 - **Dependensi:** Fase 03 Done (`generation_runs` + `credit_transactions` + `usage_records` minimal, `sendMessage` insert 2 messages + 1 generation_runs, `getAuthSession`, `Model Registry`), Fase 02 Done (PG Drizzle + `vector` extension, Better Auth Google only, `getAuthSession` helper, 5 tabel `users/sessions/accounts/conversations/messages`), Fase 01 Done (Tailwind `@theme` cream `#f5f1e4` radius 50px, `PublicShell`/`WorkspaceShell` 280px).
 - **Deliverable Fase 04:**
-  1. `src/server/functions/conversations.ts` 5 fns: `getConversations` cursor pagination, `getConversation`, `createConversation`, `updateConversation` rename, `deleteConversation` soft/hard, `archiveConversation`
+  1. `src/server/functions/conversations.ts` 6 fns: `getConversations` composite cursor pagination, `getConversation`, `createConversation`, `updateConversation` rename, `deleteConversation` soft/hard, `archiveConversation`
   2. `src/server/functions/messages.ts` `getMessages` ordered ASC + batch `generationRuns` join
   3. `src/lib/utils/title.ts` `generateTitle(firstUserMessage)` heuristic 60 + `…`
   4. `src/lib/utils/constants.ts` `CONVERSATIONS_PAGE_SIZE 20` (single source)
@@ -20,6 +20,7 @@ Membuat persistensi penuh sebagai source of truth: `conversations`/`messages`/`g
   7. `MessageList.tsx` `useVirtualizer` conditional >50 `estimateSize 80 overscan 5`
   8. `src/server/functions/chat.ts` patch `UPDATE conversations SET updatedAt=now()` + `generateTitle` if `title` null after `sendMessage`
   9. `src/lib/utils/validation.ts` `updateConversationSchema` Zod `min1 max100 trim`
+  10. Dependency locked-stack `@tanstack/react-query` + `@tanstack/react-virtual`, `QueryClientProvider` pada router/root, dan migration index `(user_id, updated_at DESC, id)`
 - **Out of scope:** `comparison_runs`/`attachments`/`document_chunks`/`web_sources`/`feedback` (Fase 05-09), RAG/Tavily, `isArchived` view filter advanced (Fase 04 hanya hide `isArchived=true` di main list), `CONVERSATIONS_PAGE_SIZE` configurable sudah.
 
 ## 3. Data Model
@@ -30,7 +31,7 @@ Membuat persistensi penuh sebagai source of truth: `conversations`/`messages`/`g
 - **`messages`:** `id uuid PK`, `conversationId FK CASCADE`, `role text user|assistant|system`, `content text`, `createdAt`, Index `conversationId+createdAt ASC`.
 - **`generation_runs`:** `id uuid PK`, `messageId FK CASCADE`, `conversationId FK CASCADE`, `modelId`, `routerModelId`, `skillId`, `status`, `content`, `promptTokens`, `latencyMs`, etc., Index `conversationId, messageId` — dipakai `getMessages` batch join.
 - **`generateTitle`:** `firstLine.split("\n")[0].trim()` → `slice 0,60 + "…"` jika >60 else full, empty → `"New Chat"` — heuristic 0 LLM cost, future summarizer TBD Fase 10.
-- **Migration:** Tidak ada `0002` baru Fase 04; jika `updatedAt` trigger belum, app-level `UPDATE ... SET updatedAt=now()` di `sendMessage`/`updateConversation`. `vector` extension sudah Fase 02.
+- **Migration:** Tambah migration index composite `conversations(user_id, updated_at DESC, id)` agar query keyset stabil dan efisien. App-level `UPDATE ... SET updatedAt=now()` tetap dilakukan di `sendMessage`/`updateConversation`. `vector` extension sudah Fase 02.
 
 ## 4. API Contracts `createServerFn` (TanStack Start RPC, bukan REST, tapi kontrak sama)
 
@@ -38,10 +39,10 @@ Semua **Auth Required** `getAuthSession` → 401 `ERR-002`, Zod validator, owner
 
 ### 4.1 `getConversations`
 
-- **Validator:** `z.object({cursor: z.string().optional(), limit: z.number().min(1).max(50).default(20), includeArchived: z.boolean().optional().default(false), search: z.string().optional()})`
+- **Validator:** `z.object({cursor: z.string().optional(), limit: z.number().min(1).max(50).default(20), includeArchived: z.boolean().optional().default(false), search: z.string().trim().max(100).optional()})`; cursor didekode dan divalidasi sebagai pasangan `{updatedAt,id}`.
 - **Auth:** `getAuthSession` 401
-- **Query:** `SELECT WHERE userId=session.user.id AND (includeArchived ? true : isArchived=false) AND (search ? title ILIIKE %search% ) AND (cursor ? updatedAt < cursor::timestamptz) ORDER BY updatedAt DESC LIMIT limit+1` → `nextCursor = rows[limit].updatedAt.toISOString()` jika `rows.length>limit`, return `{conversations: rows.slice(0,limit), nextCursor}`.
-- **Index:** `userId+updatedAt DESC` terpakai.
+- **Query:** `SELECT WHERE userId=session.user.id AND (includeArchived ? true : isArchived=false) AND (search ? title ILIKE %search% ) AND (cursor ? (updatedAt < cursor.updatedAt OR (updatedAt = cursor.updatedAt AND id > cursor.id)) : true) ORDER BY updatedAt DESC, id ASC LIMIT limit+1` → `nextCursor` dibentuk dari item terakhir halaman jika `rows.length>limit`, return `{conversations: rows.slice(0,limit), nextCursor}`.
+- **Index:** `(userId, updatedAt DESC, id)` terpakai. Tie-break `id ASC` mencegah baris hilang/duplikat saat beberapa conversation memiliki `updatedAt` sama.
 
 ### 4.2 `getConversation`
 
@@ -99,7 +100,7 @@ Trigger: `src/server/functions/chat.ts` `sendMessage` after `INSERT conversation
 
 - **Top:** logo `15px 500` + `+ New Chat` pill 50px `border ink-black` `hover bg-sandstone` full-width `onClick createConversation → navigate /chat/$id`
 - **Search:** input `Cari percakapan...` `15px Stone Gray` `Lucide Search` debounce 200ms `useDebouncedValue` → `getConversations({search: debounced})` `ILIIKE` + client fallback, empty → `No results found` Stone Gray 15px
-- **List:** `useQuery ["conversations", {cursor,search}]` `limit 20` `Load more` / `useInfiniteQuery`, item `px-3 py-2 rounded-[10px] hover:bg-sandstone` `active bg-sandstone border hairline`, `title 15px 500 truncate` + `Bot 12px + timestamp 13px Stone`, loading skeleton `bg-sandstone pulse` 3 rows, empty White card `Belum ada percakapan` + `Mulai chat`
+- **List:** `useInfiniteQuery ["conversations", {search}]` `limit 20` dengan `getNextPageParam`, item `px-3 py-2 rounded-[10px] hover:bg-sandstone` `active bg-sandstone border hairline`, `title 15px 500 truncate` + `Bot 12px + timestamp 13px Stone`, loading skeleton `bg-sandstone pulse` 3 rows, empty White card `Belum ada percakapan` + `Mulai chat`
 - **Menu `⋯`:** `MoreHorizontal` hover visible → dropdown White 10px `Pencil Rename`, `Archive`, `Trash Delete` (Stone, bukan Coral), Rename inline `input autofocus` `onBlur/onEnter` `updateConversation` `max100` `onEscape` cancel, Delete confirm `Dialog` White 50px `Apakah hapus?` `Cancel ghost` + `Delete ink-black` → `deleteConversation` soft `isArchived` (hard via `hard:true` optional), Archive immediate `isArchived` toast
 - **Bottom:** `CreditWidget` (Fase 03) + profile `avatar + LogOut` `authClient.signOut`
 
@@ -107,7 +108,7 @@ Trigger: `src/server/functions/chat.ts` `sendMessage` after `INSERT conversation
 
 - `beforeLoad` `authClient.getSession` redirect `/auth/sign-in` (UX) + `loader: {conv: await getConversation({id}), msgs: await getMessages({conversationId})}` parallel → `ChatThread` header `title` `generateTitle` + mode badge `normal`, `MessageList` `messages=msgs`. Error 403/404 → `Percakapan tidak ditemukan` + `Kembali ke /chat` link, toast `Gagal memuat`.
 - **`/chat` index:** tanpa `$id` → centered `Tanyakan apa saja ke Zona.ai` 30px + pills `suggested prompts` White 50px (Fase 03).
-- **Virtual `MessageList.tsx`:** `useVirtualizer` `@tanstack/react-virtual` jika `messages.length>50` else normal: `parentRef` `overflow-y-auto` Cream, `count`, `estimateSize 80`, `overscan 5`, `getVirtualItems().map` `position:absolute top:0 transform translateY(start)` `data-index`, `MessageItem` user `bg-sandstone 10px` right 70% vs assistant `transparent` + markdown. Preserve scroll on reload, no blank.
+- **Virtual `MessageList.tsx`:** `useVirtualizer` `@tanstack/react-virtual` selalu dipanggil sesuai Rules of Hooks, hasil virtual dipakai jika `messages.length>50`; `parentRef` `overflow-y-auto` Cream, `count`, `estimateSize 80`, `overscan 5`, `measureElement` untuk markdown variable-height, `getVirtualItems().map` `position:absolute top:0 transform translateY(start)` `data-index`, `MessageItem` user `bg-sandstone 10px` right 70% vs assistant `transparent` + markdown. Preserve scroll on reload, no blank.
 - **Optimistic:** `Composer onSend` → `UPDATE conversations updatedAt` + `queryClient.setQueryData(["conversations"])` instantly, rollback on error; `rename/delete` optimistic `setQueryData` instantly.
 
 ## 7. Security
@@ -127,12 +128,12 @@ Trigger: `src/server/functions/chat.ts` `sendMessage` after `INSERT conversation
 
 ## 9. Definition of Done
 
-- `getConversations` `userId` + `updatedAt DESC` cursor `limit+1` `nextCursor`, `getConversation` 403/404, `create/rename/delete/archive` + search debounce 200ms + `No results`, refresh `getConversation+getMessages` restore, `generateTitle` 60 `…`, `useVirtualizer` >50 smooth, ownership 403, `updatedAt` updated tiap `sendMessage`/`rename`, `tsc 0` `biome pass` ownership 403, `updatedAt` updated tiap `sendMessage`/`rename`, `vitest` pass.
+- `getConversations` `userId` + `updatedAt DESC,id ASC` composite cursor `limit+1` `nextCursor`, matching composite index, `getConversation` 403/404, `create/rename/delete/archive` + search debounce 200ms + `No results`, refresh `getConversation+getMessages` restore, `generateTitle` 60 `…`, `useVirtualizer` >50 smooth, ownership 403, `updatedAt` updated tiap `sendMessage`/`rename`, `tsc 0`, `biome pass`, `vitest` pass.
 
 ## 10. File yang Akan Dibuat/Dimodifikasi
 
-- **Create:** `src/server/functions/conversations.ts` (5 fns) + `messages.ts` (`getMessages`) + `src/lib/utils/title.ts` + `src/lib/utils/constants.ts` `CONVERSATIONS_PAGE_SIZE 20`
-- **Modify:** `src/components/layout/Sidebar.tsx` (full CRUD search), `src/components/chat/MessageList.tsx` (virtual), `src/routes/chat/index.tsx` (welcome + New Chat), `src/routes/chat/$conversationId.tsx` (loader), `src/server/functions/chat.ts` (`updatedAt` + `generateTitle`), `src/lib/utils/validation.ts` (`updateConversationSchema`)
+- **Create:** `src/server/functions/conversations.ts` (6 fns) + `messages.ts` (`getMessages`) + `src/lib/utils/title.ts` + `src/lib/utils/constants.ts` `CONVERSATIONS_PAGE_SIZE 20` + migration composite index
+- **Modify:** `package.json`/lockfile (TanStack Query + Virtual), router/root (Query provider), `src/lib/db/schema.ts` (index declaration), `src/components/layout/Sidebar.tsx` (full CRUD search), `src/components/chat/MessageList.tsx` (virtual), `src/routes/chat/index.tsx` (welcome + New Chat), `src/routes/chat/$conversationId.tsx` (loader), `src/server/functions/chat.ts` (`updatedAt` + `generateTitle`), `src/lib/utils/validation.ts` (`updateConversationSchema`)
 - **Test:** `tests/unit/title.test.ts` + `tests/integration/conversations.test.ts` + `tests/e2e/persistence.spec.ts`
 
 ## 11. Larangan Khusus
@@ -149,9 +150,8 @@ Trigger: `src/server/functions/chat.ts` `sendMessage` after `INSERT conversation
 ## Spec Self-Review
 
 - **Placeholder scan:** 0 `TBD`/`TODO` kecuali Open/TBD section allowed configurable. `CONVERSATIONS_PAGE_SIZE 20` explicit, `generateTitle` 60 explicit.
-- **Internal consistency:** `getConversations` cursor `updatedAt DESC` konsisten `conversations` index `userId+updatedAt`, `getMessages` batch join konsisten `generationRuns` `conversationId`, `generateTitle` slice 60 konsisten spec §5.
+- **Internal consistency:** `getConversations` composite cursor `updatedAt DESC,id ASC` konsisten dengan composite index, `getMessages` batch join konsisten `generationRuns` `conversationId`, `generateTitle` slice 60 konsisten spec §5.
 - **Scope check:** Fase 04 hanya persistence + search + virtual + title, tidak melebar ke `comparison_runs` (Fase 05) — isolated.
 - **Ambiguity check:** `hard:false` soft `isArchived` vs `hard:true` delete explicit, `search` `ILIIKE` server + client fallback explicit, `virtual` conditional `>50` explicit.
 
-Spec siap untuk user review sebelum `writing-plans`.
-
+Spec disetujui user pada 2026-08-29. Plan wajib dikoreksi agar mengikuti composite cursor/index sebelum eksekusi.
