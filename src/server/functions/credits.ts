@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/start-server-core'
+import { getRequest } from '@tanstack/react-start/server'
 import { resetDevCredits } from '../../lib/ai/credits'
 import { getAuthSession } from '../../lib/auth/session'
 

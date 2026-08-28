@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/start-server-core'
+import { getRequest } from '@tanstack/react-start/server'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'

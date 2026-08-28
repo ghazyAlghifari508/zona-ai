@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test'
+import 'dotenv/config'
 
 const baseURL = 'http://localhost:3000'
 

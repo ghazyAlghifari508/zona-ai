@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
-import { authClient } from '@/lib/auth/auth-client'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
   regenerateMessage,
@@ -12,11 +11,13 @@ import {
 } from '@/server/functions/chat'
 import { getConversation } from '@/server/functions/conversations'
 import { getMessages } from '@/server/functions/messages'
+import { getCurrentSession } from '@/server/functions/session'
 
 export const Route = createFileRoute('/chat/$conversationId')({
   beforeLoad: async () => {
-    const { data } = await authClient.getSession()
-    if (!data?.user) {
+    try {
+      await getCurrentSession()
+    } catch {
       throw redirect({ to: '/auth/sign-in' })
     }
   },

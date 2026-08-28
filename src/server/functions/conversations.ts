@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/start-server-core'
+import { getRequest } from '@tanstack/react-start/server'
 import { and, asc, desc, eq, gt, ilike, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'

@@ -1,11 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
-import { authClient } from '@/lib/auth/auth-client'
+import { getCurrentSession } from '@/server/functions/session'
 
 export const Route = createFileRoute('/chat/')({
   beforeLoad: async () => {
-    const { data } = await authClient.getSession()
-    if (!data?.user) {
+    try {
+      await getCurrentSession()
+    } catch {
       throw redirect({ to: '/auth/sign-in' })
     }
   },
