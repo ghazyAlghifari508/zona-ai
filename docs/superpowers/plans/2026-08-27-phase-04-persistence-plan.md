@@ -4,7 +4,7 @@
 
 **Goal:** Membangun persistensi penuh (Sidebar CRUD cursor pagination + search + auto-title + reload + virtual) sebagai source of truth untuk Fase 05+.
 
-**Architecture:** `createServerFn` `getConversations` cursor `updatedAt DESC + id` `limit+1` + `where userId` + `ILIIKE`, `getConversation`/`create`/`update`/`delete`/`archive` `where userId` 403, `getMessages` `WHERE conversationId` + batch `generationRuns` join, `generateTitle` heuristic 60 chars, `MessageList` `useVirtualizer` conditional >50 `estimateSize 80 overscan 5`, `Sidebar` `useInfiniteQuery` + optimistic `setQueryData`, `chat.ts` patch `updatedAt` + title.
+**Architecture:** `createServerFn` `getConversations` composite cursor `updatedAt DESC, id ASC` `limit+1` + `where userId` + `ILIKE`, `getConversation`/`create`/`update`/`delete`/`archive` ownership 403, `getMessages` `WHERE conversationId` + batch `generationRuns` join, `generateTitle` heuristic 60 chars, `MessageList` `useVirtualizer` conditional >50 `estimateSize 80 overscan 5` + dynamic measurement, `Sidebar` `useInfiniteQuery` + optimistic `setQueryData`, `chat.ts` patch `updatedAt` + title.
 
 **Tech Stack:** Bun, TanStack Start, TanStack Router, Drizzle ORM + postgres, Zod, TanStack Query + Virtual, Lucide React, Vitest + jsdom, Playwright chromium, Tailwind v4
 
@@ -18,7 +18,7 @@
 - Design: cream `#f5f1e4` L0, White `#ffffff` L1, radius 50px nav/cards/dialog + 10px small, Inter 400/500, no `shadow-lg/xl/2xl`, no neon, no emoji Lucide 1.5-2px only, no dark mode, Unified Shell `sidebar 280px` paten tidak ganti antar route
 - Auth: `getAuthSession(request)` throw 401 `ERR-002` di tiap `createServerFn` `getConversations`/`getConversation`/`create`/`update`/`delete`/`archive`/`getMessages`, ownership `conversations.userId===session.user.id` else 403, `messages` via `conversations.userId` join
 - Validation: Zod `updateConversation` `title min1 max100 trim`, `getConversations` `limit 1-50 default20`, `getMessages` `conversationId uuid`
-- Persistence: DB source of truth, bukan localStorage, `ON DELETE CASCADE` untuk `conversations` → `messages`+`generation_runs`
+- Persistence: DB source of truth, bukan localStorage, `ON DELETE CASCADE` untuk `conversations` → `messages`+`generation_runs`; keyset cursor wajib `{updatedAt,id}` dan index `(user_id, updated_at DESC, id)`
 - No fake behavior, no `dangerouslySetInnerHTML` di sidebar, `rehype-sanitize` sudah Fase 03
 - Verification: `tsc --noEmit` 0, `biome check` pass, `vitest` pass, `playwright` pass, no console error, data persists after reload
 
@@ -32,12 +32,14 @@ zona-ai/
 │   ├── lib/utils/constants.ts        # CONVERSATIONS_PAGE_SIZE 20
 │   ├── lib/utils/title.ts            # generateTitle
 │   ├── lib/utils/validation.ts       # updateConversationSchema + getConversationsSchema
+│   ├── lib/db/schema.ts              # composite conversation pagination index
 │   ├── server/functions/conversations.ts # getConversations, getConversation, createConversation, updateConversation, deleteConversation, archiveConversation
 │   ├── server/functions/messages.ts  # getMessages
 │   ├── components/layout/Sidebar.tsx # full CRUD + search + virtual list not needed but main virtual
 │   ├── components/chat/MessageList.tsx # useVirtualizer conditional >50
 │   ├── routes/chat/index.tsx         # welcome + New Chat + Sidebar
 │   └── routes/chat/$conversationId.tsx # loader getConversation+getMessages + header + MessageList
+├── drizzle/                          # generated migration composite conversation index
 └── tests/
     ├── unit/title.test.ts
     ├── unit/validation.test.ts
@@ -51,7 +53,8 @@ zona-ai/
 
 **Files:**
 - Create: `src/server/functions/conversations.ts`, `src/lib/utils/constants.ts`
-- Modify: `src/lib/utils/validation.ts`
+- Modify: `src/lib/utils/validation.ts`, `src/lib/db/schema.ts`
+- Generate: `drizzle/*_phase_04_conversation_cursor.sql`
 - Test: `tests/integration/conversations.test.ts` (CRUD smoke)
 
 **Interfaces:**
@@ -66,7 +69,8 @@ import { describe, it, expect } from "vitest";
 describe("conversations CRUD", () => {
   it("getConversations returns only own, ordered DESC", async () => {
     const { getConversations } = await import("../../src/server/functions/conversations");
-    // mock session user-a, create 2 convs for A, 1 for B, call getConversations as A → expect 2, first is latest
+    // mock session user-a, create 2 convs for A with identical updatedAt, 1 for B,
+    // fetch limit 1 then nextCursor → expect both A rows exactly once in id ASC tie order
     // will fail because file missing
   });
   it("getConversation 403 if other user", async () => {});
@@ -95,6 +99,18 @@ export const updateConversationSchema = z.object({ id: z.string().uuid(), title:
 export const getConversationsSchema = z.object({ cursor: z.string().optional(), limit: z.number().min(1).max(50).default(20), includeArchived: z.boolean().optional().default(false), search: z.string().optional() });
 ```
 
+Cursor helper in `src/server/functions/conversations.ts` encodes/decodes a validated JSON payload `{ updatedAt: string; id: string }`. Invalid cursors fail validation rather than silently restarting page one.
+
+`src/lib/db/schema.ts` index declaration:
+
+```ts
+index('conversations_user_updated_id_idx').on(
+  table.userId,
+  desc(table.updatedAt),
+  table.id,
+)
+```
+
 `src/server/functions/conversations.ts`:
 
 ```ts
@@ -103,15 +119,16 @@ import { z } from "zod";
 import { getAuthSession } from "../../lib/auth/session";
 import { db } from "../../lib/db/index";
 import { conversations } from "../../lib/db/schema";
-import { eq, and, desc, lt, or, ilike } from "drizzle-orm";
+import { eq, and, asc, desc, lt, gt, or, ilike } from "drizzle-orm";
 import { CONVERSATIONS_PAGE_SIZE } from "../../lib/utils/constants";
 export const getConversations = createServerFn({ method: "GET" }).validator(z.object({ cursor: z.string().optional(), limit: z.number().min(1).max(50).default(CONVERSATIONS_PAGE_SIZE), includeArchived: z.boolean().optional().default(false), search: z.string().optional() })).handler(async ({ data, request }) => {
   const session = (await getAuthSession(request)) as any;
-  let where = and(eq(conversations.userId, session.user.id), data.includeArchived ? undefined : eq(conversations.isArchived, false), data.search ? ilike(conversations.title, `%${data.search}%`) : undefined, data.cursor ? lt(conversations.updatedAt, new Date(data.cursor)) : undefined);
-  const rows = await db.select().from(conversations).where(where).orderBy(desc(conversations.updatedAt)).limit(data.limit + 1);
+  const cursor = data.cursor ? decodeCursor(data.cursor) : undefined;
+  const where = and(eq(conversations.userId, session.user.id), data.includeArchived ? undefined : eq(conversations.isArchived, false), data.search ? ilike(conversations.title, `%${data.search}%`) : undefined, cursor ? or(lt(conversations.updatedAt, cursor.updatedAt), and(eq(conversations.updatedAt, cursor.updatedAt), gt(conversations.id, cursor.id))) : undefined);
+  const rows = await db.select().from(conversations).where(where).orderBy(desc(conversations.updatedAt), asc(conversations.id)).limit(data.limit + 1);
   const hasMore = rows.length > data.limit;
   const sliced = hasMore ? rows.slice(0, data.limit) : rows;
-  return { conversations: sliced, nextCursor: hasMore ? sliced[sliced.length - 1].updatedAt!.toISOString() : undefined };
+  return { conversations: sliced, nextCursor: hasMore ? encodeCursor(sliced[sliced.length - 1]) : undefined };
 });
 export const getConversation = createServerFn({ method: "GET" }).validator(z.object({ id: z.string().uuid() })).handler(async ({ data, request }) => {
   const session = (await getAuthSession(request)) as any;
@@ -153,10 +170,15 @@ export const archiveConversation = createServerFn({ method: "POST" }).validator(
 
 Run: `bun x vitest run tests/integration/conversations.test.ts -v` → `3 passed` (mock `getAuthSession` via `vi.mock`)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Generate and inspect migration**
+
+Run: `bun x drizzle-kit generate --name phase_04_conversation_cursor`
+Expected: generated SQL contains `CREATE INDEX "conversations_user_updated_id_idx" ... ("user_id","updated_at" DESC,"id")` and no unrelated schema operation.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/server/functions/conversations.ts src/lib/utils/constants.ts src/lib/utils/validation.ts tests/integration/conversations.test.ts
+git add src/server/functions/conversations.ts src/lib/utils/constants.ts src/lib/utils/validation.ts src/lib/db/schema.ts drizzle tests/integration/conversations.test.ts
 git commit -m "feat(conv): CRUD + archive cursor pagination"
 ```
 
@@ -248,7 +270,7 @@ git commit -m "feat(persist): getMessages + generateTitle"
 ### Task 3: Sidebar List + New Chat + Empty + Skeleton + Search
 
 **Files:**
-- Modify: `src/components/layout/Sidebar.tsx`
+- Modify: `package.json`, `bun.lock`, `src/router.tsx`, `src/components/layout/Sidebar.tsx`, `src/components/layout/WorkspaceShell.tsx`
 - Test: `tests/e2e/persistence.spec.ts` (list)
 
 **Interfaces:**
@@ -277,33 +299,41 @@ Run: `bun x playwright test tests/e2e/persistence.spec.ts --project=chromium -g 
 
 - [ ] **Step 3: Write minimal implementation**
 
+Install the locked server-state dependency before writing hooks:
+
+Run: `bun add @tanstack/react-query`
+Expected: `package.json` and `bun.lock` include `@tanstack/react-query`; no alternate state library added.
+
+Create one `QueryClient` per router instance in `src/router.tsx`, wrap the route tree with `QueryClientProvider`, and preserve existing router context/scroll restoration behavior.
+
 `src/components/layout/Sidebar.tsx` extend:
 
 ```tsx
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getConversations, createConversation } from "../../server/functions/conversations";
 import { useState } from "react";
 import { Plus, Bot, Search } from "lucide-react";
 export function Sidebar() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const { data, isLoading } = useQuery({ queryKey: ["conversations", search], queryFn: () => getConversations({ data: { search } }) });
+  const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({ queryKey: ["conversations", debouncedSearch], initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => getConversations({ data: { cursor: pageParam, search: debouncedSearch } }), getNextPageParam: (lastPage) => lastPage.nextCursor });
   const createMut = useMutation({ mutationFn: (vars: any) => createConversation({ data: vars }), onSuccess: (c: any) => { qc.invalidateQueries({ queryKey: ["conversations"] }); location.href = `/chat/${c.id}`; } });
   if (isLoading) return <div className="p-4 space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-12 bg-sandstone animate-pulse rounded-[10px]" />)}</div>;
-  const filtered = data?.conversations ?? [];
+  const filtered = data?.pages.flatMap((page) => page.conversations) ?? [];
   return (
     <div className="flex flex-col h-full">
       <button onClick={() => createMut.mutate({})} className="w-full rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium flex items-center gap-2 hover:bg-sandstone"><Plus size={16} />New Chat</button>
       <div className="mt-4 relative"><Search size={14} className="absolute left-2 top-2.5 text-stone-gray" /><input placeholder="Cari percakapan..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-7 pr-2 py-2 rounded-[10px] border border-hairline-mist text-[15px]" /></div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 mt-2">
         {!filtered.length ? <div className="p-6 text-center"><p className="text-[15px] text-stone-gray">Belum ada percakapan</p><p className="text-sm text-stone-gray mt-1">Mulai chat baru untuk melihat riwayat di sini.</p></div> : filtered.map((c: any) => <a key={c.id} href={`/chat/${c.id}`} className="block px-3 py-2 rounded-[10px] hover:bg-sandstone"><div className="text-[15px] font-medium text-ink-black truncate">{c.title}</div><div className="text-[13px] text-stone-gray flex gap-1"><Bot size={12} />{new Date(c.updatedAt).toLocaleDateString()}</div></a>)}
+        {hasNextPage && <button type="button" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>Load more</button>}
       </div>
     </div>
   );
 }
 ```
 
-Debounce 200ms via `useDebouncedValue` (or `useEffect` timeout) — add `src/lib/utils/debounce.ts` if needed.
+Debounce exactly 200ms via a local `useEffect` timeout in `Sidebar.tsx`; cleanup clears the timer. Keep this one-use behavior local rather than adding an abstraction.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -312,7 +342,7 @@ Run: `bun x playwright test tests/e2e/persistence.spec.ts --project=chromium -g 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/layout/Sidebar.tsx tests/e2e/persistence.spec.ts
+git add package.json bun.lock src/router.tsx src/components/layout/Sidebar.tsx src/components/layout/WorkspaceShell.tsx tests/e2e/persistence.spec.ts
 git commit -m "feat(ui): sidebar list + New Chat + search"
 ```
 
@@ -412,8 +442,10 @@ import { Composer } from "../../components/chat/Composer";
 export const Route = createFileRoute("/chat/$conversationId")({
   beforeLoad: async () => { const { data } = await authClient.getSession(); if (!data?.user) throw redirect({ to: "/auth/sign-in" }); },
   loader: async ({ params }) => {
-    const conv = await getConversation({ data: { id: params.conversationId } });
-    const msgs = await getMessages({ data: { conversationId: params.conversationId } });
+    const [conv, msgs] = await Promise.all([
+      getConversation({ data: { id: params.conversationId } }),
+      getMessages({ data: { conversationId: params.conversationId } }),
+    ]);
     return { conv, msgs };
   },
   component: ChatThread,
@@ -442,7 +474,7 @@ git commit -m "feat(chat): loader reload getConversation+getMessages"
 ### Task 6: TanStack Virtual for MessageList
 
 **Files:**
-- Modify: `src/components/chat/MessageList.tsx`
+- Modify: `package.json`, `bun.lock`, `src/components/chat/MessageList.tsx`
 - Test: `tests/e2e/persistence.spec.ts` (virtual)
 
 **Interfaces:**
@@ -463,6 +495,11 @@ Run: `bun x playwright test -g "virtual renders" --project=chromium` → `FAIL` 
 
 - [ ] **Step 3: Write minimal implementation**
 
+Install the locked virtualization dependency:
+
+Run: `bun add @tanstack/react-virtual`
+Expected: `package.json` and `bun.lock` include `@tanstack/react-virtual`; no alternate virtualization library added.
+
 `src/components/chat/MessageList.tsx`:
 
 ```tsx
@@ -470,10 +507,10 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
 export function MessageList({ messages }: { messages: any[] }) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const useVirtual = messages.length > 50;
+  const shouldVirtualize = messages.length > 50;
   const virtualizer = useVirtualizer({ count: messages.length, getScrollElement: () => parentRef.current, estimateSize: () => 80, overscan: 5 });
-  if (!useVirtual) return <div className="space-y-4 p-4">{messages.map((m) => <MessageItem key={m.id} m={m} />)}</div>;
-  return <div ref={parentRef} className="flex-1 overflow-y-auto h-[600px]"><div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>{virtualizer.getVirtualItems().map((vi) => <div key={vi.key} data-index={vi.index} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}><MessageItem m={messages[vi.index]} /></div>)}</div></div>;
+  if (!shouldVirtualize) return <div className="space-y-4 p-4">{messages.map((m) => <MessageItem key={m.id} m={m} />)}</div>;
+  return <div ref={parentRef} className="flex-1 overflow-y-auto"><div style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}>{virtualizer.getVirtualItems().map((vi) => <div key={vi.key} data-index={vi.index} ref={virtualizer.measureElement} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}><MessageItem m={messages[vi.index]} /></div>)}</div></div>;
 }
 function MessageItem({ m }: { m: any }) { return <div className={m.role === "user" ? "ml-auto bg-sandstone rounded-[10px] px-3 py-2 max-w-[70%]" : "bg-transparent"}>{m.content}</div>; }
 ```
@@ -485,7 +522,7 @@ Run: `bun x playwright test -g "virtual renders" --project=chromium` → `1 pass
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/chat/MessageList.tsx tests/e2e/persistence.spec.ts
+git add package.json bun.lock src/components/chat/MessageList.tsx tests/e2e/persistence.spec.ts
 git commit -m "feat(chat): virtual for long lists"
 ```
 
@@ -520,12 +557,25 @@ Expected: `PASS` (CRUD, ownership 403, soft/hard, archive, getMessages ASC, casc
 Run: `bun x playwright test tests/e2e/persistence.spec.ts --project=chromium`
 Expected: `ALL passed` (empty, create, rename, delete, search, archive, reload, virtual)
 
+- [ ] **Step 6: Build and secret/client-boundary check**
+
+Run: `bun run build`
+Expected: production build succeeds.
+
+Run: `rg "DATABASE_URL|BETTER_AUTH_SECRET" .output/public .vinxi/build/client`
+Expected: zero matches in whichever generated client directories exist.
+
+- [ ] **Step 7: Inspect and push**
+
+Run: `git status --short`, `git diff`, `git log --oneline -10`, then `git push origin <current-branch>`.
+Expected: only the user-owned untracked phase prompt may remain; all Task commits exist; push succeeds without force.
+
 ---
 
 ## Self-Review
 
-- **Spec coverage:** `getConversations` cursor → Task 1, `getConversation/create/update/delete/archive` → Task 1, `getMessages` batch → Task 2, `generateTitle` 60 → Task 2, Sidebar list/search/skeleton/empty → Task 3, rename/delete/archive menu → Task 4, loader reload → Task 5, virtual >50 → Task 6. FR-012/013 + Acceptance reload semua ada Task.
-- **Placeholder scan:** 0 `TBD`/`TODO` di plan (hanya `CONVERSATIONS_PAGE_SIZE 20` explicit). Semua Steps ada code block `drizzle`, `createServerFn`, `useVirtualizer`, `useQuery`.
+- **Spec coverage:** `getConversations` composite cursor + matching index → Task 1, `getConversation/create/update/delete/archive` → Task 1, `getMessages` batch → Task 2, `generateTitle` 60 → Task 2, Query provider + Sidebar infinite list/search/skeleton/empty → Task 3, rename/delete/archive menu → Task 4, parallel loader reload → Task 5, Virtual dependency + dynamic-height virtualization >50 → Task 6. FR-012/013 + Acceptance reload semua ada Task.
+- **Placeholder scan:** Tidak ada placeholder atau langkah tanpa implementasi konkret. Semua steps memiliki command/code dan expected result.
 - **Type consistency:** `getConversations({cursor, limit, includeArchived, search})` Task 1, `getConversation({id})` Task 1, `updateConversation({id,title})` Task 1, `getMessages({conversationId})` Task 2, `generateTitle(firstUserMessage:string):string` Task 2 consistent.
 
 ---
@@ -536,7 +586,7 @@ Plan complete and saved to `docs/superpowers/plans/2026-08-27-phase-04-persisten
 
 **2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
 
-**Which approach?**
+**Execution choice approved 2026-08-29:** Inline Execution via `superpowers:executing-plans`.
 
 If Subagent-Driven chosen:
 - **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
@@ -545,4 +595,3 @@ If Subagent-Driven chosen:
 If Inline Execution chosen:
 - **REQUIRED SUB-SKILL:** Use superpowers:executing-plans
 - Batch execution with checkpoints for review
-
