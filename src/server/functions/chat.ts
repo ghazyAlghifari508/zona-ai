@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/start-server-core'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { nineRouter } from '../../lib/ai/9router'
 import { deductCredits } from '../../lib/ai/credits'
@@ -16,6 +16,7 @@ import {
 } from '../../lib/db/schema'
 import { getModelById } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
+import { generateTitle } from '../../lib/utils/title'
 import { chatSchema } from '../../lib/utils/validation'
 
 if (typeof window !== 'undefined') {
@@ -77,6 +78,7 @@ export async function sendMessageCore({
   }
 
   let convId = input.conversationId
+  let conversationTitle: string | null | undefined
   if (convId) {
     const [conv] = await db
       .select()
@@ -87,12 +89,13 @@ export async function sendMessageCore({
       e.status = 403
       throw e
     }
+    conversationTitle = conv.title
   } else {
     const [conv] = await db
       .insert(conversations)
       .values({
         userId,
-        title: input.content.slice(0, 60),
+        title: generateTitle(input.content),
         mode: 'normal',
       })
       .returning()
@@ -103,6 +106,17 @@ export async function sendMessageCore({
     .insert(messages)
     .values({ conversationId: convId, role: 'user', content: input.content })
     .returning()
+
+  await db
+    .update(conversations)
+    .set({
+      title:
+        conversationTitle === null || conversationTitle === 'New Chat'
+          ? generateTitle(input.content)
+          : undefined,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
 
   const [assistantMsg] = await db
     .insert(messages)
@@ -225,9 +239,9 @@ export async function sendMessageCore({
 
     const anyResult = result as unknown as Record<string, unknown>
     let response: Response
-    if (typeof anyResult['toUIMessageStreamResponse'] === 'function') {
+    if (typeof anyResult.toUIMessageStreamResponse === 'function') {
       response = (
-        anyResult['toUIMessageStreamResponse'] as (o?: unknown) => Response
+        anyResult.toUIMessageStreamResponse as (o?: unknown) => Response
       ).call(result, {
         headers: {
           'X-Generation-Id': genId,
@@ -236,10 +250,8 @@ export async function sendMessageCore({
           ...(routingReason ? { 'X-Routing-Reason': routingReason } : {}),
         },
       })
-    } else if (typeof anyResult['toTextStreamResponse'] === 'function') {
-      response = (anyResult['toTextStreamResponse'] as () => Response).call(
-        result,
-      )
+    } else if (typeof anyResult.toTextStreamResponse === 'function') {
+      response = (anyResult.toTextStreamResponse as () => Response).call(result)
     } else {
       response = createTextStreamResponse({
         stream: toTextStream({
@@ -445,10 +457,8 @@ export async function regenerateMessageCore({
   })
 
   const anyResult = result as unknown as Record<string, unknown>
-  if (typeof anyResult['toUIMessageStreamResponse'] === 'function') {
-    return (anyResult['toUIMessageStreamResponse'] as () => Response).call(
-      result,
-    )
+  if (typeof anyResult.toUIMessageStreamResponse === 'function') {
+    return (anyResult.toUIMessageStreamResponse as () => Response).call(result)
   }
   return createTextStreamResponse({
     stream: toTextStream({

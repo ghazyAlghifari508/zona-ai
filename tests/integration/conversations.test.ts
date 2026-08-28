@@ -4,7 +4,12 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db'
-import { conversations, users } from '../../src/lib/db/schema'
+import {
+  conversations,
+  generationRuns,
+  messages,
+  users,
+} from '../../src/lib/db/schema'
 
 const ownerId = 'phase-04-owner'
 const otherId = 'phase-04-other'
@@ -175,5 +180,54 @@ describe('conversation persistence', () => {
       .where(eq(conversations.id, hard.id))
     expect(softRow.id).toBe(soft.id)
     expect(hardRow).toBeUndefined()
+  })
+
+  it('loads messages ascending with generation runs and enforces ownership', async () => {
+    const { getMessagesCore } = await import(
+      '../../src/server/functions/messages'
+    )
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: ownerId, title: 'Messages' })
+      .returning()
+    const [later, earlier] = await db
+      .insert(messages)
+      .values([
+        {
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: 'later',
+          createdAt: new Date('2026-08-29T02:00:00Z'),
+        },
+        {
+          conversationId: conversation.id,
+          role: 'user',
+          content: 'earlier',
+          createdAt: new Date('2026-08-29T01:00:00Z'),
+        },
+      ])
+      .returning()
+    await db.insert(generationRuns).values({
+      messageId: later.id,
+      conversationId: conversation.id,
+      modelId: 'auto',
+      routerModelId: 'test/router',
+      status: 'completed',
+      content: 'later',
+    })
+
+    const result = await getMessagesCore({
+      data: { conversationId: conversation.id },
+      request: requestFor(ownerId),
+    })
+    expect(result.map(({ id }) => id)).toEqual([earlier.id, later.id])
+    expect(result[0].generationRuns).toEqual([])
+    expect(result[1].generationRuns).toHaveLength(1)
+    await expect(
+      getMessagesCore({
+        data: { conversationId: conversation.id },
+        request: requestFor(otherId),
+      }),
+    ).rejects.toMatchObject({ status: 403 })
   })
 })
