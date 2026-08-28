@@ -3,7 +3,6 @@ import { Sidebar } from './Sidebar'
 type Props = {
   children: React.ReactNode
   credits?: number
-  conversations?: { id: string; title: string | null }[]
   onNewChat?: () => void
   onSelectConversation?: (id: string) => void
   activeConversationId?: string
@@ -12,7 +11,6 @@ type Props = {
 export function WorkspaceShell({
   children,
   credits = 85,
-  conversations = [],
   onNewChat,
   onSelectConversation,
   activeConversationId,
@@ -21,7 +19,6 @@ export function WorkspaceShell({
     <div className="flex min-h-screen bg-cream-paper">
       <Sidebar
         credits={credits}
-        conversations={conversations}
         onNewChat={onNewChat}
         onSelectConversation={onSelectConversation}
         activeConversationId={activeConversationId}
