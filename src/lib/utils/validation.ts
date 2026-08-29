@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import {
+  COMPARE_MAX_MODELS,
+  COMPARE_MIN_MODELS,
   CONVERSATION_TITLE_MAX_LENGTH,
   CONVERSATIONS_MAX_PAGE_SIZE,
   CONVERSATIONS_PAGE_SIZE,
@@ -46,3 +48,28 @@ export const deleteConversationSchema = z.object({
   id: z.string().uuid(),
   hard: z.boolean().default(false),
 })
+
+export const compareSchema = z
+  .object({
+    conversationId: z.string().uuid().optional(),
+    modelIds: z
+      .array(z.string().min(1))
+      .min(COMPARE_MIN_MODELS)
+      .max(COMPARE_MAX_MODELS),
+    skillId: z
+      .enum(['none', 'checklist', 'prd-plan', 'agent-skill'])
+      .default('none'),
+    content: z.string().min(1).max(20000),
+    attachmentIds: z.array(z.string().uuid()).optional(),
+    enableWebSearch: z.boolean().optional(),
+  })
+  .refine((d) => !d.modelIds.includes('auto'), {
+    message: 'Auto tidak tersedia di Compare',
+    path: ['modelIds'],
+  })
+  .refine((d) => new Set(d.modelIds).size === d.modelIds.length, {
+    message: 'Model tidak boleh duplikat',
+    path: ['modelIds'],
+  })
+
+export type CompareInput = z.infer<typeof compareSchema>

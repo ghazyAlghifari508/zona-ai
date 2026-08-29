@@ -73,6 +73,46 @@ export async function refundCredits(opts: {
   return bal
 }
 
+export async function deductCompareCredits({
+  userId,
+  generationRunIds,
+  modelIds,
+  costs,
+}: {
+  userId: string
+  generationRunIds: string[]
+  modelIds: string[]
+  costs: number[]
+}): Promise<number> {
+  const total = costs.reduce((a, b) => a + b, 0)
+  const res = await db.execute(
+    sql`UPDATE users SET credits = credits - ${total} WHERE id=${userId} AND credits >= ${total} RETURNING credits`,
+  )
+  const rows = getRows<{ credits: number }>(res)
+  if (rows.length === 0) {
+    const e = new Error('Kredit tidak mencukupi') as Error & {
+      status: number
+      code: string
+    }
+    e.status = 402
+    e.code = 'ERR-019'
+    throw e
+  }
+  const balanceAfter = rows[0].credits
+  for (let i = 0; i < modelIds.length; i++) {
+    await db.insert(creditTransactions).values({
+      userId,
+      generationRunId: generationRunIds[i],
+      amount: -costs[i],
+      type: 'usage',
+      modelId: modelIds[i],
+      balanceAfter,
+      description: `Compare via ${modelIds[i]}`,
+    })
+  }
+  return balanceAfter
+}
+
 export async function resetDevCredits(userId: string): Promise<number> {
   if (process.env.NODE_ENV === 'production')
     throw new Error('Forbidden in production')
