@@ -107,6 +107,36 @@ export const messages = pgTable(
   ],
 )
 
+export const attachments = pgTable(
+  'attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    messageId: uuid('message_id').references(() => messages.id, {
+      onDelete: 'set null',
+    }),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    fileName: text('file_name').notNull(),
+    fileSize: integer('file_size').notNull(),
+    mimeType: text('mime_type').notNull(),
+    r2Key: text('r2_key').notNull().unique(),
+    r2Bucket: text('r2_bucket').notNull(),
+    processingStatus: text('processing_status').notNull().default('pending'),
+    extractedText: text('extracted_text'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('attachments_user_id_idx').on(table.userId),
+    index('attachments_conversation_id_idx').on(table.conversationId),
+    index('attachments_message_id_idx').on(table.messageId),
+    index('attachments_r2_key_idx').on(table.r2Key),
+  ],
+)
+
 export const comparisonRuns = pgTable(
   'comparison_runs',
   {
