@@ -98,7 +98,7 @@ describe('performance â€” internal TTFT < 150ms (NFR-001)', () => {
   })
 
   it('firstTokenAt is measured synchronously in onChunk â€” TTFT < 150ms', async () => {
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const startedAtMs = Date.now()
     const response = (await sendMessageCore({
       data: { modelId: 'auto', content: 'hello perf test', skillId: 'none' },
@@ -134,7 +134,7 @@ describe('performance â€” internal TTFT < 150ms (NFR-001)', () => {
   })
 
   it('latencyMs recorded and latency >= TTFT', async () => {
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const response = (await sendMessageCore({
       data: { modelId: 'auto', content: 'hello perf test 2', skillId: 'none' },
       request: new Request('http://localhost:3000'),

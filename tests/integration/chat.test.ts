@@ -1,8 +1,8 @@
-/**
+﻿/**
  * @vitest-environment node
  */
 
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db/index'
 import {
@@ -190,7 +190,7 @@ describe('sendMessage integration', () => {
   })
 
   it('deducts 4 for auto reasoning + creates generation_runs', async () => {
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -210,10 +210,21 @@ describe('sendMessage integration', () => {
     expect(response).toBeInstanceOf(Response)
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 120))
+    // Scope to this test user's conversations (parallel suites also insert auto runs)
+    const myConvs = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.userId, mockUserId))
+    const myConvIds = myConvs.map((c) => c.id)
     const gens = await db
       .select()
       .from(generationRuns)
-      .where(eq(generationRuns.modelId, 'auto'))
+      .where(
+        and(
+          eq(generationRuns.modelId, 'auto'),
+          inArray(generationRuns.conversationId, myConvIds),
+        ),
+      )
     expect(gens.length).toBeGreaterThan(0)
     const gen = gens[gens.length - 1]
     expect(gen.status).toBe('completed')
@@ -231,7 +242,7 @@ describe('sendMessage integration', () => {
 
   it('throws 402 if insufficient for premium', async () => {
     await db.update(users).set({ credits: 0 }).where(eq(users.id, mockUserId))
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -262,7 +273,7 @@ describe('sendMessage integration', () => {
         title: 'other user conv',
       } as never)
       .returning()
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -293,7 +304,7 @@ describe('sendMessage integration', () => {
         updatedAt: previousUpdatedAt,
       })
       .returning()
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -319,7 +330,7 @@ describe('sendMessage integration', () => {
   })
 
   it('getModels returns 3', async () => {
-    const { getModelsCore } = await import('../../src/server/functions/models')
+    const { getModelsCore } = await import('../../src/server/core/models')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })

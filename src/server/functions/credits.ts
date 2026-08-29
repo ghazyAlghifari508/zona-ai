@@ -1,14 +1,10 @@
+/**
+ * Client-safe server function RPC wrappers.
+ * Core implementations live in src/server/core/ (server-only).
+ */
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { resetDevCredits } from '../../lib/ai/credits'
-import { getAuthSession } from '../../lib/auth/session'
-
-export async function resetDevCreditsCore({ request }: { request: Request }) {
-  if (process.env.NODE_ENV === 'production') throw new Error('Forbidden')
-  const session = await getAuthSession(request)
-  const bal = await resetDevCredits(session.user.id)
-  return { success: true as const, newBalance: bal }
-}
+import { resetDevCreditsCore } from '../core/credits'
 
 export const resetDevCreditsFn = createServerFn({ method: 'POST' }).handler(
   async () => {

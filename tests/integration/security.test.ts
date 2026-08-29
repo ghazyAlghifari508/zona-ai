@@ -26,7 +26,10 @@ const allSrcFiles = walk(SRC)
 const componentFiles = allSrcFiles.filter((f) =>
   f.includes(join('src', 'components')),
 )
-const serverFunctionFiles = walk(join(SRC, 'server', 'functions'))
+const serverFunctionFiles = [
+  ...walk(join(SRC, 'server', 'functions')),
+  ...walk(join(SRC, 'server', 'core')),
+]
 
 describe('security audit — static checks (SECURITY.md 20 sections)', () => {
   it('no dangerouslySetInnerHTML anywhere in src/components', () => {
@@ -65,12 +68,27 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
     expect(offenders).toEqual([])
   })
 
-  it('all server function files call getAuthSession', () => {
+  it('all server function files call getAuthSession or delegate to server core', () => {
     const offenders = serverFunctionFiles.filter((f) => {
       const content = readFileSync(f, 'utf8')
-      // files that only export types or are empty are exempt; every real module must auth
       const hasExport = /export (async )?(function|const)/.test(content)
-      return hasExport && !content.includes('getAuthSession')
+      // RPC wrapper files (server/functions) may delegate auth to core files
+      const delegatesToCore = content.includes("from '../core/")
+      return (
+        hasExport && !content.includes('getAuthSession') && !delegatesToCore
+      )
+    })
+    expect(offenders).toEqual([])
+  })
+
+  it('server cores perform auth + ownership (getAuthSession present)', () => {
+    const coreFiles = walk(join(SRC, 'server', 'core')).filter((f) => {
+      const content = readFileSync(f, 'utf8')
+      return /export (async )?(function|const)/.test(content)
+    })
+    expect(coreFiles.length).toBeGreaterThan(0)
+    const offenders = coreFiles.filter((f) => {
+      return !readFileSync(f, 'utf8').includes('getAuthSession')
     })
     expect(offenders).toEqual([])
   })
@@ -106,7 +124,7 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
       join(SRC, 'server', 'functions', 'files.ts'),
       'utf8',
     )
-    expect(content).toContain('users/${userId}/attachments/${')
+    expect(content).toContain(`users/\${userId}/attachments/\${attachmentId}/`)
     expect(content).toContain('sanitizeFilename')
     expect(content).toContain('validateMagicBytes')
   })

@@ -1,10 +1,9 @@
-/**
+﻿/**
  * @vitest-environment node
  */
-import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
-import { db } from "../../src/lib/db/index";
-import { sql } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { eq, sql } from 'drizzle-orm'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { db } from '../../src/lib/db/index'
 import {
   comparisonRuns,
   conversations,
@@ -13,123 +12,183 @@ import {
   messages,
   usageRecords,
   users,
-} from "../../src/lib/db/schema";
+} from '../../src/lib/db/schema'
 
-vi.mock("ai", async () => {
-  const actual = await vi.importActual<typeof import("ai")>("ai");
+vi.mock('ai', async () => {
+  const actual = await vi.importActual<typeof import('ai')>('ai')
   return {
     ...actual,
     streamText: vi.fn((opts: Record<string, unknown>) => {
-      const onFinish = opts.onFinish as ((o: unknown) => Promise<void>) | undefined;
-      const onChunk = opts.onChunk as (() => void) | undefined;
-      const fakeText = "Hello mocked compare";
-      const fakeUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 };
-      if (onChunk) onChunk();
+      const onFinish = opts.onFinish as
+        | ((o: unknown) => Promise<void>)
+        | undefined
+      const onChunk = opts.onChunk as (() => void) | undefined
+      const fakeText = 'Hello mocked compare'
+      const fakeUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
+      if (onChunk) onChunk()
       if (onFinish) {
         setTimeout(() => {
           void onFinish({
             text: fakeText,
             usage: fakeUsage,
-            finishReason: "stop",
+            finishReason: 'stop',
             reasoningText: undefined,
-          });
-        }, 20);
+          })
+        }, 20)
       }
       const fakeStream = new ReadableStream({
         start(controller) {
-          controller.enqueue("Hello mocked ");
-          controller.enqueue("compare");
-          controller.close();
+          controller.enqueue('Hello mocked ')
+          controller.enqueue('compare')
+          controller.close()
         },
-      });
+      })
       return {
         text: Promise.resolve(fakeText),
         stream: fakeStream,
-        toUIMessageStreamResponse: (init?: { headers?: Record<string, string> }) => new Response(fakeText, { headers: init?.headers }),
+        toUIMessageStreamResponse: (init?: {
+          headers?: Record<string, string>
+        }) => new Response(fakeText, { headers: init?.headers }),
         toTextStreamResponse: () => new Response(fakeText),
-      };
+      }
     }),
-  };
-});
+  }
+})
 
-vi.mock("../../src/lib/auth/session", () => ({
-  getAuthSession: vi.fn(async () => ({ user: { id: "compare-user", email: "compare@example.com" } })),
-}));
-describe("comparison_runs schema", () => {
-  it("has comparison_runs table with modelIds text[]", async () => {
-    const r = await db.execute(sql`SELECT column_name FROM information_schema.columns WHERE table_name='comparison_runs' AND column_name='model_ids'`);
-    const rows = Array.isArray(r) ? r : (r as { rows: unknown[] }).rows;
-    expect(rows.length).toBe(1);
-  });
-  it("generation_runs has comparison_run_id FK", async () => {
-    const r = await db.execute(sql`SELECT column_name FROM information_schema.columns WHERE table_name='generation_runs' AND column_name='comparison_run_id'`);
-    const rows = Array.isArray(r) ? r : (r as { rows: unknown[] }).rows;
-    expect(rows.length).toBe(1);
-  });
-});
+vi.mock('../../src/lib/auth/session', () => ({
+  getAuthSession: vi.fn(async () => ({
+    user: { id: 'compare-user', email: 'compare@example.com' },
+  })),
+}))
+describe('comparison_runs schema', () => {
+  it('has comparison_runs table with modelIds text[]', async () => {
+    const r = await db.execute(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_name='comparison_runs' AND column_name='model_ids'`,
+    )
+    const rows = Array.isArray(r) ? r : (r as { rows: unknown[] }).rows
+    expect(rows.length).toBe(1)
+  })
+  it('generation_runs has comparison_run_id FK', async () => {
+    const r = await db.execute(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_name='generation_runs' AND column_name='comparison_run_id'`,
+    )
+    const rows = Array.isArray(r) ? r : (r as { rows: unknown[] }).rows
+    expect(rows.length).toBe(1)
+  })
+})
 
-const compareUserId = "compare-user";
-describe("sendCompareMessage integration", () => {
+const compareUserId = 'compare-user'
+describe('sendCompareMessage integration', () => {
   beforeEach(async () => {
-    await db.delete(creditTransactions).where(eq(creditTransactions.userId, compareUserId));
-    await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId));
-    const convs = await db.select().from(conversations).where(eq(conversations.userId, compareUserId));
+    await db
+      .delete(creditTransactions)
+      .where(eq(creditTransactions.userId, compareUserId))
+    await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId))
+    const convs = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.userId, compareUserId))
     for (const c of convs) {
-      await db.delete(generationRuns).where(eq(generationRuns.conversationId, c.id));
-      await db.delete(comparisonRuns).where(eq(comparisonRuns.conversationId, c.id));
-      await db.delete(messages).where(eq(messages.conversationId, c.id));
-      await db.delete(conversations).where(eq(conversations.id, c.id));
+      await db
+        .delete(generationRuns)
+        .where(eq(generationRuns.conversationId, c.id))
+      await db
+        .delete(comparisonRuns)
+        .where(eq(comparisonRuns.conversationId, c.id))
+      await db.delete(messages).where(eq(messages.conversationId, c.id))
+      await db.delete(conversations).where(eq(conversations.id, c.id))
     }
-    await db.delete(users).where(eq(users.id, compareUserId));
-    await db.insert(users).values({ id: compareUserId, email: "compare@example.com", name: "CompareUser", credits: 100 } as never);
-    vi.clearAllMocks();
-  });
+    await db.delete(users).where(eq(users.id, compareUserId))
+    await db.insert(users).values({
+      id: compareUserId,
+      email: 'compare@example.com',
+      name: 'CompareUser',
+      credits: 100,
+    } as never)
+    vi.clearAllMocks()
+  })
   afterAll(async () => {
-    await db.delete(creditTransactions).where(eq(creditTransactions.userId, compareUserId));
-    await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId));
-    const convs = await db.select().from(conversations).where(eq(conversations.userId, compareUserId));
+    await db
+      .delete(creditTransactions)
+      .where(eq(creditTransactions.userId, compareUserId))
+    await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId))
+    const convs = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.userId, compareUserId))
     for (const c of convs) {
-      await db.delete(generationRuns).where(eq(generationRuns.conversationId, c.id));
-      await db.delete(comparisonRuns).where(eq(comparisonRuns.conversationId, c.id));
-      await db.delete(messages).where(eq(messages.conversationId, c.id));
-      await db.delete(conversations).where(eq(conversations.id, c.id));
+      await db
+        .delete(generationRuns)
+        .where(eq(generationRuns.conversationId, c.id))
+      await db
+        .delete(comparisonRuns)
+        .where(eq(comparisonRuns.conversationId, c.id))
+      await db.delete(messages).where(eq(messages.conversationId, c.id))
+      await db.delete(conversations).where(eq(conversations.id, c.id))
     }
-    await db.delete(users).where(eq(users.id, compareUserId));
-  });
+    await db.delete(users).where(eq(users.id, compareUserId))
+  })
 
-  it("deducts total 19 for 4+15 and creates comparison_runs", async () => {
-    const { sendCompareMessageCore } = await import("../../src/server/functions/chat");
-    const request = new Request("http://localhost:3000");
+  it('deducts total 19 for 4+15 and creates comparison_runs', async () => {
+    const { sendCompareMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
-      data: { modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"], content: "jelaskan AI", skillId: "none" },
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        content: 'jelaskan AI',
+        skillId: 'none',
+      },
       request,
-    })) as unknown as Response;
-    expect(response).toBeInstanceOf(Response);
-    expect(response.headers.get("Content-Type")).toContain("text/event-stream");
-    await response.text().catch(() => {});
-    await new Promise((r) => setTimeout(r, 500));
-    const [user] = await db.select().from(users).where(eq(users.id, compareUserId));
-    expect(user.credits).toBe(81);
-    const comps = await db.select().from(comparisonRuns);
-    expect(comps.length).toBeGreaterThan(0);
-    const gens = await db.select().from(generationRuns).where(eq(generationRuns.conversationId, comps[0].conversationId));
-    expect(gens.length).toBe(2);
-    const txs = await db.select().from(creditTransactions).where(eq(creditTransactions.userId, compareUserId));
-    expect(txs.filter((t) => t.type === "usage").length).toBe(2);
-  });
+    })) as unknown as Response
+    expect(response).toBeInstanceOf(Response)
+    expect(response.headers.get('Content-Type')).toContain('text/event-stream')
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 500))
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, compareUserId))
+    expect(user.credits).toBe(81)
+    const comps = await db.select().from(comparisonRuns)
+    expect(comps.length).toBeGreaterThan(0)
+    const gens = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.conversationId, comps[0].conversationId))
+    expect(gens.length).toBe(2)
+    const txs = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, compareUserId))
+    expect(txs.filter((t) => t.type === 'usage').length).toBe(2)
+  })
 
-  it("throws 402 if insufficient total", async () => {
-    await db.update(users).set({ credits: 10 }).where(eq(users.id, compareUserId));
-    const { sendCompareMessageCore } = await import("../../src/server/functions/chat");
-    const request = new Request("http://localhost:3000");
+  it('throws 402 if insufficient total', async () => {
+    await db
+      .update(users)
+      .set({ credits: 10 })
+      .where(eq(users.id, compareUserId))
+    const { sendCompareMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const request = new Request('http://localhost:3000')
     await expect(
       sendCompareMessageCore({
-        data: { modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"], content: "insufficient", skillId: "none" },
+        data: {
+          modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+          content: 'insufficient',
+          skillId: 'none',
+        },
         request,
       }),
-    ).rejects.toMatchObject({ status: 402 });
-    const [user] = await db.select().from(users).where(eq(users.id, compareUserId));
-    expect(user.credits).toBe(10);
+    ).rejects.toMatchObject({ status: 402 })
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, compareUserId))
+    expect(user.credits).toBe(10)
     const comps = await db
       .select({ id: comparisonRuns.id })
       .from(comparisonRuns)
@@ -137,121 +196,224 @@ describe("sendCompareMessage integration", () => {
         conversations,
         eq(comparisonRuns.conversationId, conversations.id),
       )
-      .where(eq(conversations.userId, compareUserId));
-    expect(comps.length).toBe(0);
-  });
+      .where(eq(conversations.userId, compareUserId))
+    expect(comps.length).toBe(0)
+  })
 
-  it("validates modelIds no auto and no dup", async () => {
-    const { sendCompareMessageCore } = await import("../../src/server/functions/chat");
-    const request = new Request("http://localhost:3000");
+  it('validates modelIds no auto and no dup', async () => {
+    const { sendCompareMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const request = new Request('http://localhost:3000')
     await expect(
       sendCompareMessageCore({
-        data: { modelIds: ["auto", "gemini-3.7-flash-high"], content: "hi", skillId: "none" } as never,
+        data: {
+          modelIds: ['auto', 'gemini-3.7-flash-high'],
+          content: 'hi',
+          skillId: 'none',
+        } as never,
         request,
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow()
     await expect(
       sendCompareMessageCore({
-        data: { modelIds: ["gemini-3.7-flash-high", "gemini-3.7-flash-high"], content: "hi", skillId: "none" } as never,
+        data: {
+          modelIds: ['gemini-3.7-flash-high', 'gemini-3.7-flash-high'],
+          content: 'hi',
+          skillId: 'none',
+        } as never,
         request,
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow()
     await expect(
       sendCompareMessageCore({
-        data: { modelIds: ["gemini-3.7-flash-high"], content: "hi", skillId: "none" } as never,
+        data: {
+          modelIds: ['gemini-3.7-flash-high'],
+          content: 'hi',
+          skillId: 'none',
+        } as never,
         request,
       }),
-    ).rejects.toThrow();
-  });
+    ).rejects.toThrow()
+  })
 
-  it("partial failure refund +15 leaves partial_failure", async () => {
-    const { sendCompareMessageCore } = await import("../../src/server/functions/chat");
-    const { refundCredits } = await import("../../src/lib/ai/credits");
-    const request = new Request("http://localhost:3000");
+  it('partial failure refund +15 leaves partial_failure', async () => {
+    const { sendCompareMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const { refundCredits } = await import('../../src/lib/ai/credits')
+    const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
-      data: { modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"], content: "partial fail", skillId: "none" },
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        content: 'partial fail',
+        skillId: 'none',
+      },
       request,
-    })) as unknown as Response;
-    await response.text().catch(() => {});
-    await new Promise((r) => setTimeout(r, 800));
-    const gens = await db.select().from(generationRuns);
-    const target = gens.find((g) => g.modelId === "gpt-5.6-sol") ?? gens[gens.length - 1];
+    })) as unknown as Response
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 800))
+    const gens = await db.select().from(generationRuns)
+    const target =
+      gens.find((g) => g.modelId === 'gpt-5.6-sol') ?? gens[gens.length - 1]
     // simulate failure: update status failed and refund
-    await db.update(generationRuns).set({ status: "failed" }).where(eq(generationRuns.id, target.id));
-    await refundCredits({ userId: compareUserId, generationRunId: target.id, modelId: target.modelId, amount: 15 });
-    const [user] = await db.select().from(users).where(eq(users.id, compareUserId));
-    expect(user.credits).toBe(96);
-    const txs = await db.select().from(creditTransactions).where(eq(creditTransactions.userId, compareUserId));
-    expect(txs.find((t) => t.type === "refund" && t.amount === 15)).toBeDefined();
-    const comps = await db.select().from(comparisonRuns);
-    const comp = comps[comps.length - 1];
-    await db.update(comparisonRuns).set({ status: "partial_failure" }).where(eq(comparisonRuns.id, comp.id));
-    const [updated] = await db.select().from(comparisonRuns).where(eq(comparisonRuns.id, comp.id));
-    expect(updated.status).toBe("partial_failure");
-  });
+    await db
+      .update(generationRuns)
+      .set({ status: 'failed' })
+      .where(eq(generationRuns.id, target.id))
+    await refundCredits({
+      userId: compareUserId,
+      generationRunId: target.id,
+      modelId: target.modelId,
+      amount: 15,
+    })
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, compareUserId))
+    expect(user.credits).toBe(96)
+    const txs = await db
+      .select()
+      .from(creditTransactions)
+      .where(eq(creditTransactions.userId, compareUserId))
+    expect(
+      txs.find((t) => t.type === 'refund' && t.amount === 15),
+    ).toBeDefined()
+    const comps = await db.select().from(comparisonRuns)
+    const comp = comps[comps.length - 1]
+    await db
+      .update(comparisonRuns)
+      .set({ status: 'partial_failure' })
+      .where(eq(comparisonRuns.id, comp.id))
+    const [updated] = await db
+      .select()
+      .from(comparisonRuns)
+      .where(eq(comparisonRuns.id, comp.id))
+    expect(updated.status).toBe('partial_failure')
+  })
 
-  it("retry failed generation creates new run + deduct again", async () => {
-    const { sendCompareMessageCore, retryGenerationCore } = await import("../../src/server/functions/chat");
-    const request = new Request("http://localhost:3000");
+  it('retry failed generation creates new run + deduct again', async () => {
+    const { sendCompareMessageCore, retryGenerationCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
-      data: { modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"], content: "retry test", skillId: "none" },
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        content: 'retry test',
+        skillId: 'none',
+      },
       request,
-    })) as unknown as Response;
-    await response.text().catch(() => {});
-    await new Promise((r) => setTimeout(r, 500));
-    const gensBefore = await db.select().from(generationRuns).where(eq(generationRuns.modelId, "gpt-5.6-sol"));
-    const target = gensBefore[gensBefore.length - 1];
+    })) as unknown as Response
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 500))
+    const gensBefore = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.modelId, 'gpt-5.6-sol'))
+    const target = gensBefore[gensBefore.length - 1]
     // force failed status
-    await db.update(generationRuns).set({ status: "failed" }).where(eq(generationRuns.id, target.id));
-    const [userBefore] = await db.select().from(users).where(eq(users.id, compareUserId));
-    const beforeCredits = userBefore.credits;
-    const retryRes = (await retryGenerationCore({ generationId: target.id, request })) as unknown as Response;
-    expect(retryRes).toBeInstanceOf(Response);
-    await retryRes.text().catch(() => {});
-    await new Promise((r) => setTimeout(r, 200));
-    const [userAfter] = await db.select().from(users).where(eq(users.id, compareUserId));
-    expect(userAfter.credits).toBe(beforeCredits - 15);
-    const allGens = await db.select().from(generationRuns);
-    expect(allGens.length).toBeGreaterThan(gensBefore.length);
-  });
-
-  it("persistence reload preserves both cols", async () => {
-    const { sendCompareMessageCore } = await import("../../src/server/functions/chat");
-    const { getMessagesCore } = await import("../../src/server/functions/messages");
-    const request = new Request("http://localhost:3000");
-    const response = (await sendCompareMessageCore({
-      data: { modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"], content: "persist test", skillId: "none" },
+    await db
+      .update(generationRuns)
+      .set({ status: 'failed' })
+      .where(eq(generationRuns.id, target.id))
+    const [userBefore] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, compareUserId))
+    const beforeCredits = userBefore.credits
+    const retryRes = (await retryGenerationCore({
+      generationId: target.id,
       request,
-    })) as unknown as Response;
-    await response.text().catch(() => {});
-    await new Promise((r) => setTimeout(r, 800));
-    const comps = await db.select().from(comparisonRuns);
-    const comp = comps[comps.length - 1];
-    const persisted = await getMessagesCore({ data: { conversationId: comp.conversationId }, request });
-    const allGens = (persisted as unknown as Array<{ generationRuns: Array<{ comparisonRunId: string | null }> }>).flatMap((m) => m.generationRuns);
-    const compareGens = allGens.filter((g) => g.comparisonRunId === comp.id);
-    expect(compareGens.length).toBe(2);
-  });
+    })) as unknown as Response
+    expect(retryRes).toBeInstanceOf(Response)
+    await retryRes.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 200))
+    const [userAfter] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, compareUserId))
+    expect(userAfter.credits).toBe(beforeCredits - 15)
+    const allGens = await db.select().from(generationRuns)
+    expect(allGens.length).toBeGreaterThan(gensBefore.length)
+  })
 
-  it("stopGeneration cancels preserves partial", async () => {
-    const { sendCompareMessageCore, stopGenerationCore } = await import("../../src/server/functions/chat");
-    const request = new Request("http://localhost:3000");
+  it('persistence reload preserves both cols', async () => {
+    const { sendCompareMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const { getMessagesCore } = await import('../../src/server/core/messages')
+    const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
-      data: { modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"], content: "cancel test", skillId: "none" },
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        content: 'persist test',
+        skillId: 'none',
+      },
       request,
-    })) as unknown as Response;
-    const gensBefore = await db.select().from(generationRuns);
-    const streamingGen = gensBefore.find((g) => g.status === "streaming") ?? gensBefore[gensBefore.length - 1];
-    const res = await stopGenerationCore({ generationId: streamingGen.id, request });
-    expect(res.ok).toBe(true);
-    await response.text().catch(() => {});
-    await new Promise((r) => setTimeout(r, 500));
-    const [cancelled] = await db.select().from(generationRuns).where(eq(generationRuns.id, streamingGen.id));
+    })) as unknown as Response
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 800))
+    const comps = await db.select().from(comparisonRuns)
+    const comp = comps[comps.length - 1]
+    const persisted = await getMessagesCore({
+      data: { conversationId: comp.conversationId },
+      request,
+    })
+    const allGens = (
+      persisted as unknown as Array<{
+        generationRuns: Array<{ comparisonRunId: string | null }>
+      }>
+    ).flatMap((m) => m.generationRuns)
+    const compareGens = allGens.filter((g) => g.comparisonRunId === comp.id)
+    expect(compareGens.length).toBe(2)
+  })
+
+  it('stopGeneration cancels preserves partial', async () => {
+    const { sendCompareMessageCore, stopGenerationCore } = await import(
+      '../../src/server/core/chat'
+    )
+    const request = new Request('http://localhost:3000')
+    const response = (await sendCompareMessageCore({
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        content: 'cancel test',
+        skillId: 'none',
+      },
+      request,
+    })) as unknown as Response
+    const gensBefore = await db.select().from(generationRuns)
+    const streamingGen =
+      gensBefore.find((g) => g.status === 'streaming') ??
+      gensBefore[gensBefore.length - 1]
+    const res = await stopGenerationCore({
+      generationId: streamingGen.id,
+      request,
+    })
+    expect(res.ok).toBe(true)
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 500))
+    const [cancelled] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, streamingGen.id))
     // Due to mock onFinish race, status may be completed or cancelled; ensure it exists
-    expect(["cancelled", "completed", "failed"].includes(cancelled.status)).toBe(true);
-    const comps = await db.select().from(comparisonRuns).where(eq(comparisonRuns.conversationId, cancelled.conversationId));
-    await new Promise((r) => setTimeout(r, 900));
-    const comps2 = await db.select().from(comparisonRuns).where(eq(comparisonRuns.id, comps[0].id));
-    expect(["partial_failure", "completed", "running", "failed"].includes(comps2[0].status)).toBe(true);
-  });
-});
+    expect(
+      ['cancelled', 'completed', 'failed'].includes(cancelled.status),
+    ).toBe(true)
+    const comps = await db
+      .select()
+      .from(comparisonRuns)
+      .where(eq(comparisonRuns.conversationId, cancelled.conversationId))
+    await new Promise((r) => setTimeout(r, 900))
+    const comps2 = await db
+      .select()
+      .from(comparisonRuns)
+      .where(eq(comparisonRuns.id, comps[0].id))
+    expect(
+      ['partial_failure', 'completed', 'running', 'failed'].includes(
+        comps2[0].status,
+      ),
+    ).toBe(true)
+  })
+})

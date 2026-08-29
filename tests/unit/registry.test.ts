@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { getAvailableModels, getModelById } from '../../src/lib/models/registry'
 
 describe('registry', () => {

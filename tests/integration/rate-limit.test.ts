@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @vitest-environment node
  */
 
@@ -58,7 +58,7 @@ describe('enforceRateLimit', () => {
 describe('sendMessage rate limit (429 after limit)', () => {
   it('chat core rejects with ERR-017 once the chat key is exhausted', async () => {
     resetRateLimitForTest()
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     // Exhaust the chat rate limit key for the mocked user first
     for (let i = 0; i < 20; i++) {
       checkRateLimit({ key: `chat:${mockUserId}`, limit: 20, windowMs: 60000 })

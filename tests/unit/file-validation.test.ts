@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from '../../src/lib/utils/constants'
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_BYTES,
+} from '../../src/lib/utils/constants'
 import {
   sanitizeFilename,
   validateMagicBytes,
@@ -10,7 +13,9 @@ import {
 describe('file-validation', () => {
   it('allowlist has pdf/docx/txt/csv/png/jpeg/webp', () => {
     expect(ALLOWED_MIME_TYPES).toContain('application/pdf')
-    expect(ALLOWED_MIME_TYPES).toContain('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    expect(ALLOWED_MIME_TYPES).toContain(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
     expect(ALLOWED_MIME_TYPES).toContain('text/plain')
     expect(ALLOWED_MIME_TYPES).toContain('text/csv')
     expect(ALLOWED_MIME_TYPES).toContain('image/png')

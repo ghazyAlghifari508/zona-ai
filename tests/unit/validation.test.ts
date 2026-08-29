@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { chatSchema } from '../../src/lib/utils/validation'
 
 describe('chatSchema', () => {
@@ -11,6 +11,8 @@ describe('chatSchema', () => {
     ).toThrow()
   })
   it('accepts valid', () => {
-    expect(chatSchema.parse({ modelId: 'auto', content: 'halo' }).content).toBe('halo')
+    expect(chatSchema.parse({ modelId: 'auto', content: 'halo' }).content).toBe(
+      'halo',
+    )
   })
 })

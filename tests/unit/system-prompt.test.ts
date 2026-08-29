@@ -1,5 +1,5 @@
+import { describe, expect, it } from 'vitest'
 import { buildSystemPrompt } from '../../src/lib/ai/system-prompt'
-import { describe, it, expect } from 'vitest'
 
 describe('system prompt', () => {
   it('none is natural', () => {

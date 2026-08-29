@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { deductCredits } from '../../src/lib/ai/credits'
 
 describe('deductCredits', () => {

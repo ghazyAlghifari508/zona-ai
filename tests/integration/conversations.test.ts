@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @vitest-environment node
  */
 import { and, eq, inArray } from 'drizzle-orm'
@@ -43,7 +43,7 @@ describe('conversation persistence', () => {
 
   it('paginates identical timestamps by id without leaking another owner', async () => {
     const { getConversationsCore } = await import(
-      '../../src/server/functions/conversations'
+      '../../src/server/core/conversations'
     )
     const updatedAt = new Date('2026-08-29T00:00:00.000Z')
     const ownIds = [
@@ -89,7 +89,7 @@ describe('conversation persistence', () => {
       createConversationCore,
       getConversationsCore,
       updateConversationCore,
-    } = await import('../../src/server/functions/conversations')
+    } = await import('../../src/server/core/conversations')
     const { updateConversationSchema } = await import(
       '../../src/lib/utils/validation'
     )
@@ -125,7 +125,7 @@ describe('conversation persistence', () => {
 
   it('returns 403 for another owner and distinguishes missing resources', async () => {
     const { getConversationCore, updateConversationCore } = await import(
-      '../../src/server/functions/conversations'
+      '../../src/server/core/conversations'
     )
     const [privateConversation] = await db
       .insert(conversations)
@@ -148,7 +148,7 @@ describe('conversation persistence', () => {
 
   it('soft deletes by default and hard deletes explicitly', async () => {
     const { createConversationCore, deleteConversationCore } = await import(
-      '../../src/server/functions/conversations'
+      '../../src/server/core/conversations'
     )
     const soft = await createConversationCore({
       data: { title: 'Soft', mode: 'normal' },
@@ -183,9 +183,7 @@ describe('conversation persistence', () => {
   })
 
   it('loads messages ascending with generation runs and enforces ownership', async () => {
-    const { getMessagesCore } = await import(
-      '../../src/server/functions/messages'
-    )
+    const { getMessagesCore } = await import('../../src/server/core/messages')
     const [conversation] = await db
       .insert(conversations)
       .values({ userId: ownerId, title: 'Messages' })

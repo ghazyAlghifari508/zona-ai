@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @vitest-environment node
  */
 import { eq } from 'drizzle-orm'
@@ -50,11 +50,14 @@ const mockStreamText = vi.fn((opts: Record<string, unknown>) => {
     },
   })
   // capture messages for vision assertion
-  ;(globalThis as unknown as Record<string, unknown>).__lastStreamMessages = opts.messages
+  ;(globalThis as unknown as Record<string, unknown>).__lastStreamMessages =
+    opts.messages
   return {
     text: Promise.resolve(fakeText),
     stream: fakeStream,
-    toUIMessageStreamResponse: (init?: { headers?: Record<string, string> }) => {
+    toUIMessageStreamResponse: (init?: {
+      headers?: Record<string, string>
+    }) => {
       return new Response(fakeText, { headers: init?.headers })
     },
     toTextStreamResponse: () => new Response(fakeText),
@@ -159,7 +162,9 @@ describe('files API', () => {
     } as unknown as RequestInit)
     // Need actual formData parsing; Request with FormData body should be handled
     // For node, we manually ensure file available via arrayBuffer
-    const res = (await uploadFileCore({ request })) as unknown as typeof attachments.$inferSelect
+    const res = (await uploadFileCore({
+      request,
+    })) as unknown as typeof attachments.$inferSelect
     expect(res).toBeDefined()
     expect(res.fileName).toBe('sample.pdf')
     expect(res.processingStatus).toBe('pending')
@@ -266,7 +271,9 @@ describe('files API', () => {
       body: fd as unknown as BodyInit,
       headers: { 'x-test-user': mockUserId },
     } as unknown as RequestInit)
-    const att = (await uploadFileCore({ request: req1 })) as unknown as typeof attachments.$inferSelect
+    const att = (await uploadFileCore({
+      request: req1,
+    })) as unknown as typeof attachments.$inferSelect
     const req2 = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId2 },
     })
@@ -295,7 +302,9 @@ describe('files API', () => {
       body: fd as unknown as BodyInit,
       headers: { 'x-test-user': mockUserId },
     } as unknown as RequestInit)
-    const att = (await uploadFileCore({ request: req1 })) as unknown as typeof attachments.$inferSelect
+    const att = (await uploadFileCore({
+      request: req1,
+    })) as unknown as typeof attachments.$inferSelect
     const reqDel = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -315,7 +324,7 @@ describe('files API', () => {
 
   it('sendMessage with image + vision injects file parts', async () => {
     const { uploadFileCore } = await import('../../src/server/functions/files')
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const { modelRegistry } = await import('../../src/lib/models/registry')
     // ensure we have a vision-capable model (auto is vision true)
     const [conv] = await db
@@ -323,7 +332,9 @@ describe('files API', () => {
       .values({ userId: mockUserId, title: 'Vision Conv' })
       .returning()
     // create image attachment
-    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const pngHeader = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ])
     const file = new File([pngHeader], 'photo.png', { type: 'image/png' })
     const fd = new FormData()
     fd.append('file', file)
@@ -333,7 +344,9 @@ describe('files API', () => {
       body: fd as unknown as BodyInit,
       headers: { 'x-test-user': mockUserId },
     } as unknown as RequestInit)
-    const att = (await uploadFileCore({ request: reqUpload })) as unknown as typeof attachments.$inferSelect
+    const att = (await uploadFileCore({
+      request: reqUpload,
+    })) as unknown as typeof attachments.$inferSelect
     // mock getObject to return image buffer for vision
     const r2 = await import('../../src/lib/r2/client')
     vi.mocked(r2.getObject).mockResolvedValueOnce({
@@ -362,26 +375,37 @@ describe('files API', () => {
     const lastCall = mockStreamText.mock.calls[
       mockStreamText.mock.calls.length - 1
     ]?.[0] as unknown as Record<string, unknown>
-    const messages = lastCall.messages as unknown as Array<Record<string, unknown>>
+    const messages = lastCall.messages as unknown as Array<
+      Record<string, unknown>
+    >
     const hasFile = messages.some((m) => {
       const content = m.content as unknown
       if (!Array.isArray(content)) return false
-      return (content as Array<Record<string, unknown>>).some((c) => c.type === 'file' && c.mediaType === 'image/png')
+      return (content as Array<Record<string, unknown>>).some(
+        (c) => c.type === 'file' && c.mediaType === 'image/png',
+      )
     })
     expect(hasFile).toBe(true)
     const filePart = messages
-      .flatMap((m) => (Array.isArray(m.content) ? (m.content as Array<Record<string, unknown>>) : []))
+      .flatMap((m) =>
+        Array.isArray(m.content)
+          ? (m.content as Array<Record<string, unknown>>)
+          : [],
+      )
       .find((c) => c.type === 'file')
     expect(filePart).toBeDefined()
     expect(typeof filePart?.data).toBe('string')
     // verify attachment linked to message
-    const [updatedAtt] = await db.select().from(attachments).where(eq(attachments.id, att.id))
+    const [updatedAtt] = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.id, att.id))
     expect(updatedAtt.messageId).not.toBeNull()
   })
 
   it('sendMessage with image + non-vision rejects 400', async () => {
     const { uploadFileCore } = await import('../../src/server/functions/files')
-    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { sendMessageCore } = await import('../../src/server/core/chat')
     const { modelRegistry } = await import('../../src/lib/models/registry')
     // inject a non-vision model for test
     const testModelId = 'test-no-vision'
@@ -396,15 +420,29 @@ describe('files API', () => {
         enabled: true,
         creditCost: 1,
         creditTier: 'balanced' as never,
-        capabilities: { text: true, vision: false, files: true, tools: false, reasoning: false },
-        metadata: { contextWindow: 1000, maxOutput: 1000, pricing: null, category: 'test', speedClass: 'fast' as never },
+        capabilities: {
+          text: true,
+          vision: false,
+          files: true,
+          tools: false,
+          reasoning: false,
+        },
+        metadata: {
+          contextWindow: 1000,
+          maxOutput: 1000,
+          pricing: null,
+          category: 'test',
+          speedClass: 'fast' as never,
+        },
       } as never)
     }
     const [conv] = await db
       .insert(conversations)
       .values({ userId: mockUserId, title: 'NonVision Conv' })
       .returning()
-    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const pngHeader = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ])
     const file = new File([pngHeader], 'photo2.png', { type: 'image/png' })
     const fd = new FormData()
     fd.append('file', file)
@@ -414,7 +452,9 @@ describe('files API', () => {
       body: fd as unknown as BodyInit,
       headers: { 'x-test-user': mockUserId },
     } as unknown as RequestInit)
-    const att = (await uploadFileCore({ request: reqUpload })) as unknown as typeof attachments.$inferSelect
+    const att = (await uploadFileCore({
+      request: reqUpload,
+    })) as unknown as typeof attachments.$inferSelect
     const req = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -437,12 +477,20 @@ describe('files API', () => {
 
   it('sendCompare with image same parts to all', async () => {
     const { uploadFileCore } = await import('../../src/server/functions/files')
-    const { sendCompareMessageCore } = await import('../../src/server/functions/chat')
+    const { sendCompareMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
     const [conv] = await db
       .insert(conversations)
-      .values({ userId: mockUserId, title: 'Compare Vision Conv', mode: 'compare' })
+      .values({
+        userId: mockUserId,
+        title: 'Compare Vision Conv',
+        mode: 'compare',
+      })
       .returning()
-    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const pngHeader = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ])
     const file = new File([pngHeader], 'photo3.png', { type: 'image/png' })
     const fd = new FormData()
     fd.append('file', file)
@@ -452,7 +500,9 @@ describe('files API', () => {
       body: fd as unknown as BodyInit,
       headers: { 'x-test-user': mockUserId },
     } as unknown as RequestInit)
-    const att = (await uploadFileCore({ request: reqUpload })) as unknown as typeof attachments.$inferSelect
+    const att = (await uploadFileCore({
+      request: reqUpload,
+    })) as unknown as typeof attachments.$inferSelect
     const r2 = await import('../../src/lib/r2/client')
     vi.mocked(r2.getObject).mockResolvedValue({
       body: pngHeader,
@@ -485,7 +535,9 @@ describe('files API', () => {
       return (msgs as Array<Record<string, unknown>>).some((m) => {
         const content = m.content as unknown
         if (!Array.isArray(content)) return false
-        return (content as Array<Record<string, unknown>>).some((c) => c.type === 'file')
+        return (content as Array<Record<string, unknown>>).some(
+          (c) => c.type === 'file',
+        )
       })
     })
     expect(hasFilePart).toBe(true)
