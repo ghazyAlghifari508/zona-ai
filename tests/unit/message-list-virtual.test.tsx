@@ -37,4 +37,13 @@ describe('MessageList virtualization', () => {
       expect(rows.length).toBeLessThan(50)
     })
   })
+
+  it('renders 500 messages with fewer than 50 DOM rows (estimateSize 80, overscan 5)', async () => {
+    const { container } = render(<MessageList messages={messages(500)} />)
+    await waitFor(() => {
+      const rows = container.querySelectorAll('[data-index]')
+      expect(rows.length).toBeGreaterThan(0)
+      expect(rows.length).toBeLessThan(50)
+    })
+  })
 })
