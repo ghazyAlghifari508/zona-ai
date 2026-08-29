@@ -7,7 +7,9 @@ import {
   text,
   timestamp,
   uuid,
+  vector,
 } from 'drizzle-orm/pg-core'
+import { EMBEDDING_DIMENSION } from '../utils/constants'
 
 // users — Better Auth managed + credits
 export const users = pgTable('users', {
@@ -231,9 +233,6 @@ export const usageRecords = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    generationRunId: uuid('generation_run_id')
-      .notNull()
-      .references(() => generationRuns.id, { onDelete: 'cascade' }),
     modelId: text('model_id').notNull(),
     promptTokens: integer('prompt_tokens').notNull(),
     completionTokens: integer('completion_tokens').notNull(),
@@ -245,5 +244,27 @@ export const usageRecords = pgTable(
       table.userId,
       table.createdAt,
     ),
+  ],
+)
+
+export const documentChunks = pgTable(
+  'document_chunks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    attachmentId: uuid('attachment_id')
+      .notNull()
+      .references(() => attachments.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    chunkIndex: integer('chunk_index').notNull(),
+    content: text('content').notNull(),
+    embedding: vector('embedding', { dimensions: EMBEDDING_DIMENSION }),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('document_chunks_attachment_id_idx').on(table.attachmentId),
+    index('document_chunks_conversation_id_idx').on(table.conversationId),
   ],
 )
