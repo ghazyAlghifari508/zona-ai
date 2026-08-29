@@ -1,11 +1,11 @@
-/**
+﻿/**
  * @vitest-environment node
  *
- * Performance — internal TTFT < 150ms measured with real Date.now()
- * against a mocked 9Router stream with no network delay (spec §6).
+ * Performance â€” internal TTFT < 150ms measured with real Date.now()
+ * against a mocked 9Router stream with no network delay (spec Â§6).
  */
 
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db/index'
 import {
@@ -26,7 +26,7 @@ vi.mock('ai', async () => {
         | ((o: unknown) => Promise<void>)
         | undefined
       const onChunk = opts.onChunk as (() => void) | undefined
-      // Immediate first chunk — no network delay
+      // Immediate first chunk â€” no network delay
       if (onChunk) onChunk()
       if (onFinish) {
         void onFinish({
@@ -60,42 +60,44 @@ vi.mock('../../src/lib/auth/session', () => ({
   })),
 }))
 
-describe('performance — internal TTFT < 150ms (NFR-001)', () => {
+describe('performance â€” internal TTFT < 150ms (NFR-001)', () => {
   beforeEach(async () => {
-    await db.delete(generationRuns).where(eq(generationRuns.modelId, 'auto'))
     const convs = await db
       .select()
       .from(conversations)
       .where(eq(conversations.userId, perfUserId))
     for (const c of convs) {
       await db.delete(messages).where(eq(messages.conversationId, c.id))
+      await db
+        .delete(generationRuns)
+        .where(eq(generationRuns.conversationId, c.id))
       await db.delete(conversations).where(eq(conversations.id, c.id))
     }
     await db.delete(users).where(eq(users.id, perfUserId))
-    await db
-      .insert(users)
-      .values({
-        id: perfUserId,
-        email: 'perf@example.com',
-        name: 'Perf',
-        credits: 100,
-      })
+    await db.insert(users).values({
+      id: perfUserId,
+      email: 'perf@example.com',
+      name: 'Perf',
+      credits: 100,
+    })
   })
 
   afterAll(async () => {
-    await db.delete(generationRuns).where(eq(generationRuns.modelId, 'auto'))
     const convs = await db
       .select()
       .from(conversations)
       .where(eq(conversations.userId, perfUserId))
     for (const c of convs) {
       await db.delete(messages).where(eq(messages.conversationId, c.id))
+      await db
+        .delete(generationRuns)
+        .where(eq(generationRuns.conversationId, c.id))
       await db.delete(conversations).where(eq(conversations.id, c.id))
     }
     await db.delete(users).where(eq(users.id, perfUserId))
   })
 
-  it('firstTokenAt is measured synchronously in onChunk — TTFT < 150ms', async () => {
+  it('firstTokenAt is measured synchronously in onChunk â€” TTFT < 150ms', async () => {
     const { sendMessageCore } = await import('../../src/server/functions/chat')
     const startedAtMs = Date.now()
     const response = (await sendMessageCore({
@@ -106,12 +108,21 @@ describe('performance — internal TTFT < 150ms (NFR-001)', () => {
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 150))
 
-    const [gen] = await db
+    const perfConvs = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.userId, perfUserId))
+    const gen = await db
       .select()
       .from(generationRuns)
-      .where(eq(generationRuns.modelId, 'auto'))
+      .where(
+        inArray(
+          generationRuns.conversationId,
+          perfConvs.map((c) => c.id),
+        ),
+      )
       .orderBy(generationRuns.startedAt)
-      .then((rows) => rows.slice(-1))
+      .then((rows) => rows[rows.length - 1] as (typeof rows)[number])
 
     expect(gen).toBeDefined()
     expect(gen.status).toBe('completed')
@@ -131,12 +142,21 @@ describe('performance — internal TTFT < 150ms (NFR-001)', () => {
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 150))
 
-    const [gen] = await db
+    const perfConvs = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.userId, perfUserId))
+    const gen = await db
       .select()
       .from(generationRuns)
-      .where(eq(generationRuns.modelId, 'auto'))
+      .where(
+        inArray(
+          generationRuns.conversationId,
+          perfConvs.map((c) => c.id),
+        ),
+      )
       .orderBy(generationRuns.startedAt)
-      .then((rows) => rows.slice(-1))
+      .then((rows) => rows[rows.length - 1] as (typeof rows)[number])
 
     expect(gen.latencyMs).not.toBeNull()
     expect(gen.latencyMs).toBeGreaterThanOrEqual(gen.timeToFirstTokenMs ?? 0)
