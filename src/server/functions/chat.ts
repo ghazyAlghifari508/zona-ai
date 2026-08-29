@@ -17,10 +17,12 @@ import {
   attachments,
   comparisonRuns,
   conversations,
+  documentChunks,
   generationRuns,
   messages,
   usageRecords,
 } from '../../lib/db/schema'
+import { retrieveContext } from '../../lib/rag/retrieve'
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
 import { generateTitle } from '../../lib/utils/title'
@@ -216,6 +218,25 @@ export async function sendMessageCore({
     .where(eq(messages.conversationId, convId))
     .orderBy(asc(messages.createdAt))
 
+  let ragContext: string[] = []
+  try {
+    const hasChunks = (
+      await db.select().from(documentChunks).where(eq(documentChunks.conversationId, convId)).limit(1)
+    ).length > 0
+    if (hasChunks || input.attachmentIds?.length) {
+      ragContext = await retrieveContext({ conversationId: convId, query: input.content })
+    }
+  } catch (e) {
+    console.error("retrieve failed", e)
+  }
+  let ragSuffix = ""
+  if (ragContext.length) {
+    const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join("\n\n")
+    const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
+    ragSuffix = `\n\nContext from documents:\n${truncated}`
+  }
+  const systemPrompt = buildSystemPrompt({ skillId: input.skillId }) + ragSuffix
+
   const abortController = new AbortController()
   controllers.set(genId, abortController)
 
@@ -240,7 +261,7 @@ export async function sendMessageCore({
   try {
     const result = streamText({
       model: nineRouter(routerModelId),
-      system: buildSystemPrompt({ skillId: input.skillId }),
+      system: systemPrompt,
       messages: aiMessages as never,
       abortSignal: abortController.signal,
       onChunk: () => {
@@ -573,6 +594,25 @@ export async function sendCompareMessageCore({
     .where(eq(messages.conversationId, convId))
     .orderBy(asc(messages.createdAt))
 
+  let ragContext: string[] = []
+  try {
+    const hasChunks = (
+      await db.select().from(documentChunks).where(eq(documentChunks.conversationId, convId)).limit(1)
+    ).length > 0
+    if (hasChunks || data.attachmentIds?.length) {
+      ragContext = await retrieveContext({ conversationId: convId, query: data.content })
+    }
+  } catch (e) {
+    console.error("retrieve failed", e)
+  }
+  let ragSuffix = ""
+  if (ragContext.length) {
+    const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join("\n\n")
+    const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
+    ragSuffix = `\n\nContext from documents:\n${truncated}`
+  }
+  const systemPrompt = buildSystemPrompt({ skillId: data.skillId }) + ragSuffix
+
   const aiMessages: Array<{ role: string; content: unknown }> = history.map(
     (m) => ({
       role: m.role as 'user' | 'assistant' | 'system',
@@ -615,7 +655,7 @@ export async function sendCompareMessageCore({
         try {
           const result = streamText({
             model: nineRouter(routerId),
-            system: buildSystemPrompt({ skillId: data.skillId }),
+            system: systemPrompt,
             messages: aiMessages as never,
             abortSignal: abortController.signal,
             onChunk: () => {
