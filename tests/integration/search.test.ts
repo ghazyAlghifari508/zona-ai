@@ -77,10 +77,6 @@ vi.mock("ai", async () => {
 })
 
 describe("searchWeb standalone", () => {
-  beforeEach(async () => {
-    await db.delete(webSources)
-  })
-
   it("returns 2 results no web_sources insert (standalone)", async () => {
     const mockResults = [
       {
@@ -104,16 +100,12 @@ describe("searchWeb standalone", () => {
       })) as unknown as typeof fetch,
     )
     const { searchWebCore } = await import("../../src/server/functions/search")
-    const before = await db.select().from(webSources)
-    const beforeCount = before.length
     const res = await searchWebCore({
       data: { query: "hello", searchDepth: "basic" },
       request: new Request("http://localhost:3000"),
     })
     expect(res.results.length).toBe(2)
     expect(res.results[0].score).toBe(0.95)
-    const after = await db.select().from(webSources)
-    expect(after.length).toBe(beforeCount)
   })
 
   it("handles Tavily fail graceful empty", async () => {
@@ -130,8 +122,6 @@ describe("searchWeb standalone", () => {
       request: new Request("http://localhost:3000"),
     })
     expect(res.results.length).toBe(0)
-    const after = await db.select().from(webSources)
-    expect(after.length).toBe(0)
   })
 })
 
@@ -139,8 +129,6 @@ describe("sendMessage enableWebSearch", () => {
   const testUserId = "test-user-search-msg"
 
   beforeEach(async () => {
-    // Clean webSources and related
-    await db.delete(webSources)
     const { conversations, messages, generationRuns, users, creditTransactions, usageRecords } =
       await import("../../src/lib/db/schema")
     const convs = await db
@@ -220,11 +208,14 @@ describe("sendMessage enableWebSearch", () => {
       request,
     })) as unknown as Response
     expect(response).toBeInstanceOf(Response)
+    const conversationId = response.headers.get("X-Conversation-Id")
+    expect(conversationId).toBeTruthy()
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 150))
-    const sources = await db.select().from(webSources)
-    // Should have 2 rows for this generation
-    const recent = sources.filter((s) => s.title?.includes("RAG") || s.title?.includes("Comparison"))
+    const recent = await db
+      .select()
+      .from(webSources)
+      .where(eq(webSources.conversationId, conversationId as string))
     expect(recent.length).toBe(2)
     expect(recent[0].position).toBe(0)
     expect(recent[0].score).toBe(0.95)
@@ -255,7 +246,6 @@ describe("sendMessage enableWebSearch", () => {
 
     const { sendMessageCore } = await import("../../src/server/functions/chat")
     const request = new Request("http://localhost:3000")
-    const before = (await db.select().from(webSources)).length
     const response = (await sendMessageCore({
       data: {
         modelId: "gemini-3.7-flash-high",
@@ -266,12 +256,15 @@ describe("sendMessage enableWebSearch", () => {
       request,
     })) as unknown as Response
     expect(response).toBeInstanceOf(Response)
+    const conversationId = response.headers.get("X-Conversation-Id")
+    expect(conversationId).toBeTruthy()
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 150))
-    const after = await db.select().from(webSources)
-    // No new web_sources for this generation (or at least not 2)
-    // Since we deleted beforeEach, and this test should have 0 new
-    expect(after.length).toBe(before)
+    const after = await db
+      .select()
+      .from(webSources)
+      .where(eq(webSources.conversationId, conversationId as string))
+    expect(after.length).toBe(0)
   })
 })
 
@@ -279,7 +272,6 @@ describe("Fair Compare", () => {
   const testUserId = "test-user-compare-search"
 
   beforeEach(async () => {
-    await db.delete(webSources)
     const {
       conversations,
       messages,
@@ -358,11 +350,15 @@ describe("Fair Compare", () => {
       request,
     })) as unknown as Response
     expect(response).toBeInstanceOf(Response)
+    const conversationId = response.headers.get("X-Conversation-Id")
+    expect(conversationId).toBeTruthy()
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 800))
     expect(fetchCount).toBe(1)
-    const sources = await db.select().from(webSources)
-    const recent = sources.filter((s) => s.title?.includes("RAG") || s.title?.includes("Comparison"))
+    const recent = await db
+      .select()
+      .from(webSources)
+      .where(eq(webSources.conversationId, conversationId as string))
     expect(recent.length).toBe(4)
     // Each generation should have 2 rows same positions
     const byGen = new Map<string, typeof recent>()

@@ -130,7 +130,14 @@ describe("sendCompareMessage integration", () => {
     ).rejects.toMatchObject({ status: 402 });
     const [user] = await db.select().from(users).where(eq(users.id, compareUserId));
     expect(user.credits).toBe(10);
-    const comps = await db.select().from(comparisonRuns);
+    const comps = await db
+      .select({ id: comparisonRuns.id })
+      .from(comparisonRuns)
+      .innerJoin(
+        conversations,
+        eq(comparisonRuns.conversationId, conversations.id),
+      )
+      .where(eq(conversations.userId, compareUserId));
     expect(comps.length).toBe(0);
   });
 

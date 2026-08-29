@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import "@testing-library/jest-dom/vitest"
+import { createElement } from "react"
 import { describe, it, expect, afterEach } from "vitest"
 import { render, screen, fireEvent, cleanup } from "@testing-library/react"
 import { CitationDrawer, type CitationSource } from "../../src/components/chat/CitationDrawer"
@@ -27,7 +28,7 @@ describe("CitationDrawer", () => {
   afterEach(() => cleanup())
 
   it("renders 2 sources with chips and drawer", () => {
-    render(<CitationDrawer sources={mockSources} />)
+    render(createElement(CitationDrawer, { sources: mockSources }))
     expect(screen.getByTestId("citation-chip-0").textContent).toContain("[1]")
     expect(screen.getByTestId("citation-chip-1").textContent).toContain("[2]")
     expect(screen.getByText("Sources (2)")).toBeInTheDocument()
@@ -36,7 +37,7 @@ describe("CitationDrawer", () => {
   })
 
   it("collapses and expands drawer", () => {
-    render(<CitationDrawer sources={mockSources} />)
+    render(createElement(CitationDrawer, { sources: mockSources }))
     const toggle = screen.getByTestId("citation-toggle")
     const drawer = screen.getByTestId("citation-drawer")
     expect(drawer).toBeInTheDocument()
@@ -47,12 +48,12 @@ describe("CitationDrawer", () => {
   })
 
   it("renders nothing when no sources", () => {
-    const { container } = render(<CitationDrawer sources={[]} />)
+    const { container } = render(createElement(CitationDrawer, { sources: [] }))
     expect(container.innerHTML).toBe("")
   })
 
   it("chips are clickable links", () => {
-    render(<CitationDrawer sources={mockSources} />)
+    render(createElement(CitationDrawer, { sources: mockSources }))
     const chip = screen.getByTestId("citation-chip-0")
     expect(chip.getAttribute("href")).toBe("https://example.com/article-1")
     expect(chip.getAttribute("target")).toBe("_blank")

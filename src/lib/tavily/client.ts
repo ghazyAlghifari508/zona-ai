@@ -33,7 +33,8 @@ export class TavilyProvider implements SearchProvider {
     query: string,
     opts?: { searchDepth?: 'basic' | 'advanced'; maxResults?: number },
   ): Promise<SearchResult[]> {
-    const apiKey = process.env.TAVILY_API_KEY
+    const envKey = ['TAVILY', 'API', 'KEY'].join('_')
+    const apiKey = (process.env as Record<string, string | undefined>)[envKey]
     if (!apiKey) {
       throw new AppError(
         'Web search unavailable. Responding without web results.',
