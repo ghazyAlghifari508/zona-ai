@@ -37,6 +37,7 @@ export async function getMessagesCore({
       .select({
         id: generationRuns.id,
         messageId: generationRuns.messageId,
+        comparisonRunId: generationRuns.comparisonRunId,
         modelId: generationRuns.modelId,
         routerModelId: generationRuns.routerModelId,
         skillId: generationRuns.skillId,
