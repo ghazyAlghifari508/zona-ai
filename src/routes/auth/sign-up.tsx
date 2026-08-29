@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+﻿import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { PublicShell } from '@/components/layout/PublicShell'
@@ -39,7 +39,7 @@ function SignUp() {
           <h1 className="text-center font-medium text-[30px] text-ink-black">
             Daftar ke Zona.ai
           </h1>
-          <p className="mt-2 text-center text-[15px] text-stone-gray">
+          <p className="mt-2 text-center text-[15px] text-stone-deep">
             Satu klik untuk mulai membandingkan model AI.
           </p>
           <button

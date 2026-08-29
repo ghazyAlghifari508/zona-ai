@@ -17,8 +17,12 @@ test('drag overlay appears on dragenter', async ({ page }) => {
       <div data-testid="drag-overlay" class="absolute inset-0 bg-sandstone rounded-full flex items-center justify-center text-[15px] border-2 border-dashed border-ink-black">Drop files here</div>
     </div>
   `)
-  await expect(page.getByTestId('drag-overlay')).toContainText('Drop files here')
-  const cls = await page.getByTestId('drag-overlay').evaluate((el) => (el as HTMLElement).className)
+  await expect(page.getByTestId('drag-overlay')).toContainText(
+    'Drop files here',
+  )
+  const cls = await page
+    .getByTestId('drag-overlay')
+    .evaluate((el) => (el as HTMLElement).className)
   expect(cls).toContain('bg-sandstone')
   expect(cls).toContain('rounded-full')
 })
@@ -48,7 +52,9 @@ test('doc preview badge FileText', async ({ page }) => {
       <div class="bg-sandstone rounded-[10px]"><svg data-testid="file-icon"></svg><span>sample.pdf</span><span class="rounded-full bg-pure-white">pdf</span><button data-testid="attachment-remove">x</button></div>
     </div>
   `)
-  await expect(page.getByTestId('attachment-preview')).toContainText('sample.pdf')
+  await expect(page.getByTestId('attachment-preview')).toContainText(
+    'sample.pdf',
+  )
   await expect(page.getByTestId('file-icon')).toBeVisible()
 })
 

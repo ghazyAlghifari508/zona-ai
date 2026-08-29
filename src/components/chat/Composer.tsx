@@ -344,7 +344,7 @@ export function Composer({
   const isPremium = modelId === 'gpt-5.6-sol'
 
   return (
-    <div className="fixed bottom-0 left-[280px] right-0 bg-cream-paper p-4">
+    <div className="fixed bottom-0 left-0 right-0 z-30 bg-cream-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]">
       <div className="mx-auto max-w-[800px] space-y-2">
         {mode === 'compare' && (
           <div className="flex items-center justify-between rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-2 text-sm">

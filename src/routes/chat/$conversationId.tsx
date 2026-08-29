@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+﻿import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { CompareGrid } from '@/components/chat/CompareGrid'
 import { CompareToggles } from '@/components/chat/CompareToggles'
@@ -46,7 +46,7 @@ function ConversationError() {
           <h1 className="text-[30px] font-medium text-ink-black">
             Percakapan tidak ditemukan
           </h1>
-          <p className="mt-2 text-[15px] text-stone-gray">
+          <p className="mt-2 text-[15px] text-stone-deep">
             Percakapan ini tidak tersedia atau tidak dapat diakses.
           </p>
           <Link
@@ -676,7 +676,7 @@ function ChatThread() {
           </h1>
           <div className="flex items-center gap-2">
             <CompareToggles mode={mode} onChange={setMode} />
-            <span className="rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-[13px] text-stone-gray">
+            <span className="rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-[13px] text-stone-deep">
               {conversation.mode}
             </span>
           </div>
@@ -705,7 +705,7 @@ function ChatThread() {
                   <h2 className="text-[20px] font-medium text-ink-black">
                     Compare Mode
                   </h2>
-                  <p className="mt-1 text-[15px] text-stone-gray">
+                  <p className="mt-1 text-[15px] text-stone-deep">
                     Pilih 2-4 model dan kirim prompt yang sama.
                   </p>
                 </div>

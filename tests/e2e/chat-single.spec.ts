@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 /**
  * Fase 03 E2E - UI rendering & streaming display
@@ -8,7 +8,9 @@ import { test, expect } from '@playwright/test'
 
 test('home page has cream background', async ({ page }) => {
   await page.goto('/')
-  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor)
+  const bg = await page.evaluate(
+    () => getComputedStyle(document.body).backgroundColor,
+  )
   // cream #f5f1e4 = rgb(245, 241, 228)
   expect(bg).toContain('245')
 })
@@ -30,7 +32,10 @@ test('no shadow-xl classes in rendered HTML', async ({ page }) => {
     const all = document.querySelectorAll('*')
     for (const el of Array.from(all)) {
       const cls = el.className
-      if (typeof cls === 'string' && cls.split(' ').some((c) => c.match(/shadow-(lg|xl|2xl)/))) {
+      if (
+        typeof cls === 'string' &&
+        cls.split(' ').some((c) => c.match(/shadow-(lg|xl|2xl)/))
+      ) {
         return el.outerHTML.slice(0, 200)
       }
     }

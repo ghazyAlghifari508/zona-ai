@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+﻿import { createFileRoute, redirect } from '@tanstack/react-router'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { getCurrentSession } from '@/server/functions/session'
 
@@ -29,7 +29,7 @@ function ChatPlaceholder() {
           <h2 className="font-medium text-[30px] text-ink-black">
             Tanyakan apa saja ke Zona.ai
           </h2>
-          <p className="mt-2 text-[15px] text-stone-gray">
+          <p className="mt-2 text-[15px] text-stone-deep">
             Pilih model, tulis pertanyaan, atau buka percakapan sebelumnya.
           </p>
         </div>

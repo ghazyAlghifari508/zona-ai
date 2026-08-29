@@ -50,7 +50,9 @@ test('compare columns use identical fair sources', async ({ page }) => {
   )
 })
 
-test('Tavily failure shows graceful toast without citations', async ({ page }) => {
+test('Tavily failure shows graceful toast without citations', async ({
+  page,
+}) => {
   await page.setContent(`
     <div data-testid="web-search-toast">Web search unavailable. Responding without web results.</div>
     <div>Hello mocked response</div>
