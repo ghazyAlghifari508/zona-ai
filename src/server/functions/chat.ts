@@ -22,7 +22,6 @@ import {
   usageRecords,
 } from '../../lib/db/schema'
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
-import { getObject } from '../../lib/r2/client'
 import { resolveAutoModel } from '../../lib/models/router'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
@@ -131,7 +130,7 @@ export async function sendMessageCore({
     .values({ conversationId: convId, role: 'assistant', content: '' })
     .returning()
 
-  let fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
+  const fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
   if (input.attachmentIds?.length) {
     const atts = await db
       .select()
@@ -165,6 +164,7 @@ export async function sendMessageCore({
       ;(e as unknown as Record<string, unknown>).code = 'ERR-003'
       throw e
     }
+    const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
       const { body } = await getObject(a.r2Key)
       fileParts.push({
@@ -219,7 +219,7 @@ export async function sendMessageCore({
   const abortController = new AbortController()
   controllers.set(genId, abortController)
 
-  let aiMessages: Array<{ role: string; content: unknown }> = history.map(
+  const aiMessages: Array<{ role: string; content: unknown }> = history.map(
     (m) => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
@@ -448,7 +448,7 @@ export async function sendCompareMessageCore({
     })
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
 
-  let fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
+  const fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
   if (data.attachmentIds?.length) {
     const atts = await db
       .select()
@@ -486,6 +486,7 @@ export async function sendCompareMessageCore({
         }
       }
     }
+    const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
       const { body } = await getObject(a.r2Key)
       fileParts.push({
@@ -572,7 +573,7 @@ export async function sendCompareMessageCore({
     .where(eq(messages.conversationId, convId))
     .orderBy(asc(messages.createdAt))
 
-  let aiMessages: Array<{ role: string; content: unknown }> = history.map(
+  const aiMessages: Array<{ role: string; content: unknown }> = history.map(
     (m) => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,

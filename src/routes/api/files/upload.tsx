@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { uploadFileCore } from '@/server/functions/files'
 
-export const Route = createFileRoute('/api/files/upload' as never)({
+export const Route = createFileRoute('/api/files/upload')({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
