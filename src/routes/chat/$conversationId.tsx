@@ -94,6 +94,7 @@ function ChatThread() {
   })
   const [isStreaming, setIsStreaming] = useState(false)
   const [generationId, setGenerationId] = useState<string | null>(null)
+  const [webSearchToast, setWebSearchToast] = useState(false)
   const credits = 85
 
   const [mode, setMode] = useState<'normal' | 'compare'>(
@@ -183,6 +184,11 @@ function ChatThread() {
       const genId = response.headers.get('X-Generation-Id')
       const routerModelId = response.headers.get('X-Router-Model-Id')
       const routingReason = response.headers.get('X-Routing-Reason')
+      const webSearchStatus = response.headers.get('X-Web-Search-Status')
+      if (webSearchStatus === 'unavailable') {
+        setWebSearchToast(true)
+        setTimeout(() => setWebSearchToast(false), 3000)
+      }
       if (genId) setGenerationId(genId)
       if (routerModelId && modelId === 'auto') {
         setMessages((prev) =>
@@ -258,6 +264,10 @@ function ChatThread() {
             : m,
         ),
       )
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
       if (err.status === 402 || err.code === 'ERR-019') {
@@ -317,6 +327,10 @@ function ChatThread() {
           enableWebSearch: enableWebSearch ?? false,
         },
       })) as Response
+      if (response.headers.get('X-Web-Search-Status') === 'unavailable') {
+        setWebSearchToast(true)
+        setTimeout(() => setWebSearchToast(false), 3000)
+      }
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
@@ -458,6 +472,20 @@ function ChatThread() {
         prev.map((g) =>
           g.status === 'streaming' ? { ...g, status: 'completed' } : g,
         ),
+      )
+      const persisted = await getMessages({ data: { conversationId } })
+      const persistedGenerations = (
+        persisted as Array<{ generationRuns: CompareGeneration[] }>
+      ).flatMap((message) => message.generationRuns ?? [])
+      setCompareGenerations((prev) =>
+        prev.map((generation) => {
+          const saved = persistedGenerations.find(
+            (candidate) => candidate.id === generation.id,
+          )
+          return saved
+            ? { ...generation, webSources: saved.webSources }
+            : generation
+        }),
       )
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
@@ -633,6 +661,15 @@ function ChatThread() {
       }}
     >
       <div className="flex h-[calc(100vh-2rem)] flex-col">
+        {webSearchToast && (
+          <div
+            role="status"
+            data-testid="web-search-toast"
+            className="fixed right-6 top-6 z-50 rounded-[10px] border border-hairline-mist bg-pure-white px-4 py-3 text-[13px] text-ink-black"
+          >
+            Web search unavailable. Responding without web results.
+          </div>
+        )}
         <header className="mb-4 flex items-center justify-between border-b border-hairline-mist px-1 pb-3">
           <h1 className="truncate text-[20px] font-medium text-ink-black">
             {conversation.title ?? 'New Chat'}

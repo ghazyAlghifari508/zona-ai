@@ -241,6 +241,7 @@ export async function sendMessageCore({
     content: string
     score: number
   }> = []
+  let webSearchFailed = false
   if (input.enableWebSearch) {
     try {
       webResults = await searchProvider.search(input.content, {
@@ -250,6 +251,7 @@ export async function sendMessageCore({
     } catch (e) {
       console.error('Tavily ERR-015', e)
       webResults = []
+      webSearchFailed = true
     }
     if (webResults.length) {
       for (let i = 0; i < webResults.length; i++) {
@@ -382,10 +384,14 @@ export async function sendMessageCore({
           'X-Conversation-Id': convId,
           'X-Router-Model-Id': routerModelId,
           ...(routingReason ? { 'X-Routing-Reason': routingReason } : {}),
+          ...(webSearchFailed ? { 'X-Web-Search-Status': 'unavailable' } : {}),
         },
       })
     } else if (typeof anyResult.toTextStreamResponse === 'function') {
       response = (anyResult.toTextStreamResponse as () => Response).call(result)
+      if (webSearchFailed) {
+        response.headers.set('X-Web-Search-Status', 'unavailable')
+      }
     } else {
       response = createTextStreamResponse({
         stream: toTextStream({
@@ -394,6 +400,7 @@ export async function sendMessageCore({
         headers: {
           'X-Generation-Id': genId,
           'X-Conversation-Id': convId,
+          ...(webSearchFailed ? { 'X-Web-Search-Status': 'unavailable' } : {}),
         },
       })
     }
@@ -654,6 +661,7 @@ export async function sendCompareMessageCore({
     content: string
     score: number
   }> = []
+  let webSearchFailedCompare = false
   if (data.enableWebSearch) {
     try {
       webResultsCompare = await searchProvider.search(data.content, {
@@ -662,6 +670,7 @@ export async function sendCompareMessageCore({
     } catch (e) {
       console.error('Tavily ERR-015', e)
       webResultsCompare = []
+      webSearchFailedCompare = true
     }
     if (webResultsCompare.length) {
       for (const genId of genIds) {
@@ -972,6 +981,9 @@ export async function sendCompareMessageCore({
       Connection: 'keep-alive',
       'X-Comparison-Id': compRun.id,
       'X-Conversation-Id': convId,
+      ...(webSearchFailedCompare
+        ? { 'X-Web-Search-Status': 'unavailable' }
+        : {}),
     },
   })
 }
