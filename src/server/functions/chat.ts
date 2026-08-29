@@ -303,7 +303,9 @@ export async function sendCompareMessageCore({
   request: Request
 }): Promise<Response> {
   const data = compareSchema.parse(rawData) as z.infer<typeof compareSchema>
-  const session = (await getAuthSession(request)) as unknown as { user: { id: string } }
+  const session = (await getAuthSession(request)) as unknown as {
+    user: { id: string }
+  }
   const userId = session.user.id
 
   // Validate enabled and collect costs/routerIds
@@ -315,7 +317,10 @@ export async function sendCompareMessageCore({
       costs.push(entry.creditCost as number)
       routerModelIds.push(entry.routerModelId)
     } catch {
-      const e = new Error(`ERR-003: model ${mid} not available`) as Error & { status: number; code: string }
+      const e = new Error(`ERR-003: model ${mid} not available`) as Error & {
+        status: number
+        code: string
+      }
       e.status = 400
       e.code = 'ERR-003'
       throw e
@@ -323,11 +328,15 @@ export async function sendCompareMessageCore({
   }
   const total = costs.reduce((a, b) => a + b, 0)
 
-  const creditRes = await db.execute(sql`SELECT credits FROM users WHERE id=${userId}`)
+  const creditRes = await db.execute(
+    sql`SELECT credits FROM users WHERE id=${userId}`,
+  )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
   if (currentCredits < total) {
-    const e = new Error(`Kredit tidak mencukupi. Butuh ${total} (Sisa ${currentCredits})`) as Error & { status: number; code: string }
+    const e = new Error(
+      `Kredit tidak mencukupi. Butuh ${total} (Sisa ${currentCredits})`,
+    ) as Error & { status: number; code: string }
     e.status = 402
     e.code = 'ERR-019'
     throw e
@@ -336,14 +345,20 @@ export async function sendCompareMessageCore({
   let convId = data.conversationId
   let conversationTitle: string | null | undefined
   if (convId) {
-    const [conv] = await db.select().from(conversations).where(eq(conversations.id, convId))
+    const [conv] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, convId))
     if (!conv || conv.userId !== userId) {
       const e = new Error('Forbidden') as Error & { status: number }
       e.status = 403
       throw e
     }
     conversationTitle = conv.title
-    await db.update(conversations).set({ mode: 'compare', updatedAt: new Date() }).where(eq(conversations.id, convId))
+    await db
+      .update(conversations)
+      .set({ mode: 'compare', updatedAt: new Date() })
+      .where(eq(conversations.id, convId))
   } else {
     const [conv] = await db
       .insert(conversations)
@@ -360,7 +375,10 @@ export async function sendCompareMessageCore({
   await db
     .update(conversations)
     .set({
-      title: conversationTitle === null || conversationTitle === 'New Chat' ? generateTitle(data.content) : undefined,
+      title:
+        conversationTitle === null || conversationTitle === 'New Chat'
+          ? generateTitle(data.content)
+          : undefined,
       updatedAt: new Date(),
     })
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
@@ -369,9 +387,12 @@ export async function sendCompareMessageCore({
 
   // Create assistant messages and generation runs before deduct? deduct must be before 9Router but after creation of gen ids
   // We create messages and generation runs first so that creditTransactions FK is valid
-  const assistantMessages: typeof messages.$inferSelect[] = []
+  const assistantMessages: (typeof messages.$inferSelect)[] = []
   for (let i = 0; i < data.modelIds.length; i++) {
-    const [am] = await db.insert(messages).values({ conversationId: convId, role: 'assistant', content: '' }).returning()
+    const [am] = await db
+      .insert(messages)
+      .values({ conversationId: convId, role: 'assistant', content: '' })
+      .returning()
     assistantMessages.push(am)
   }
   // Insert generation runs
@@ -391,7 +412,12 @@ export async function sendCompareMessageCore({
   }
 
   try {
-    await deductCompareCredits({ userId, generationRunIds: genIds, modelIds: data.modelIds, costs })
+    await deductCompareCredits({
+      userId,
+      generationRunIds: genIds,
+      modelIds: data.modelIds,
+      costs,
+    })
   } catch (e) {
     // cleanup generation runs on deduct failure
     for (const gid of genIds) {
@@ -405,17 +431,32 @@ export async function sendCompareMessageCore({
 
   const [compRun] = await db
     .insert(comparisonRuns)
-    .values({ conversationId: convId, userMessageId: userMsg.id, modelIds: data.modelIds, status: 'running' })
+    .values({
+      conversationId: convId,
+      userMessageId: userMsg.id,
+      modelIds: data.modelIds,
+      status: 'running',
+    })
     .returning()
 
   // update generationRuns with comparisonRunId
   for (const gid of genIds) {
-    await db.update(generationRuns).set({ comparisonRunId: compRun.id }).where(eq(generationRuns.id, gid))
+    await db
+      .update(generationRuns)
+      .set({ comparisonRunId: compRun.id })
+      .where(eq(generationRuns.id, gid))
   }
 
-  const history = await db.select().from(messages).where(eq(messages.conversationId, convId)).orderBy(asc(messages.createdAt))
+  const history = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, convId))
+    .orderBy(asc(messages.createdAt))
 
-  const aiMessages = history.map((m) => ({ role: m.role as 'user' | 'assistant' | 'system', content: m.content }))
+  const aiMessages = history.map((m) => ({
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+  }))
 
   const streams: ReadableStream<StreamEvent>[] = []
   const startTimes = new Map<string, number>()
@@ -432,7 +473,12 @@ export async function sendCompareMessageCore({
 
     const stream = new ReadableStream<StreamEvent>({
       async start(controller) {
-        controller.enqueue({ generationId: genId, modelId, type: 'generation-start', timestamp: Date.now() } as StreamEvent)
+        controller.enqueue({
+          generationId: genId,
+          modelId,
+          type: 'generation-start',
+          timestamp: Date.now(),
+        } as StreamEvent)
         try {
           const result = streamText({
             model: nineRouter(routerId),
@@ -440,20 +486,31 @@ export async function sendCompareMessageCore({
             messages: aiMessages as never,
             abortSignal: abortController.signal,
             onChunk: () => {
-              if (!firstTokenAts.has(genId)) firstTokenAts.set(genId, Date.now())
+              if (!firstTokenAts.has(genId))
+                firstTokenAts.set(genId, Date.now())
             },
             onFinish: async ({ text, usage, reasoningText }) => {
-              const latencyMs = Date.now() - (startTimes.get(genId) ?? Date.now())
-              const ttft = firstTokenAts.has(genId) ? firstTokenAts.get(genId)! - (startTimes.get(genId) ?? 0) : null
+              const latencyMs =
+                Date.now() - (startTimes.get(genId) ?? Date.now())
+              const ttft = firstTokenAts.has(genId)
+                ? (firstTokenAts.get(genId) ?? 0) - (startTimes.get(genId) ?? 0)
+                : null
               try {
-                const u = usage as unknown as { inputTokens?: number; outputTokens?: number; totalTokens?: number; promptTokens?: number; completionTokens?: number }
+                const u = usage as unknown as {
+                  inputTokens?: number
+                  outputTokens?: number
+                  totalTokens?: number
+                  promptTokens?: number
+                  completionTokens?: number
+                }
                 await db
                   .update(generationRuns)
                   .set({
                     content: text,
                     reasoningContent: (reasoningText as string) ?? null,
                     promptTokens: u?.inputTokens ?? u?.promptTokens ?? null,
-                    completionTokens: u?.outputTokens ?? u?.completionTokens ?? null,
+                    completionTokens:
+                      u?.outputTokens ?? u?.completionTokens ?? null,
                     totalTokens: u?.totalTokens ?? null,
                     latencyMs,
                     timeToFirstTokenMs: ttft,
@@ -461,7 +518,10 @@ export async function sendCompareMessageCore({
                     completedAt: new Date(),
                   })
                   .where(eq(generationRuns.id, genId))
-                await db.update(messages).set({ content: text }).where(eq(messages.id, assistantMsg.id))
+                await db
+                  .update(messages)
+                  .set({ content: text })
+                  .where(eq(messages.id, assistantMsg.id))
                 if (usage) {
                   await db.insert(usageRecords).values({
                     userId,
@@ -482,9 +542,20 @@ export async function sendCompareMessageCore({
               try {
                 await db
                   .update(generationRuns)
-                  .set({ status: 'failed', error: { message: (error as Error).message } as unknown as never, completedAt: new Date() })
+                  .set({
+                    status: 'failed',
+                    error: {
+                      message: (error as Error).message,
+                    } as unknown as never,
+                    completedAt: new Date(),
+                  })
                   .where(eq(generationRuns.id, genId))
-                await refundCredits({ userId, generationRunId: genId, modelId, amount: costs[i] })
+                await refundCredits({
+                  userId,
+                  generationRunId: genId,
+                  modelId,
+                  amount: costs[i],
+                })
               } catch {}
               controllers.delete(genId)
             },
@@ -492,11 +563,19 @@ export async function sendCompareMessageCore({
 
           // Consume stream to trigger onChunk/onFinish; we still produce text-delta events for multiplex
           const anyResult = result as unknown as Record<string, unknown>
-          let effectiveStream: ReadableStream<string | Record<string, unknown>> | null = null
+          let effectiveStream: ReadableStream<
+            string | Record<string, unknown>
+          > | null = null
           if (typeof anyResult.textStream !== 'undefined') {
-            effectiveStream = anyResult.textStream as ReadableStream<string | Record<string, unknown>>
-          } else if ((result as unknown as { stream: ReadableStream<string> }).stream) {
-            effectiveStream = (result as unknown as { stream: ReadableStream<string> }).stream as ReadableStream<string | Record<string, unknown>>
+            effectiveStream = anyResult.textStream as ReadableStream<
+              string | Record<string, unknown>
+            >
+          } else if (
+            (result as unknown as { stream: ReadableStream<string> }).stream
+          ) {
+            effectiveStream = (
+              result as unknown as { stream: ReadableStream<string> }
+            ).stream as ReadableStream<string | Record<string, unknown>>
           }
           if (effectiveStream) {
             const effReader = effectiveStream.getReader()
@@ -508,35 +587,73 @@ export async function sendCompareMessageCore({
                 if (typeof value === 'string') deltaText = value
                 else if (value && typeof value === 'object') {
                   const v = value as Record<string, unknown>
-                  if (typeof v.textDelta === 'string') deltaText = v.textDelta as string
-                  else if (typeof v.delta === 'string') deltaText = v.delta as string
-                  else if (typeof v.content === 'string') deltaText = v.content as string
+                  if (typeof v.textDelta === 'string')
+                    deltaText = v.textDelta as string
+                  else if (typeof v.delta === 'string')
+                    deltaText = v.delta as string
+                  else if (typeof v.content === 'string')
+                    deltaText = v.content as string
                 }
                 if (deltaText !== null) {
-                  controller.enqueue({ generationId: genId, modelId, type: 'text-delta', text: deltaText } as StreamEvent)
+                  controller.enqueue({
+                    generationId: genId,
+                    modelId,
+                    type: 'text-delta',
+                    text: deltaText,
+                  } as StreamEvent)
                 }
               }
             } finally {
-              try { effReader.releaseLock() } catch {}
+              try {
+                effReader.releaseLock()
+              } catch {}
             }
           }
 
-          controller.enqueue({ generationId: genId, modelId, type: 'generation-finish', finishReason: 'stop' } as StreamEvent)
+          controller.enqueue({
+            generationId: genId,
+            modelId,
+            type: 'generation-finish',
+            finishReason: 'stop',
+          } as StreamEvent)
           controller.close()
         } catch (err) {
           const msg = (err as Error).message
           // If abort, mark cancelled else failed
-          const isAbort = (err as Error).name === 'AbortError' || abortController.signal.aborted
+          const isAbort =
+            (err as Error).name === 'AbortError' ||
+            abortController.signal.aborted
           if (isAbort) {
             try {
-              await db.update(generationRuns).set({ status: 'cancelled', completedAt: new Date() }).where(eq(generationRuns.id, genId))
+              await db
+                .update(generationRuns)
+                .set({ status: 'cancelled', completedAt: new Date() })
+                .where(eq(generationRuns.id, genId))
             } catch {}
           } else {
             try {
-              await db.update(generationRuns).set({ status: 'failed', error: { message: msg } as unknown as never, completedAt: new Date() }).where(eq(generationRuns.id, genId))
-              await refundCredits({ userId, generationRunId: genId, modelId, amount: costs[i] })
+              await db
+                .update(generationRuns)
+                .set({
+                  status: 'failed',
+                  error: { message: msg } as unknown as never,
+                  completedAt: new Date(),
+                })
+                .where(eq(generationRuns.id, genId))
+              await refundCredits({
+                userId,
+                generationRunId: genId,
+                modelId,
+                amount: costs[i],
+              })
             } catch {}
-            controller.enqueue({ generationId: genId, modelId, type: 'generation-error', error: msg, code: 'ERR-001' } as StreamEvent)
+            controller.enqueue({
+              generationId: genId,
+              modelId,
+              type: 'generation-error',
+              error: msg,
+              code: 'ERR-001',
+            } as StreamEvent)
           }
           controller.close()
           controllers.delete(genId)
@@ -561,7 +678,10 @@ export async function sendCompareMessageCore({
     // We'll schedule status update after 1 second to allow mocks to finish (20ms)
     await new Promise((r) => setTimeout(r, 800))
     try {
-      const gens = await db.select().from(generationRuns).where(eq(generationRuns.comparisonRunId, compRun.id))
+      const gens = await db
+        .select()
+        .from(generationRuns)
+        .where(eq(generationRuns.comparisonRunId, compRun.id))
       const statuses = gens.map((g) => g.status)
       const completed = statuses.filter((s) => s === 'completed').length
       const failed = statuses.filter((s) => s === 'failed').length
@@ -569,7 +689,10 @@ export async function sendCompareMessageCore({
       if (completed === gens.length) finalStatus = 'completed'
       else if (failed === gens.length) finalStatus = 'failed'
       else finalStatus = 'partial_failure'
-      await db.update(comparisonRuns).set({ status: finalStatus, completedAt: new Date() }).where(eq(comparisonRuns.id, compRun.id))
+      await db
+        .update(comparisonRuns)
+        .set({ status: finalStatus, completedAt: new Date() })
+        .where(eq(comparisonRuns.id, compRun.id))
     } catch {}
   })()
 
@@ -605,7 +728,10 @@ export const sendCompareMessage = createServerFn({ method: 'POST' })
   .validator((data: unknown) => compareSchema.parse(data))
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    return sendCompareMessageCore({ data: data as z.infer<typeof compareSchema>, request })
+    return sendCompareMessageCore({
+      data: data as z.infer<typeof compareSchema>,
+      request,
+    })
   })
 
 export async function getComparisonRunsCore({
@@ -615,12 +741,25 @@ export async function getComparisonRunsCore({
   conversationId: string
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as { user: { id: string } }
-  const [conv] = await db.select().from(conversations).where(eq(conversations.id, conversationId))
+  const session = (await getAuthSession(request)) as unknown as {
+    user: { id: string }
+  }
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
   if (!conv) throw Object.assign(new Error('Not Found'), { status: 404 })
-  if (conv.userId !== session.user.id) throw Object.assign(new Error('Forbidden'), { status: 403 })
-  const runs = await db.select().from(comparisonRuns).where(eq(comparisonRuns.conversationId, conversationId)).orderBy(comparisonRuns.createdAt)
-  const gens = await db.select().from(generationRuns).where(eq(generationRuns.conversationId, conversationId))
+  if (conv.userId !== session.user.id)
+    throw Object.assign(new Error('Forbidden'), { status: 403 })
+  const runs = await db
+    .select()
+    .from(comparisonRuns)
+    .where(eq(comparisonRuns.conversationId, conversationId))
+    .orderBy(comparisonRuns.createdAt)
+  const gens = await db
+    .select()
+    .from(generationRuns)
+    .where(eq(generationRuns.conversationId, conversationId))
   const gensByComp = new Map<string, typeof gens>()
   for (const g of gens) {
     if (!g.comparisonRunId) continue
@@ -632,10 +771,15 @@ export async function getComparisonRunsCore({
 }
 
 export const getComparisonRuns = createServerFn({ method: 'GET' })
-  .validator((data: unknown) => z.object({ conversationId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) =>
+    z.object({ conversationId: z.string().uuid() }).parse(data),
+  )
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    const res = await getComparisonRunsCore({ conversationId: (data as { conversationId: string }).conversationId, request })
+    const res = await getComparisonRunsCore({
+      conversationId: (data as { conversationId: string }).conversationId,
+      request,
+    })
     return res as unknown as never
   })
 
@@ -646,24 +790,52 @@ export async function retryGenerationCore({
   generationId: string
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as { user: { id: string } }
-  const [gen] = await db.select().from(generationRuns).where(eq(generationRuns.id, generationId))
+  const session = (await getAuthSession(request)) as unknown as {
+    user: { id: string }
+  }
+  const [gen] = await db
+    .select()
+    .from(generationRuns)
+    .where(eq(generationRuns.id, generationId))
   if (!gen) throw Object.assign(new Error('Not Found'), { status: 404 })
-  const [conv] = await db.select().from(conversations).where(eq(conversations.id, gen.conversationId))
-  if (!conv || conv.userId !== session.user.id) throw Object.assign(new Error('Forbidden'), { status: 403 })
-  if (gen.status !== 'failed') throw Object.assign(new Error('Only failed generations can be retried'), { status: 400 })
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, gen.conversationId))
+  if (!conv || conv.userId !== session.user.id)
+    throw Object.assign(new Error('Forbidden'), { status: 403 })
+  if (gen.status !== 'failed')
+    throw Object.assign(new Error('Only failed generations can be retried'), {
+      status: 400,
+    })
   const modelEntry = getModelById(gen.modelId)
   const cost = modelEntry.creditCost as number
-  const creditRes = await db.execute(sql`SELECT credits FROM users WHERE id=${session.user.id}`)
+  const creditRes = await db.execute(
+    sql`SELECT credits FROM users WHERE id=${session.user.id}`,
+  )
   const rows = getRows<{ credits: number }>(creditRes)
   const cur = rows[0]?.credits ?? 0
-  if (cur < cost) throw Object.assign(new Error('Kredit tidak mencukupi'), { status: 402, code: 'ERR-019' })
+  if (cur < cost)
+    throw Object.assign(new Error('Kredit tidak mencukupi'), {
+      status: 402,
+      code: 'ERR-019',
+    })
 
-  const [msg] = await db.select().from(messages).where(eq(messages.id, gen.messageId))
+  const [msg] = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.id, gen.messageId))
   if (!msg) throw Object.assign(new Error('Message not found'), { status: 404 })
 
   const newGenId = crypto.randomUUID()
-  const [newMsg] = await db.insert(messages).values({ conversationId: gen.conversationId, role: 'assistant', content: '' }).returning()
+  const [newMsg] = await db
+    .insert(messages)
+    .values({
+      conversationId: gen.conversationId,
+      role: 'assistant',
+      content: '',
+    })
+    .returning()
   await db.insert(generationRuns).values({
     id: newGenId,
     messageId: newMsg.id,
@@ -675,10 +847,19 @@ export async function retryGenerationCore({
     status: 'streaming',
     startedAt: new Date(),
   })
-  await deductCredits({ userId: session.user.id, generationRunId: newGenId, modelId: gen.modelId, amount: cost })
+  await deductCredits({
+    userId: session.user.id,
+    generationRunId: newGenId,
+    modelId: gen.modelId,
+    amount: cost,
+  })
 
   // For simplicity, reuse sendCompare single logic with streamText
-  const history = await db.select().from(messages).where(eq(messages.conversationId, gen.conversationId)).orderBy(asc(messages.createdAt))
+  const history = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, gen.conversationId))
+    .orderBy(asc(messages.createdAt))
   const abortController = new AbortController()
   controllers.set(newGenId, abortController)
   const startTime = Date.now()
@@ -686,13 +867,22 @@ export async function retryGenerationCore({
   const result = streamText({
     model: nineRouter(gen.routerModelId),
     system: buildSystemPrompt({ skillId: gen.skillId ?? 'none' }),
-    messages: history.map((m) => ({ role: m.role as 'user', content: m.content })) as never,
+    messages: history.map((m) => ({
+      role: m.role as 'user',
+      content: m.content,
+    })) as never,
     abortSignal: abortController.signal,
-    onChunk: () => { if (firstTokenAt === null) firstTokenAt = Date.now() },
+    onChunk: () => {
+      if (firstTokenAt === null) firstTokenAt = Date.now()
+    },
     onFinish: async ({ text, usage }) => {
       const latencyMs = Date.now() - startTime
       const ttft = firstTokenAt ? firstTokenAt - startTime : null
-      const u = usage as unknown as { inputTokens?: number; outputTokens?: number; totalTokens?: number }
+      const u = usage as unknown as {
+        inputTokens?: number
+        outputTokens?: number
+        totalTokens?: number
+      }
       await db
         .update(generationRuns)
         .set({
@@ -706,7 +896,10 @@ export async function retryGenerationCore({
           completedAt: new Date(),
         })
         .where(eq(generationRuns.id, newGenId))
-      await db.update(messages).set({ content: text }).where(eq(messages.id, newMsg.id))
+      await db
+        .update(messages)
+        .set({ content: text })
+        .where(eq(messages.id, newMsg.id))
       if (usage) {
         await db.insert(usageRecords).values({
           userId: session.user.id,
@@ -720,26 +913,57 @@ export async function retryGenerationCore({
       controllers.delete(newGenId)
     },
     onError: async ({ error }) => {
-      await db.update(generationRuns).set({ status: 'failed', error: { message: (error as Error).message } as unknown as never, completedAt: new Date() }).where(eq(generationRuns.id, newGenId))
-      try { await refundCredits({ userId: session.user.id, generationRunId: newGenId, modelId: gen.modelId, amount: cost }) } catch {}
+      await db
+        .update(generationRuns)
+        .set({
+          status: 'failed',
+          error: { message: (error as Error).message } as unknown as never,
+          completedAt: new Date(),
+        })
+        .where(eq(generationRuns.id, newGenId))
+      try {
+        await refundCredits({
+          userId: session.user.id,
+          generationRunId: newGenId,
+          modelId: gen.modelId,
+          amount: cost,
+        })
+      } catch {}
       controllers.delete(newGenId)
     },
   })
   const anyResult = result as unknown as Record<string, unknown>
   let response: Response
   if (typeof anyResult.toUIMessageStreamResponse === 'function') {
-    response = (anyResult.toUIMessageStreamResponse as (o?: unknown) => Response).call(result, { headers: { 'X-Generation-Id': newGenId, 'X-Conversation-Id': gen.conversationId } })
+    response = (
+      anyResult.toUIMessageStreamResponse as (o?: unknown) => Response
+    ).call(result, {
+      headers: {
+        'X-Generation-Id': newGenId,
+        'X-Conversation-Id': gen.conversationId,
+      },
+    })
   } else {
-    response = createTextStreamResponse({ stream: toTextStream({ stream: (result as { stream: ReadableStream }).stream }), headers: { 'X-Generation-Id': newGenId } })
+    response = createTextStreamResponse({
+      stream: toTextStream({
+        stream: (result as { stream: ReadableStream }).stream,
+      }),
+      headers: { 'X-Generation-Id': newGenId },
+    })
   }
   return response
 }
 
 export const retryGeneration = createServerFn({ method: 'POST' })
-  .validator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) =>
+    z.object({ generationId: z.string().uuid() }).parse(data),
+  )
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    return retryGenerationCore({ generationId: (data as { generationId: string }).generationId, request })
+    return retryGenerationCore({
+      generationId: (data as { generationId: string }).generationId,
+      request,
+    })
   })
 
 export async function stopGenerationCore({

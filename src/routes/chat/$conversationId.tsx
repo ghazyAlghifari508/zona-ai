@@ -1,19 +1,19 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
-import { Composer } from '@/components/chat/Composer'
+import { useState } from 'react'
 import { CompareGrid } from '@/components/chat/CompareGrid'
 import { CompareToggles } from '@/components/chat/CompareToggles'
-import { MobileCompareTabs } from '@/components/chat/MobileCompareTabs'
+import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
+import { MobileCompareTabs } from '@/components/chat/MobileCompareTabs'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
-import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
+import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
   regenerateMessage,
+  retryGeneration,
+  sendCompareMessage,
   sendMessage,
   stopGeneration,
-  sendCompareMessage,
-  retryGeneration,
 } from '@/server/functions/chat'
 import { getConversation } from '@/server/functions/conversations'
 import { getMessages } from '@/server/functions/messages'
@@ -43,9 +43,16 @@ function ConversationError() {
     <WorkspaceShell>
       <div className="flex min-h-[60vh] items-center justify-center text-center">
         <div>
-          <h1 className="text-[30px] font-medium text-ink-black">Percakapan tidak ditemukan</h1>
-          <p className="mt-2 text-[15px] text-stone-gray">Percakapan ini tidak tersedia atau tidak dapat diakses.</p>
-          <Link to="/chat" className="mt-5 inline-flex rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone">
+          <h1 className="text-[30px] font-medium text-ink-black">
+            Percakapan tidak ditemukan
+          </h1>
+          <p className="mt-2 text-[15px] text-stone-gray">
+            Percakapan ini tidak tersedia atau tidak dapat diakses.
+          </p>
+          <Link
+            to="/chat"
+            className="mt-5 inline-flex rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone"
+          >
             Kembali ke chat
           </Link>
         </div>
@@ -73,15 +80,25 @@ function ChatThread() {
   const { conversationId } = Route.useParams()
   const { conversation, persistedMessages } = Route.useLoaderData()
   const navigate = Route.useNavigate()
-  const [messages, setMessages] = useState<ChatMessage[]>(() => hydrateMessages(persistedMessages as never))
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    hydrateMessages(persistedMessages as never),
+  )
   const [isStreaming, setIsStreaming] = useState(false)
   const [generationId, setGenerationId] = useState<string | null>(null)
   const credits = 85
 
-  const [mode, setMode] = useState<'normal' | 'compare'>((conversation.mode as 'normal' | 'compare') ?? 'normal')
+  const [mode, setMode] = useState<'normal' | 'compare'>(
+    (conversation.mode as 'normal' | 'compare') ?? 'normal',
+  )
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
-  const [compareGenerations, setCompareGenerations] = useState<CompareGeneration[]>(() => {
-    const allGens = (persistedMessages as unknown as Array<{ generationRuns: CompareGeneration[] }>).flatMap((m) => m.generationRuns ?? [])
+  const [compareGenerations, setCompareGenerations] = useState<
+    CompareGeneration[]
+  >(() => {
+    const allGens = (
+      persistedMessages as unknown as Array<{
+        generationRuns: CompareGeneration[]
+      }>
+    ).flatMap((m) => m.generationRuns ?? [])
     const compareGens = allGens.filter((g) => g.comparisonRunId)
     if (compareGens.length === 0) return []
     // group by comparisonRunId, take latest group
@@ -112,32 +129,66 @@ function ChatThread() {
   })
   const [userPrompt, setUserPrompt] = useState<string>(() => {
     // try to find last user message content
-    const lastUser = [...persistedMessages].reverse().find((m) => m.role === 'user')
+    const lastUser = [...persistedMessages]
+      .reverse()
+      .find((m) => m.role === 'user')
     return (lastUser as unknown as { content: string })?.content ?? ''
   })
   const [compareIsStreaming, setCompareIsStreaming] = useState(false)
 
   // Keep mode sync if conversation mode changes externally? Not needed
 
-  const handleSend = async (content: string, modelId: string, skillId: string) => {
-    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content }
+  const handleSend = async (
+    content: string,
+    modelId: string,
+    skillId: string,
+  ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+    }
     const assistantId = crypto.randomUUID()
-    const assistantMsg: ChatMessage = { id: assistantId, role: 'assistant', content: '', modelId, streaming: true }
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      modelId,
+      streaming: true,
+    }
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
     try {
-      const response = (await sendMessage({ data: { conversationId, modelId, skillId, content } })) as unknown as Response
+      const response = (await sendMessage({
+        data: { conversationId, modelId, skillId, content },
+      })) as unknown as Response
       const genId = response.headers.get('X-Generation-Id')
       const routerModelId = response.headers.get('X-Router-Model-Id')
       const routingReason = response.headers.get('X-Routing-Reason')
       if (genId) setGenerationId(genId)
       if (routerModelId && modelId === 'auto') {
-        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, routerModelId, routingReason: routingReason ?? undefined } : m)))
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  routerModelId,
+                  routingReason: routingReason ?? undefined,
+                }
+              : m,
+          ),
+        )
       }
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
-        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: text, streaming: false } : m)))
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: text, streaming: false }
+              : m,
+          ),
+        )
         setIsStreaming(false)
         setGenerationId(null)
         return
@@ -157,7 +208,8 @@ function ChatThread() {
               if (data === '[DONE]') continue
               try {
                 const parsed = JSON.parse(data)
-                if (parsed.type === 'text-delta' && parsed.delta) delta = parsed.delta
+                if (parsed.type === 'text-delta' && parsed.delta)
+                  delta = parsed.delta
                 else if (parsed.textDelta) delta = parsed.textDelta
                 else if (typeof parsed === 'string') delta = parsed
                 else continue
@@ -165,21 +217,51 @@ function ChatThread() {
                 delta = data
               }
               fullText += delta
-              setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: fullText } : m)))
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, content: fullText } : m,
+                ),
+              )
             }
           }
         } else {
           fullText += delta
-          setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: fullText } : m)))
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: fullText } : m,
+            ),
+          )
         }
       }
-      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: fullText, streaming: false } : m)))
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: fullText, streaming: false }
+            : m,
+        ),
+      )
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
       if (err.status === 402 || err.code === 'ERR-019') {
-        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: 'Kredit tidak mencukupi. Silakan reset kredit.', streaming: false } : m)))
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: 'Kredit tidak mencukupi. Silakan reset kredit.',
+                  streaming: false,
+                }
+              : m,
+          ),
+        )
       } else {
-        setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: `Error: ${err.message}`, streaming: false } : m)))
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: `Error: ${err.message}`, streaming: false }
+              : m,
+          ),
+        )
       }
     } finally {
       setIsStreaming(false)
@@ -187,7 +269,11 @@ function ChatThread() {
     }
   }
 
-  const handleSendCompare = async (content: string, modelIds: string[], skillId: string) => {
+  const handleSendCompare = async (
+    content: string,
+    modelIds: string[],
+    skillId: string,
+  ) => {
     setUserPrompt(content)
     const initialGens: CompareGeneration[] = modelIds.map((mid) => ({
       id: crypto.randomUUID(),
@@ -201,12 +287,16 @@ function ChatThread() {
     setCompareIsStreaming(true)
     setIsStreaming(true)
     try {
-      const response = (await sendCompareMessage({ data: { conversationId, modelIds, skillId, content } })) as unknown as Response
+      const response = (await sendCompareMessage({
+        data: { conversationId, modelIds, skillId, content },
+      })) as unknown as Response
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
         // fallback treat as plain
-        setCompareGenerations((prev) => prev.map((g) => ({ ...g, content: text, status: 'completed' })))
+        setCompareGenerations((prev) =>
+          prev.map((g) => ({ ...g, content: text, status: 'completed' })),
+        )
         setCompareIsStreaming(false)
         setIsStreaming(false)
         return
@@ -234,10 +324,14 @@ function ChatThread() {
               // first time we see generationId, map to index via modelId
               if (event.type === 'generation-start') {
                 // Find placeholder by modelId that hasn't yet been mapped
-                const idx = initialGens.findIndex((g) => g.modelId === event.modelId && !genIdToIndex.has(g.id))
+                const _idx = initialGens.findIndex(
+                  (g) => g.modelId === event.modelId && !genIdToIndex.has(g.id),
+                )
                 // But we have real generationId from server; we need to map event.generationId to our placeholder's index
                 // Find placeholder index by modelId
-                const placeholderIdx = compareGenerations.findIndex((_, i) => modelIds[i] === event.modelId) // not reliable after state updates
+                const _placeholderIdx = compareGenerations.findIndex(
+                  (_, i) => modelIds[i] === event.modelId,
+                ) // not reliable after state updates
                 // Instead, map generationId to modelId index
                 const modelIdx = modelIds.indexOf(event.modelId)
                 if (modelIdx !== -1) {
@@ -245,7 +339,11 @@ function ChatThread() {
                   // update generation id to real one
                   setCompareGenerations((prev) => {
                     const next = [...prev]
-                    if (next[modelIdx]) next[modelIdx] = { ...next[modelIdx], id: event.generationId }
+                    if (next[modelIdx])
+                      next[modelIdx] = {
+                        ...next[modelIdx],
+                        id: event.generationId,
+                      }
                     return next
                   })
                 }
@@ -255,7 +353,11 @@ function ChatThread() {
                   setCompareGenerations((prev) => {
                     const next = [...prev]
                     const cur = next[idx]
-                    if (cur) next[idx] = { ...cur, content: (cur.content ?? '') + event.text }
+                    if (cur)
+                      next[idx] = {
+                        ...cur,
+                        content: (cur.content ?? '') + event.text,
+                      }
                     return next
                   })
                 } else {
@@ -265,35 +367,57 @@ function ChatThread() {
                     setCompareGenerations((prev) => {
                       const next = [...prev]
                       const cur = next[modelIdx]
-                      if (cur) next[modelIdx] = { ...cur, content: (cur.content ?? '') + event.text }
+                      if (cur)
+                        next[modelIdx] = {
+                          ...cur,
+                          content: (cur.content ?? '') + event.text,
+                        }
                       return next
                     })
                   }
                 }
               } else if (event.type === 'generation-finish') {
-                const idx = genIdToIndex.get(event.generationId) ?? modelIds.indexOf(event.modelId)
+                const idx =
+                  genIdToIndex.get(event.generationId) ??
+                  modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
                   setCompareGenerations((prev) => {
                     const next = [...prev]
-                    if (next[idx]) next[idx] = { ...next[idx], status: 'completed' }
+                    if (next[idx])
+                      next[idx] = { ...next[idx], status: 'completed' }
                     return next
                   })
                 }
               } else if (event.type === 'generation-error') {
-                const idx = genIdToIndex.get(event.generationId) ?? modelIds.indexOf(event.modelId)
+                const idx =
+                  genIdToIndex.get(event.generationId) ??
+                  modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
                   setCompareGenerations((prev) => {
                     const next = [...prev]
-                    if (next[idx]) next[idx] = { ...next[idx], status: 'failed', content: next[idx].content }
+                    if (next[idx])
+                      next[idx] = {
+                        ...next[idx],
+                        status: 'failed',
+                        content: next[idx].content,
+                      }
                     return next
                   })
                 }
               } else if (event.type === 'usage') {
-                const idx = genIdToIndex.get(event.generationId) ?? modelIds.indexOf(event.modelId)
+                const idx =
+                  genIdToIndex.get(event.generationId) ??
+                  modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
                   setCompareGenerations((prev) => {
                     const next = [...prev]
-                    if (next[idx]) next[idx] = { ...next[idx], promptTokens: event.promptTokens, completionTokens: event.completionTokens, totalTokens: event.totalTokens }
+                    if (next[idx])
+                      next[idx] = {
+                        ...next[idx],
+                        promptTokens: event.promptTokens,
+                        completionTokens: event.completionTokens,
+                        totalTokens: event.totalTokens,
+                      }
                     return next
                   })
                 }
@@ -303,13 +427,29 @@ function ChatThread() {
         }
       }
       // after done, mark any still streaming as completed (fallback)
-      setCompareGenerations((prev) => prev.map((g) => (g.status === 'streaming' ? { ...g, status: 'completed' } : g)))
+      setCompareGenerations((prev) =>
+        prev.map((g) =>
+          g.status === 'streaming' ? { ...g, status: 'completed' } : g,
+        ),
+      )
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
       if (err.status === 402 || err.code === 'ERR-019') {
-        setCompareGenerations((prev) => prev.map((g) => ({ ...g, status: 'failed', content: 'Kredit tidak mencukupi' })))
+        setCompareGenerations((prev) =>
+          prev.map((g) => ({
+            ...g,
+            status: 'failed',
+            content: 'Kredit tidak mencukupi',
+          })),
+        )
       } else {
-        setCompareGenerations((prev) => prev.map((g) => (g.status === 'streaming' ? { ...g, status: 'failed', content: `Error: ${err.message}` } : g)))
+        setCompareGenerations((prev) =>
+          prev.map((g) =>
+            g.status === 'streaming'
+              ? { ...g, status: 'failed', content: `Error: ${err.message}` }
+              : g,
+          ),
+        )
       }
     } finally {
       setCompareIsStreaming(false)
@@ -327,7 +467,11 @@ function ChatThread() {
           } catch {}
         }
       }
-      setCompareGenerations((prev) => prev.map((g) => (g.status === 'streaming' ? { ...g, status: 'cancelled' } : g)))
+      setCompareGenerations((prev) =>
+        prev.map((g) =>
+          g.status === 'streaming' ? { ...g, status: 'cancelled' } : g,
+        ),
+      )
       setCompareIsStreaming(false)
       setIsStreaming(false)
     } else {
@@ -337,7 +481,9 @@ function ChatThread() {
         } catch {}
       }
       setIsStreaming(false)
-      setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)))
+      setMessages((prev) =>
+        prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+      )
     }
   }
 
@@ -345,17 +491,29 @@ function ChatThread() {
     try {
       await stopGeneration({ data: { generationId: genId } })
     } catch {}
-    setCompareGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, status: 'cancelled' } : g)))
+    setCompareGenerations((prev) =>
+      prev.map((g) => (g.id === genId ? { ...g, status: 'cancelled' } : g)),
+    )
   }
 
   const handleRetry = async (genId: string) => {
-    setCompareGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, status: 'streaming', content: '' } : g)))
+    setCompareGenerations((prev) =>
+      prev.map((g) =>
+        g.id === genId ? { ...g, status: 'streaming', content: '' } : g,
+      ),
+    )
     try {
-      const response = (await retryGeneration({ data: { generationId: genId } })) as unknown as Response
+      const response = (await retryGeneration({
+        data: { generationId: genId },
+      })) as unknown as Response
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
-        setCompareGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, content: text, status: 'completed' } : g)))
+        setCompareGenerations((prev) =>
+          prev.map((g) =>
+            g.id === genId ? { ...g, content: text, status: 'completed' } : g,
+          ),
+        )
         return
       }
       const decoder = new TextDecoder()
@@ -365,11 +523,19 @@ function ChatThread() {
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
         full += chunk
-        setCompareGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, content: full } : g)))
+        setCompareGenerations((prev) =>
+          prev.map((g) => (g.id === genId ? { ...g, content: full } : g)),
+        )
       }
-      setCompareGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, content: full, status: 'completed' } : g)))
-    } catch (e) {
-      setCompareGenerations((prev) => prev.map((g) => (g.id === genId ? { ...g, status: 'failed' } : g)))
+      setCompareGenerations((prev) =>
+        prev.map((g) =>
+          g.id === genId ? { ...g, content: full, status: 'completed' } : g,
+        ),
+      )
+    } catch (_e) {
+      setCompareGenerations((prev) =>
+        prev.map((g) => (g.id === genId ? { ...g, status: 'failed' } : g)),
+      )
     }
   }
 
@@ -378,25 +544,46 @@ function ChatThread() {
     if (!msg) return
     setIsStreaming(true)
     try {
-      const response = (await regenerateMessage({ data: { messageId } })) as unknown as Response
+      const response = (await regenerateMessage({
+        data: { messageId },
+      })) as unknown as Response
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
-        setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: text } as ChatMessage])
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: text,
+          } as ChatMessage,
+        ])
         return
       }
       const decoder = new TextDecoder()
       let fullText = ''
       const newId = crypto.randomUUID()
-      setMessages((prev) => [...prev, { id: newId, role: 'assistant', content: '', streaming: true } as ChatMessage])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: newId,
+          role: 'assistant',
+          content: '',
+          streaming: true,
+        } as ChatMessage,
+      ])
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
         fullText += chunk
-        setMessages((prev) => prev.map((m) => (m.id === newId ? { ...m, content: fullText } : m)))
+        setMessages((prev) =>
+          prev.map((m) => (m.id === newId ? { ...m, content: fullText } : m)),
+        )
       }
-      setMessages((prev) => prev.map((m) => (m.id === newId ? { ...m, streaming: false } : m)))
+      setMessages((prev) =>
+        prev.map((m) => (m.id === newId ? { ...m, streaming: false } : m)),
+      )
     } catch (e) {
       console.error(e)
     } finally {
@@ -412,15 +599,22 @@ function ChatThread() {
         void navigate({ to: '/chat' })
       }}
       onSelectConversation={(id) => {
-        void navigate({ to: '/chat/$conversationId', params: { conversationId: id } })
+        void navigate({
+          to: '/chat/$conversationId',
+          params: { conversationId: id },
+        })
       }}
     >
       <div className="flex h-[calc(100vh-2rem)] flex-col">
         <header className="mb-4 flex items-center justify-between border-b border-hairline-mist px-1 pb-3">
-          <h1 className="truncate text-[20px] font-medium text-ink-black">{conversation.title ?? 'New Chat'}</h1>
+          <h1 className="truncate text-[20px] font-medium text-ink-black">
+            {conversation.title ?? 'New Chat'}
+          </h1>
           <div className="flex items-center gap-2">
             <CompareToggles mode={mode} onChange={setMode} />
-            <span className="rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-[13px] text-stone-gray">{conversation.mode}</span>
+            <span className="rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-[13px] text-stone-gray">
+              {conversation.mode}
+            </span>
           </div>
         </header>
 
@@ -428,14 +622,28 @@ function ChatThread() {
           <>
             {compareGenerations.length > 0 ? (
               <>
-                <CompareGrid comparisonRun={null} generations={compareGenerations} onRetry={handleRetry} onStop={handleStopPerModel} userPrompt={userPrompt} />
-                <MobileCompareTabs generations={compareGenerations} onRetry={handleRetry} onStop={handleStopPerModel} />
+                <CompareGrid
+                  comparisonRun={null}
+                  generations={compareGenerations}
+                  onRetry={handleRetry}
+                  onStop={handleStopPerModel}
+                  userPrompt={userPrompt}
+                />
+                <MobileCompareTabs
+                  generations={compareGenerations}
+                  onRetry={handleRetry}
+                  onStop={handleStopPerModel}
+                />
               </>
             ) : (
               <div className="flex flex-1 items-center justify-center py-10 text-center">
                 <div>
-                  <h2 className="text-[20px] font-medium text-ink-black">Compare Mode</h2>
-                  <p className="mt-1 text-[15px] text-stone-gray">Pilih 2-4 model dan kirim prompt yang sama.</p>
+                  <h2 className="text-[20px] font-medium text-ink-black">
+                    Compare Mode
+                  </h2>
+                  <p className="mt-1 text-[15px] text-stone-gray">
+                    Pilih 2-4 model dan kirim prompt yang sama.
+                  </p>
                 </div>
               </div>
             )}
@@ -453,7 +661,9 @@ function ChatThread() {
                   type="button"
                   data-testid="regenerate-button"
                   onClick={() => {
-                    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+                    const lastAssistant = [...messages]
+                      .reverse()
+                      .find((m) => m.role === 'assistant')
                     if (lastAssistant) handleRegenerate(lastAssistant.id)
                   }}
                   className="rounded-full border border-hairline-mist bg-pure-white px-4 py-1.5 text-xs text-ink-black hover:bg-sandstone"

@@ -1,10 +1,10 @@
 import { ArrowUp, Globe, Paperclip, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import type { ModelRegistryEntry } from '@/lib/models/types'
+import { getModels } from '@/server/functions/models'
 import { CompareSelector } from './CompareSelector'
 import { ModelSelector } from './ModelSelector'
 import { SkillSelector } from './SkillSelector'
-import { getModels } from '@/server/functions/models'
-import type { ModelRegistryEntry } from '@/lib/models/types'
 
 type Props = {
   onSend: (content: string, modelId: string, skillId: string) => void
@@ -46,11 +46,17 @@ export function Composer({
   const compareTotal = compareModelIds.reduce((sum, id) => {
     const m = registry.find((x) => x.id === id)
     if (!m) return sum
-    const cost = typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max
+    const cost =
+      typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max
     return sum + cost
   }, 0)
   const compareInsufficient = credits < compareTotal
-  const canSendCompare = content.trim().length > 0 && compareModelIds.length >= 2 && compareModelIds.length <= 4 && !compareInsufficient && !isStreaming
+  const canSendCompare =
+    content.trim().length > 0 &&
+    compareModelIds.length >= 2 &&
+    compareModelIds.length <= 4 &&
+    !compareInsufficient &&
+    !isStreaming
   const canSendNormal = content.trim().length > 0 && !isStreaming
 
   const handleSend = () => {
@@ -91,9 +97,14 @@ export function Composer({
         {mode === 'compare' && (
           <div className="flex items-center justify-between rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-2 text-sm">
             <span data-testid="composer-compare-banner">
-              Compare mode: {compareModelIds.length} model • Total: {compareTotal} Kredit
+              Compare mode: {compareModelIds.length} model • Total:{' '}
+              {compareTotal} Kredit
             </span>
-            {compareInsufficient && <span className="text-xs text-stone-gray">Butuh {compareTotal} (Sisa {credits})</span>}
+            {compareInsufficient && (
+              <span className="text-xs text-stone-gray">
+                Butuh {compareTotal} (Sisa {credits})
+              </span>
+            )}
           </div>
         )}
         <div className="flex flex-col gap-2 rounded-[50px] border border-hairline-mist bg-pure-white p-2">
@@ -134,9 +145,17 @@ export function Composer({
           <div className="flex items-center justify-between px-2 pb-1">
             <div className="flex items-center gap-2">
               {mode === 'compare' ? (
-                <CompareSelector value={compareModelIds} onChange={(ids) => onCompareModelIdsChange?.(ids)} credits={credits} />
+                <CompareSelector
+                  value={compareModelIds}
+                  onChange={(ids) => onCompareModelIdsChange?.(ids)}
+                  credits={credits}
+                />
               ) : (
-                <ModelSelector value={modelId} onChange={setModelId} credits={credits} />
+                <ModelSelector
+                  value={modelId}
+                  onChange={setModelId}
+                  credits={credits}
+                />
               )}
               <SkillSelector value={skillId} onChange={setSkillId} />
               <button
@@ -160,11 +179,15 @@ export function Composer({
         </div>
         {mode === 'compare' ? (
           compareInsufficient ? (
-            <p className="px-2 text-[13px] text-stone-gray">Kredit tidak cukup untuk compare ini.</p>
+            <p className="px-2 text-[13px] text-stone-gray">
+              Kredit tidak cukup untuk compare ini.
+            </p>
           ) : null
         ) : (
           isPremium && (
-            <p className="px-2 text-[13px] text-stone-gray">GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →</p>
+            <p className="px-2 text-[13px] text-stone-gray">
+              GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
+            </p>
           )
         )}
       </div>

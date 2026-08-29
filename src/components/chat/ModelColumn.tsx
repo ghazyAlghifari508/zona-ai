@@ -1,9 +1,9 @@
-import { Bot, Copy, RotateCw, Square, Timer } from "lucide-react"
-import { useState } from "react"
-import ReactMarkdown from "react-markdown"
-import rehypeHighlight from "rehype-highlight"
-import rehypeSanitize from "rehype-sanitize"
-import { CodeBlock } from "./CodeBlock"
+import { Bot, Copy, RotateCw, Square, Timer } from 'lucide-react'
+import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import rehypeHighlight from 'rehype-highlight'
+import rehypeSanitize from 'rehype-sanitize'
+import { CodeBlock } from './CodeBlock'
 
 type Generation = {
   id: string
@@ -29,15 +29,15 @@ type Props = {
 export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   const [copied, setCopied] = useState(false)
   const statusDotClass =
-    generation.status === "streaming"
-      ? "bg-fresh-grass"
-      : generation.status === "completed"
-        ? "bg-stone-gray"
-        : generation.status === "failed"
-          ? "bg-coral-pop"
-          : generation.status === "cancelled"
-            ? "bg-hairline-mist"
-            : "bg-sandstone"
+    generation.status === 'streaming'
+      ? 'bg-fresh-grass'
+      : generation.status === 'completed'
+        ? 'bg-stone-gray'
+        : generation.status === 'failed'
+          ? 'bg-coral-pop'
+          : generation.status === 'cancelled'
+            ? 'bg-hairline-mist'
+            : 'bg-sandstone'
 
   const handleCopy = async () => {
     if (generation.content) {
@@ -49,19 +49,35 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   }
 
   return (
-    <div data-testid="model-column" className="flex min-h-[400px] flex-col rounded-[50px] border border-hairline-mist bg-pure-white">
+    <div
+      data-testid="model-column"
+      className="flex min-h-[400px] flex-col rounded-[50px] border border-hairline-mist bg-pure-white"
+    >
       <div className="sticky top-0 flex items-center justify-between rounded-t-[50px] border-b border-hairline-mist bg-pure-white p-3">
         <div className="flex items-center gap-2">
           <Bot size={16} strokeWidth={1.75} className="text-ink-black" />
-          <span className="text-[15px] font-medium text-ink-black">{generation.modelId}</span>
-          <span className={`h-2 w-2 rounded-full ${statusDotClass}`} data-testid={`status-dot-${generation.status}`} />
-          {generation.status === "streaming" && <span className="text-xs text-stone-gray">Streaming</span>}
-          {generation.status === "completed" && <span className="text-xs text-stone-gray">Completed</span>}
-          {generation.status === "failed" && <span className="text-xs text-stone-gray">Failed</span>}
-          {generation.status === "cancelled" && <span className="text-xs text-stone-gray">Cancelled</span>}
+          <span className="text-[15px] font-medium text-ink-black">
+            {generation.modelId}
+          </span>
+          <span
+            className={`h-2 w-2 rounded-full ${statusDotClass}`}
+            data-testid={`status-dot-${generation.status}`}
+          />
+          {generation.status === 'streaming' && (
+            <span className="text-xs text-stone-gray">Streaming</span>
+          )}
+          {generation.status === 'completed' && (
+            <span className="text-xs text-stone-gray">Completed</span>
+          )}
+          {generation.status === 'failed' && (
+            <span className="text-xs text-stone-gray">Failed</span>
+          )}
+          {generation.status === 'cancelled' && (
+            <span className="text-xs text-stone-gray">Cancelled</span>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          {generation.status === "failed" && onRetry && (
+          {generation.status === 'failed' && onRetry && (
             <button
               type="button"
               data-testid={`retry-${generation.id}`}
@@ -71,7 +87,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               <RotateCw size={14} strokeWidth={1.75} /> Coba lagi
             </button>
           )}
-          {generation.status === "streaming" && onStop && (
+          {generation.status === 'streaming' && onStop && (
             <button
               type="button"
               data-testid={`stop-${generation.id}`}
@@ -82,7 +98,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               <Square size={14} strokeWidth={1.75} fill="currentColor" />
             </button>
           )}
-          {generation.status === "completed" && generation.content && (
+          {generation.status === 'completed' && generation.content && (
             <button
               type="button"
               onClick={handleCopy}
@@ -98,7 +114,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        {generation.status === "failed" ? (
+        {generation.status === 'failed' ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <p className="text-[15px] text-stone-gray">Model gagal</p>
             {onRetry && (
@@ -111,7 +127,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               </button>
             )}
           </div>
-        ) : generation.status === "queued" ? (
+        ) : generation.status === 'queued' ? (
           <div className="space-y-2">
             <div className="h-4 w-3/4 animate-pulse rounded bg-sandstone" />
             <div className="h-4 w-1/2 animate-pulse rounded bg-sandstone" />
@@ -120,8 +136,12 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
           <div className="prose prose-sm max-w-none text-[15px] leading-relaxed text-ink-black">
             {generation.reasoningContent && (
               <details className="mb-2 rounded-[10px] border border-hairline-mist bg-cream-paper p-2">
-                <summary className="cursor-pointer text-xs text-stone-gray">Reasoning</summary>
-                <div className="mt-1 text-sm text-ink-black">{generation.reasoningContent}</div>
+                <summary className="cursor-pointer text-xs text-stone-gray">
+                  Reasoning
+                </summary>
+                <div className="mt-1 text-sm text-ink-black">
+                  {generation.reasoningContent}
+                </div>
               </details>
             )}
             {generation.content ? (
@@ -129,17 +149,25 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                 rehypePlugins={[rehypeSanitize, rehypeHighlight]}
                 components={{
                   code: ({ children, className }) => {
-                    const isBlock = String(children).includes("\n") || Boolean(className)
-                    if (isBlock) return <CodeBlock>{String(children)}</CodeBlock>
-                    return <code className="rounded bg-sandstone px-1 py-0.5 text-[14px]">{children}</code>
+                    const isBlock =
+                      String(children).includes('\n') || Boolean(className)
+                    if (isBlock)
+                      return <CodeBlock>{String(children)}</CodeBlock>
+                    return (
+                      <code className="rounded bg-sandstone px-1 py-0.5 text-[14px]">
+                        {children}
+                      </code>
+                    )
                   },
                   pre: ({ children }) => <>{children}</>,
                 }}
               >
                 {generation.content}
               </ReactMarkdown>
-            ) : generation.status === "streaming" ? (
-              <span className="inline-block animate-pulse text-stone-gray">▌ Menunggu model...</span>
+            ) : generation.status === 'streaming' ? (
+              <span className="inline-block animate-pulse text-stone-gray">
+                ▌ Menunggu model...
+              </span>
             ) : null}
           </div>
         )}
@@ -147,11 +175,11 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
 
       <div className="flex items-center gap-2 border-t border-hairline-mist p-3 text-xs text-stone-gray">
         <Timer size={12} strokeWidth={1.75} />
-        <span>{generation.totalTokens ?? "-"} tokens</span>
+        <span>{generation.totalTokens ?? '-'} tokens</span>
         <span>·</span>
-        <span>{generation.timeToFirstTokenMs ?? "-"}ms TTFT</span>
+        <span>{generation.timeToFirstTokenMs ?? '-'}ms TTFT</span>
         <span>·</span>
-        <span>{generation.latencyMs ?? "-"}ms</span>
+        <span>{generation.latencyMs ?? '-'}ms</span>
       </div>
     </div>
   )

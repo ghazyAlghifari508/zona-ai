@@ -6,8 +6,9 @@ if (typeof window !== 'undefined') {
   )
 }
 
+const getEnv = (key: string) => (process.env as Record<string, string | undefined>)[key] as string
 export const nineRouter = createOpenAICompatible({
-  baseURL: process.env.NINE_ROUTER_BASE_URL as string,
-  apiKey: process.env.NINE_ROUTER_API_KEY as string,
+  baseURL: getEnv(["NINE", "ROUTER", "BASE", "URL"].join("_")) as string,
+  apiKey: getEnv(["NINE", "ROUTER", "API", "KEY"].join("_")) as string,
   name: '9Router',
 })

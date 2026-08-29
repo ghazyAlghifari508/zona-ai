@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { ModelColumn } from "./ModelColumn"
+import { useState } from 'react'
+import { ModelColumn } from './ModelColumn'
 
 type Generation = {
   id: string
@@ -21,13 +21,14 @@ type Props = {
 }
 
 export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
-  const [active, setActive] = useState(generations[0]?.id ?? "")
+  const [active, setActive] = useState(generations[0]?.id ?? '')
   // touch swipe handling
   const [touchStart, setTouchStart] = useState<number | null>(null)
 
   const activeIndex = generations.findIndex((g) => g.id === active)
   const safeActive = active || generations[0]?.id
-  const activeGen = generations.find((g) => g.id === safeActive) ?? generations[0]
+  const activeGen =
+    generations.find((g) => g.id === safeActive) ?? generations[0]
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientX)
@@ -48,7 +49,12 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
   if (generations.length === 0) return null
 
   return (
-    <div data-testid="mobile-compare-tabs" className="hidden max-[768px]:block space-y-3" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+    <div
+      data-testid="mobile-compare-tabs"
+      className="hidden max-[768px]:block space-y-3"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className="flex rounded-full border border-hairline-mist bg-pure-white p-1 gap-1 overflow-x-auto">
         {generations.map((g) => (
           <button
@@ -57,7 +63,9 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
             data-testid={`tab-${g.modelId}`}
             onClick={() => setActive(g.id)}
             className={`flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${
-              safeActive === g.id ? "bg-sandstone border border-ink-black text-ink-black" : "text-stone-gray hover:text-ink-black border border-transparent"
+              safeActive === g.id
+                ? 'bg-sandstone border border-ink-black text-ink-black'
+                : 'text-stone-gray hover:text-ink-black border border-transparent'
             }`}
           >
             {g.modelId}
@@ -66,12 +74,19 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
       </div>
       {activeGen && (
         <div data-testid={`model-column-mobile-${activeGen.modelId}`}>
-          <ModelColumn generation={activeGen} onRetry={onRetry} onStop={onStop} />
+          <ModelColumn
+            generation={activeGen}
+            onRetry={onRetry}
+            onStop={onStop}
+          />
         </div>
       )}
       <div className="flex justify-center gap-1">
         {generations.map((g) => (
-          <span key={g.id} className={`h-1.5 w-1.5 rounded-full ${safeActive === g.id ? "bg-ink-black" : "bg-hairline-mist"}`} />
+          <span
+            key={g.id}
+            className={`h-1.5 w-1.5 rounded-full ${safeActive === g.id ? 'bg-ink-black' : 'bg-hairline-mist'}`}
+          />
         ))}
       </div>
     </div>
