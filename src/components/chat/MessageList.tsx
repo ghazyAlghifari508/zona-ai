@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
+import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 
 export type ChatMessage = {
@@ -14,6 +15,7 @@ export type ChatMessage = {
   routerModelId?: string
   routingReason?: string
   streaming?: boolean
+  webSources?: CitationSource[]
 }
 
 export function MessageList({ messages }: { messages: ChatMessage[] }) {
@@ -137,6 +139,9 @@ function MessageItem({ message }: { message: ChatMessage }) {
                 <span className="ml-1 inline-block animate-pulse">▌</span>
               )}
             </div>
+            {message.webSources && message.webSources.length > 0 && (
+              <CitationDrawer sources={message.webSources} />
+            )}
           </div>
         </div>
       )}

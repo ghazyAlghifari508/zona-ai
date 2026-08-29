@@ -4,7 +4,17 @@ type PersistedMessage = {
   id: string
   role: string
   content: string
-  generationRuns: Array<{ modelId: string; routerModelId: string }>
+  generationRuns: Array<{
+    modelId: string
+    routerModelId: string
+    webSources?: Array<{
+      url: string
+      title: string | null
+      snippet: string | null
+      position: number
+      score?: number | null
+    }>
+  }>
 }
 
 export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
@@ -15,7 +25,11 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
       role: message.role as ChatMessage['role'],
       content: message.content,
       ...(run
-        ? { modelId: run.modelId, routerModelId: run.routerModelId }
+        ? {
+            modelId: run.modelId,
+            routerModelId: run.routerModelId,
+            webSources: run.webSources ?? undefined,
+          }
         : {}),
     }
   })

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
+import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 
 type Generation = {
@@ -17,6 +18,7 @@ type Generation = {
   latencyMs?: number | null
   timeToFirstTokenMs?: number | null
   error?: unknown
+  webSources?: CitationSource[]
 }
 
 type Props = {
@@ -133,43 +135,48 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
             <div className="h-4 w-1/2 animate-pulse rounded bg-sandstone" />
           </div>
         ) : (
-          <div className="prose prose-sm max-w-none text-[15px] leading-relaxed text-ink-black">
-            {generation.reasoningContent && (
-              <details className="mb-2 rounded-[10px] border border-hairline-mist bg-cream-paper p-2">
-                <summary className="cursor-pointer text-xs text-stone-gray">
-                  Reasoning
-                </summary>
-                <div className="mt-1 text-sm text-ink-black">
-                  {generation.reasoningContent}
-                </div>
-              </details>
+          <>
+            <div className="prose prose-sm max-w-none text-[15px] leading-relaxed text-ink-black">
+              {generation.reasoningContent && (
+                <details className="mb-2 rounded-[10px] border border-hairline-mist bg-cream-paper p-2">
+                  <summary className="cursor-pointer text-xs text-stone-gray">
+                    Reasoning
+                  </summary>
+                  <div className="mt-1 text-sm text-ink-black">
+                    {generation.reasoningContent}
+                  </div>
+                </details>
+              )}
+              {generation.content ? (
+                <ReactMarkdown
+                  rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                  components={{
+                    code: ({ children, className }) => {
+                      const isBlock =
+                        String(children).includes('\n') || Boolean(className)
+                      if (isBlock)
+                        return <CodeBlock>{String(children)}</CodeBlock>
+                      return (
+                        <code className="rounded bg-sandstone px-1 py-0.5 text-[14px]">
+                          {children}
+                        </code>
+                      )
+                    },
+                    pre: ({ children }) => <>{children}</>,
+                  }}
+                >
+                  {generation.content}
+                </ReactMarkdown>
+              ) : generation.status === 'streaming' ? (
+                <span className="inline-block animate-pulse text-stone-gray">
+                  ▌ Menunggu model...
+                </span>
+              ) : null}
+            </div>
+            {generation.webSources && generation.webSources.length > 0 && (
+              <CitationDrawer sources={generation.webSources} />
             )}
-            {generation.content ? (
-              <ReactMarkdown
-                rehypePlugins={[rehypeSanitize, rehypeHighlight]}
-                components={{
-                  code: ({ children, className }) => {
-                    const isBlock =
-                      String(children).includes('\n') || Boolean(className)
-                    if (isBlock)
-                      return <CodeBlock>{String(children)}</CodeBlock>
-                    return (
-                      <code className="rounded bg-sandstone px-1 py-0.5 text-[14px]">
-                        {children}
-                      </code>
-                    )
-                  },
-                  pre: ({ children }) => <>{children}</>,
-                }}
-              >
-                {generation.content}
-              </ReactMarkdown>
-            ) : generation.status === 'streaming' ? (
-              <span className="inline-block animate-pulse text-stone-gray">
-                ▌ Menunggu model...
-              </span>
-            ) : null}
-          </div>
+          </>
         )}
       </div>
 

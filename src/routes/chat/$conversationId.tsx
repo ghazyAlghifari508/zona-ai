@@ -74,6 +74,13 @@ type CompareGeneration = {
   timeToFirstTokenMs?: number | null
   comparisonRunId?: string | null
   messageId?: string
+  webSources?: Array<{
+    url: string
+    title: string | null
+    snippet: string | null
+    position: number
+    score?: number | null
+  }>
 }
 
 function ChatThread() {
@@ -126,6 +133,7 @@ function ChatThread() {
       timeToFirstTokenMs: g.timeToFirstTokenMs,
       comparisonRunId: g.comparisonRunId,
       messageId: g.messageId,
+      webSources: g.webSources,
     }))
   })
   const [userPrompt, setUserPrompt] = useState<string>(() => {
