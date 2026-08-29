@@ -37,6 +37,45 @@ vi.mock("../../src/lib/auth/session", () => ({
   })),
 }))
 
+vi.mock("ai", async () => {
+  const actual = await vi.importActual<typeof import("ai")>("ai")
+  return {
+    ...actual,
+    streamText: vi.fn((opts: Record<string, unknown>) => {
+      const onFinish = opts.onFinish as ((o: unknown) => Promise<void>) | undefined
+      const onChunk = opts.onChunk as (() => void) | undefined
+      const fakeText = "Hello mocked response"
+      const fakeUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
+      if (onChunk) onChunk()
+      if (onFinish) {
+        setTimeout(() => {
+          void onFinish({
+            text: fakeText,
+            usage: fakeUsage,
+            finishReason: "stop",
+            reasoningText: undefined,
+          })
+        }, 20)
+      }
+      const fakeStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue("Hello mocked ")
+          controller.enqueue("response")
+          controller.close()
+        },
+      })
+      return {
+        text: Promise.resolve(fakeText),
+        stream: fakeStream,
+        textStream: fakeStream,
+        toUIMessageStreamResponse: (init?: { headers?: Record<string, string> }) =>
+          new Response(fakeText, { headers: init?.headers }),
+        toTextStreamResponse: () => new Response(fakeText),
+      }
+    }),
+  }
+})
+
 describe("searchWeb standalone", () => {
   beforeEach(async () => {
     await db.delete(webSources)
@@ -93,5 +132,303 @@ describe("searchWeb standalone", () => {
     expect(res.results.length).toBe(0)
     const after = await db.select().from(webSources)
     expect(after.length).toBe(0)
+  })
+})
+
+describe("sendMessage enableWebSearch", () => {
+  const testUserId = "test-user-search-msg"
+
+  beforeEach(async () => {
+    // Clean webSources and related
+    await db.delete(webSources)
+    const { conversations, messages, generationRuns, users, creditTransactions, usageRecords } =
+      await import("../../src/lib/db/schema")
+    const convs = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.userId, testUserId))
+    for (const c of convs) {
+      await db.delete(generationRuns).where(eq(generationRuns.conversationId, c.id))
+      await db.delete(messages).where(eq(messages.conversationId, c.id))
+      await db.delete(conversations).where(eq(conversations.id, c.id))
+    }
+    await db.delete(creditTransactions).where(eq(creditTransactions.userId, testUserId))
+    await db.delete(usageRecords).where(eq(usageRecords.userId, testUserId))
+    await db.delete(users).where(eq(users.id, testUserId))
+    await db.insert(users).values({
+      id: testUserId,
+      email: "search-msg@example.com",
+      name: "SearchMsg",
+      credits: 100,
+    })
+    // Mock auth to return this user
+    const { getAuthSession } = await import("../../src/lib/auth/session")
+    vi.mocked(getAuthSession).mockResolvedValue({
+      user: { id: testUserId, email: "search-msg@example.com" },
+      session: { id: "sess" },
+    } as unknown as Awaited<ReturnType<typeof getAuthSession>>)
+  })
+
+  it("inserts 2 web_sources and injects system Web context", async () => {
+    const mockResults = [
+      {
+        url: "https://example.com/article-1",
+        title: "Understanding RAG Systems",
+        content: "RAG combines retrieval content here ".repeat(20),
+        score: 0.95,
+      },
+      {
+        url: "https://example.com/article-2",
+        title: "AI Model Comparison Guide",
+        content: "Comparing content here ".repeat(20),
+        score: 0.88,
+      },
+    ]
+    // Mock fetch for Tavily
+    const originalFetch = global.fetch
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const body = init?.body as string | undefined
+      if (typeof url === "string" && url.includes("api.tavily.com")) {
+        return {
+          ok: true,
+          json: async () => ({ results: mockResults }),
+        } as unknown as Response
+      }
+      // For other fetches (like embeddings), return mock embedding response or fallback to original
+      // Embedding fetch to localhost:20128/v1/embeddings
+      if (typeof url === "string" && url.includes("/embeddings")) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: mockResults.slice(0, 1).map(() => ({ embedding: Array(1536).fill(0.1) })),
+          }),
+        } as unknown as Response
+      }
+      return originalFetch(url as string, init)
+    })
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch)
+
+    const { sendMessageCore } = await import("../../src/server/functions/chat")
+    const request = new Request("http://localhost:3000")
+    const response = (await sendMessageCore({
+      data: {
+        modelId: "gemini-3.7-flash-high",
+        content: "berita terkini AI",
+        skillId: "none",
+        enableWebSearch: true,
+      },
+      request,
+    })) as unknown as Response
+    expect(response).toBeInstanceOf(Response)
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 150))
+    const sources = await db.select().from(webSources)
+    // Should have 2 rows for this generation
+    const recent = sources.filter((s) => s.title?.includes("RAG") || s.title?.includes("Comparison"))
+    expect(recent.length).toBe(2)
+    expect(recent[0].position).toBe(0)
+    expect(recent[0].score).toBe(0.95)
+    expect(recent[0].snippet?.length).toBeLessThanOrEqual(500)
+    expect(recent[1].position).toBe(1)
+    // Check conversationId linkage
+    expect(recent[0].conversationId).toBeDefined()
+  })
+
+  it("Tavily fail → 0 web_sources, still streams", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (typeof url === "string" && url.includes("api.tavily.com")) {
+        return {
+          ok: false,
+          json: async () => ({}),
+        } as unknown as Response
+      }
+      // embeddings fallback
+      if (typeof url === "string" && url.includes("/embeddings")) {
+        return {
+          ok: true,
+          json: async () => ({ data: [{ embedding: Array(1536).fill(0.1) }] }),
+        } as unknown as Response
+      }
+      return fetch(url as string, init)
+    })
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch)
+
+    const { sendMessageCore } = await import("../../src/server/functions/chat")
+    const request = new Request("http://localhost:3000")
+    const before = (await db.select().from(webSources)).length
+    const response = (await sendMessageCore({
+      data: {
+        modelId: "gemini-3.7-flash-high",
+        content: "test fail web",
+        skillId: "none",
+        enableWebSearch: true,
+      },
+      request,
+    })) as unknown as Response
+    expect(response).toBeInstanceOf(Response)
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 150))
+    const after = await db.select().from(webSources)
+    // No new web_sources for this generation (or at least not 2)
+    // Since we deleted beforeEach, and this test should have 0 new
+    expect(after.length).toBe(before)
+  })
+})
+
+describe("Fair Compare", () => {
+  const testUserId = "test-user-compare-search"
+
+  beforeEach(async () => {
+    await db.delete(webSources)
+    const {
+      conversations,
+      messages,
+      generationRuns,
+      comparisonRuns,
+      users,
+      creditTransactions,
+      usageRecords,
+    } = await import("../../src/lib/db/schema")
+    const convs = await db.select().from(conversations).where(eq(conversations.userId, testUserId))
+    for (const c of convs) {
+      await db.delete(generationRuns).where(eq(generationRuns.conversationId, c.id))
+      await db.delete(comparisonRuns).where(eq(comparisonRuns.conversationId, c.id))
+      await db.delete(messages).where(eq(messages.conversationId, c.id))
+      await db.delete(conversations).where(eq(conversations.id, c.id))
+    }
+    await db.delete(creditTransactions).where(eq(creditTransactions.userId, testUserId))
+    await db.delete(usageRecords).where(eq(usageRecords.userId, testUserId))
+    await db.delete(users).where(eq(users.id, testUserId))
+    await db.insert(users).values({
+      id: testUserId,
+      email: "compare-search@example.com",
+      name: "CompareSearch",
+      credits: 100,
+    })
+    const { getAuthSession } = await import("../../src/lib/auth/session")
+    vi.mocked(getAuthSession).mockResolvedValue({
+      user: { id: testUserId, email: "compare-search@example.com" },
+      session: { id: "sess" },
+    } as unknown as Awaited<ReturnType<typeof getAuthSession>>)
+  })
+
+  it("fetches Tavily once for 2 models, same web_sources", async () => {
+    const mockResults = [
+      {
+        url: "https://example.com/article-1",
+        title: "Understanding RAG Systems",
+        content: "RAG combines retrieval content here ".repeat(20),
+        score: 0.95,
+      },
+      {
+        url: "https://example.com/article-2",
+        title: "AI Model Comparison Guide",
+        content: "Comparing content here ".repeat(20),
+        score: 0.88,
+      },
+    ]
+    let fetchCount = 0
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (typeof url === "string" && url.includes("api.tavily.com")) {
+        fetchCount++
+        return {
+          ok: true,
+          json: async () => ({ results: mockResults }),
+        } as unknown as Response
+      }
+      if (typeof url === "string" && url.includes("/embeddings")) {
+        return {
+          ok: true,
+          json: async () => ({ data: [{ embedding: Array(1536).fill(0.1) }] }),
+        } as unknown as Response
+      }
+      return fetch(url as string, init)
+    })
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch)
+
+    const { sendCompareMessageCore } = await import("../../src/server/functions/chat")
+    const request = new Request("http://localhost:3000")
+    const response = (await sendCompareMessageCore({
+      data: {
+        modelIds: ["gemini-3.7-flash-high", "gpt-5.6-sol"],
+        content: "berita terkini AI",
+        skillId: "none",
+        enableWebSearch: true,
+      },
+      request,
+    })) as unknown as Response
+    expect(response).toBeInstanceOf(Response)
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 800))
+    expect(fetchCount).toBe(1)
+    const sources = await db.select().from(webSources)
+    const recent = sources.filter((s) => s.title?.includes("RAG") || s.title?.includes("Comparison"))
+    expect(recent.length).toBe(4)
+    // Each generation should have 2 rows same positions
+    const byGen = new Map<string, typeof recent>()
+    for (const s of recent) {
+      const arr = byGen.get(s.generationRunId) ?? []
+      arr.push(s)
+      byGen.set(s.generationRunId, arr)
+    }
+    expect(byGen.size).toBe(2)
+    for (const [, arr] of byGen) {
+      expect(arr.length).toBe(2)
+      expect(arr.find((x) => x.position === 0)?.url).toBe("https://example.com/article-1")
+      expect(arr.find((x) => x.position === 1)?.url).toBe("https://example.com/article-2")
+    }
+  })
+
+  it("ownership check blocks other user from seeing web_sources via getMessages", async () => {
+    // Create a conversation with web_sources for testUserId, then try to getMessages as other user
+    const mockResults = [
+      {
+        url: "https://example.com/article-1",
+        title: "Understanding RAG Systems",
+        content: "RAG content",
+        score: 0.95,
+      },
+    ]
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      if (typeof url === "string" && url.includes("api.tavily.com")) {
+        return { ok: true, json: async () => ({ results: mockResults }) } as unknown as Response
+      }
+      if (typeof url === "string" && url.includes("/embeddings")) {
+        return {
+          ok: true,
+          json: async () => ({ data: [{ embedding: Array(1536).fill(0.1) }] }),
+        } as unknown as Response
+      }
+      return fetch(url as string)
+    })
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch)
+    const { sendMessageCore } = await import("../../src/server/functions/chat")
+    const request = new Request("http://localhost:3000")
+    const response = (await sendMessageCore({
+      data: {
+        modelId: "gemini-3.7-flash-high",
+        content: "ownership test",
+        skillId: "none",
+        enableWebSearch: true,
+      },
+      request,
+    })) as unknown as Response
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 150))
+    // Get conversationId from recent generation
+    const { conversations } = await import("../../src/lib/db/schema")
+    const convs = await db.select().from(conversations).where(eq(conversations.userId, testUserId))
+    const convId = convs[convs.length - 1].id
+    // Try to getMessages as other user
+    const { getMessagesCore } = await import("../../src/server/functions/messages")
+    const otherRequest = new Request("http://localhost:3000")
+    const { getAuthSession } = await import("../../src/lib/auth/session")
+    vi.mocked(getAuthSession).mockResolvedValueOnce({
+      user: { id: "other-user", email: "other@example.com" },
+      session: { id: "sess2" },
+    } as unknown as Awaited<ReturnType<typeof getAuthSession>>)
+    await expect(
+      getMessagesCore({ data: { conversationId: convId }, request: otherRequest }),
+    ).rejects.toMatchObject({ status: 403 })
   })
 })

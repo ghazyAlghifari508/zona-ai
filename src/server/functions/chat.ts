@@ -22,11 +22,14 @@ import {
   generationRuns,
   messages,
   usageRecords,
+  webSources,
 } from '../../lib/db/schema'
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
 import { AppError, type UsageLike } from '../../lib/utils/errors'
+import { TAVILY_MAX_RESULTS } from '../../lib/utils/constants'
+import { searchProvider } from '../../lib/tavily/client'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
 
@@ -231,7 +234,41 @@ export async function sendMessageCore({
     const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
     ragSuffix = `\n\nContext from documents:\n${truncated}`
   }
-  const systemPrompt = buildSystemPrompt({ skillId: input.skillId }) + ragSuffix
+
+  let webResults: Array<{ url: string; title: string; content: string; score: number }> = []
+  if (input.enableWebSearch) {
+    try {
+      webResults = await searchProvider.search(input.content, {
+        searchDepth: "basic",
+        maxResults: TAVILY_MAX_RESULTS,
+      })
+    } catch (e) {
+      console.error("Tavily ERR-015", e)
+      webResults = []
+    }
+    if (webResults.length) {
+      for (let i = 0; i < webResults.length; i++) {
+        const r = webResults[i]
+        await db.insert(webSources).values({
+          generationRunId: genId,
+          conversationId: convId,
+          url: r.url,
+          title: r.title,
+          snippet: r.content.slice(0, 500),
+          score: r.score,
+          position: i,
+        })
+      }
+    }
+  }
+  const hasWeb = webResults.length > 0
+  const webContext = hasWeb
+    ? `\n\nWeb context (cite as [1], [2]):\n${webResults.map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.content.slice(0, 500)}`).join("\n\n")}`
+    : ""
+  const systemPrompt =
+    buildSystemPrompt({ skillId: input.skillId, hasWebSources: hasWeb }) +
+    ragSuffix +
+    webContext
 
   const abortController = new AbortController()
   controllers.set(genId, abortController)
@@ -605,7 +642,50 @@ export async function sendCompareMessageCore({
     const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
     ragSuffix = `\n\nContext from documents:\n${truncated}`
   }
-  const systemPrompt = buildSystemPrompt({ skillId: data.skillId }) + ragSuffix
+
+  let webResultsCompare: Array<{
+    url: string
+    title: string
+    content: string
+    score: number
+  }> = []
+  if (data.enableWebSearch) {
+    try {
+      webResultsCompare = await searchProvider.search(data.content, {
+        maxResults: TAVILY_MAX_RESULTS,
+      })
+    } catch (e) {
+      console.error("Tavily ERR-015", e)
+      webResultsCompare = []
+    }
+    if (webResultsCompare.length) {
+      for (const genId of genIds) {
+        for (let i = 0; i < webResultsCompare.length; i++) {
+          const r = webResultsCompare[i]
+          await db.insert(webSources).values({
+            generationRunId: genId,
+            conversationId: convId,
+            url: r.url,
+            title: r.title,
+            snippet: r.content.slice(0, 500),
+            score: r.score,
+            position: i,
+          })
+        }
+      }
+    }
+  }
+  const hasWebCompare = webResultsCompare.length > 0
+  const webContextCompare = hasWebCompare
+    ? `\n\nWeb context (cite as [1], [2]):\n${webResultsCompare.map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.content.slice(0, 500)}`).join("\n\n")}`
+    : ""
+  const systemPrompt =
+    buildSystemPrompt({
+      skillId: data.skillId,
+      hasWebSources: hasWebCompare,
+    }) +
+    ragSuffix +
+    webContextCompare
 
   const aiMessages: ModelMessage[] = history.map(
     (m) =>

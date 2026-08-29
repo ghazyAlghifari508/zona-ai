@@ -15,7 +15,7 @@ export const chatSchema = z.object({
     .default('none'),
   content: z.string().min(1).max(20000),
   attachmentIds: z.array(z.string().uuid()).optional(),
-  enableWebSearch: z.boolean().optional(),
+  enableWebSearch: z.boolean().optional().default(false),
 })
 
 export type ChatInput = z.infer<typeof chatSchema>
@@ -61,7 +61,7 @@ export const compareSchema = z
       .default('none'),
     content: z.string().min(1).max(20000),
     attachmentIds: z.array(z.string().uuid()).optional(),
-    enableWebSearch: z.boolean().optional(),
+    enableWebSearch: z.boolean().optional().default(false),
   })
   .refine((d) => !d.modelIds.includes('auto'), {
     message: 'Auto tidak tersedia di Compare',
