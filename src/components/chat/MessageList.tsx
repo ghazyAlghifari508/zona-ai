@@ -6,6 +6,7 @@ import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
+import { InlineError } from './InlineError'
 
 export type ChatMessage = {
   id: string
@@ -16,6 +17,9 @@ export type ChatMessage = {
   routingReason?: string
   streaming?: boolean
   webSources?: CitationSource[]
+  errorCode?: string
+  errorMessage?: string
+  onRetry?: () => void
 }
 
 export function MessageList({ messages }: { messages: ChatMessage[] }) {
@@ -34,6 +38,7 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
       ref={parentRef}
       role="log"
       aria-live="polite"
+      aria-label="Chat messages"
       data-testid="message-list"
       className={`flex-1 overflow-y-auto p-4 ${shouldVirtualize ? '' : 'flex flex-col gap-6'}`}
     >
@@ -136,9 +141,18 @@ function MessageItem({ message }: { message: ChatMessage }) {
                 {message.content}
               </ReactMarkdown>
               {message.streaming && (
-                <span className="ml-1 inline-block animate-pulse">▌</span>
+                <span className="ml-1 inline-block animate-pulse motion-reduce:animate-none">
+                  ▌
+                </span>
               )}
             </div>
+            {message.errorMessage && (
+              <InlineError
+                code={message.errorCode}
+                message={message.errorMessage}
+                onRetry={message.onRetry}
+              />
+            )}
             {message.webSources && message.webSources.length > 0 && (
               <CitationDrawer sources={message.webSources} />
             )}

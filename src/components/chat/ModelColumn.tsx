@@ -5,6 +5,7 @@ import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
+import { InlineError } from './InlineError'
 
 type Generation = {
   id: string
@@ -117,22 +118,35 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
 
       <div className="flex-1 overflow-y-auto p-4">
         {generation.status === 'failed' ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-[15px] text-stone-gray">Model gagal</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+            <InlineError
+              code={
+                typeof generation.error === 'object' &&
+                generation.error !== null &&
+                'code' in generation.error
+                  ? String(
+                      (generation.error as { code?: unknown }).code ??
+                        'ERR-001',
+                    )
+                  : 'ERR-001'
+              }
+              message="Model gagal merespons. Respons model lain tetap tersimpan."
+            />
             {onRetry && (
               <button
                 type="button"
                 onClick={() => onRetry(generation.id)}
-                className="mt-2 inline-flex items-center gap-1 rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-1.5 text-sm text-ink-black hover:bg-sandstone"
+                className="inline-flex items-center gap-1 rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-1.5 text-sm text-ink-black hover:bg-sandstone"
               >
-                <RotateCw size={14} strokeWidth={1.75} /> Coba lagi
+                <RotateCw size={14} strokeWidth={1.75} aria-hidden="true" />{' '}
+                Coba lagi
               </button>
             )}
           </div>
         ) : generation.status === 'queued' ? (
           <div className="space-y-2">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-sandstone" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-sandstone" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-sandstone motion-reduce:animate-none" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-sandstone motion-reduce:animate-none" />
           </div>
         ) : (
           <>
@@ -168,7 +182,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                   {generation.content}
                 </ReactMarkdown>
               ) : generation.status === 'streaming' ? (
-                <span className="inline-block animate-pulse text-stone-gray">
+                <span className="inline-block animate-pulse text-stone-gray motion-reduce:animate-none">
                   ▌ Menunggu model...
                 </span>
               ) : null}

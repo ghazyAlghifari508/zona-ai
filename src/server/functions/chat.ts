@@ -1,4 +1,4 @@
-import { createServerFn } from '@tanstack/react-start'
+﻿import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import type { ModelMessage } from 'ai'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
@@ -29,7 +29,11 @@ import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
 import { searchProvider } from '../../lib/tavily/client'
 import { TAVILY_MAX_RESULTS } from '../../lib/utils/constants'
-import { AppError, type UsageLike } from '../../lib/utils/errors'
+import {
+  AppError,
+  throwZonaError,
+  type UsageLike,
+} from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
 
@@ -83,7 +87,7 @@ export async function sendMessageCore({
   }
 
   if (currentCredits < cost) {
-    throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
+    throwZonaError('ERR-019')
   }
 
   let convId = input.conversationId
@@ -454,7 +458,7 @@ export async function sendCompareMessageCore({
       )
       routerModelIds.push(entry.routerModelId)
     } catch {
-      throw new AppError(`ERR-003: model ${mid} not available`, 400, 'ERR-003')
+      throwZonaError('ERR-003', mid)
     }
   }
   const total = costs.reduce((a, b) => a + b, 0)
@@ -1076,7 +1080,7 @@ export async function retryGenerationCore({
   )
   const rows = getRows<{ credits: number }>(creditRes)
   const cur = rows[0]?.credits ?? 0
-  if (cur < cost) throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
+  if (cur < cost) throwZonaError('ERR-019')
 
   const [msg] = await db
     .select()
@@ -1313,7 +1317,7 @@ export async function regenerateMessageCore({
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
   if (currentCredits < cost) {
-    throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
+    throwZonaError('ERR-019')
   }
 
   const [assistantMsg] = await db
