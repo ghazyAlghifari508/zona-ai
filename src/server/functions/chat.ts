@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { nineRouter } from '../../lib/ai/9router'
 import {
@@ -14,13 +14,15 @@ import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
 import {
+  attachments,
   comparisonRuns,
   conversations,
   generationRuns,
   messages,
   usageRecords,
 } from '../../lib/db/schema'
-import { getModelById } from '../../lib/models/registry'
+import { getModelById, isVisionCapable } from '../../lib/models/registry'
+import { getObject } from '../../lib/r2/client'
 import { resolveAutoModel } from '../../lib/models/router'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
@@ -129,6 +131,56 @@ export async function sendMessageCore({
     .values({ conversationId: convId, role: 'assistant', content: '' })
     .returning()
 
+  let fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
+  if (input.attachmentIds?.length) {
+    const atts = await db
+      .select()
+      .from(attachments)
+      .where(
+        and(
+          inArray(attachments.id, input.attachmentIds),
+          eq(attachments.userId, userId),
+        ),
+      )
+    if (atts.length !== input.attachmentIds.length) {
+      const e = new Error('Forbidden') as Error & { status: number }
+      e.status = 403
+      throw e
+    }
+    for (const a of atts) {
+      if (a.conversationId !== convId) {
+        const e = new Error('Attachment not in conversation') as Error & {
+          status: number
+        }
+        e.status = 400
+        throw e
+      }
+    }
+    const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
+    if (hasImage && !isVisionCapable(input.modelId)) {
+      const e = new Error(
+        'Model tidak mendukung vision. Pilih model vision-capable.',
+      ) as Error & { status: number; code: string }
+      ;(e as unknown as Record<string, unknown>).status = 400
+      ;(e as unknown as Record<string, unknown>).code = 'ERR-003'
+      throw e
+    }
+    for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
+      const { body } = await getObject(a.r2Key)
+      fileParts.push({
+        type: 'file',
+        data: (body as Buffer).toString('base64'),
+        mediaType: a.mimeType,
+      })
+    }
+    for (const id of input.attachmentIds) {
+      await db
+        .update(attachments)
+        .set({ messageId: _userMsg.id })
+        .where(eq(attachments.id, id))
+    }
+  }
+
   const genId = crypto.randomUUID()
 
   const startedAt = new Date()
@@ -167,16 +219,29 @@ export async function sendMessageCore({
   const abortController = new AbortController()
   controllers.set(genId, abortController)
 
-  const aiMessages = history.map((m) => ({
-    role: m.role as 'user' | 'assistant' | 'system',
-    content: m.content,
-  }))
+  let aiMessages: Array<{ role: string; content: unknown }> = history.map(
+    (m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    }),
+  )
+  if (fileParts.length) {
+    for (let i = aiMessages.length - 1; i >= 0; i--) {
+      if (aiMessages[i].role === 'user') {
+        aiMessages[i].content = [
+          { type: 'text', text: input.content },
+          ...fileParts,
+        ] as unknown as string
+        break
+      }
+    }
+  }
 
   try {
     const result = streamText({
       model: nineRouter(routerModelId),
       system: buildSystemPrompt({ skillId: input.skillId }),
-      messages: aiMessages,
+      messages: aiMessages as never,
       abortSignal: abortController.signal,
       onChunk: () => {
         if (firstTokenAt === null) firstTokenAt = Date.now()
@@ -383,6 +448,60 @@ export async function sendCompareMessageCore({
     })
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
 
+  let fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
+  if (data.attachmentIds?.length) {
+    const atts = await db
+      .select()
+      .from(attachments)
+      .where(
+        and(
+          inArray(attachments.id, data.attachmentIds),
+          eq(attachments.userId, userId),
+        ),
+      )
+    if (atts.length !== data.attachmentIds.length) {
+      const e = new Error('Forbidden') as Error & { status: number }
+      e.status = 403
+      throw e
+    }
+    for (const a of atts) {
+      if (a.conversationId !== convId) {
+        const e = new Error('Attachment not in conversation') as Error & {
+          status: number
+        }
+        e.status = 400
+        throw e
+      }
+    }
+    const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
+    if (hasImage) {
+      for (const mid of data.modelIds) {
+        if (!isVisionCapable(mid)) {
+          const e = new Error(
+            'Model tidak mendukung vision. Pilih model vision-capable.',
+          ) as Error & { status: number; code: string }
+          ;(e as unknown as Record<string, unknown>).status = 400
+          ;(e as unknown as Record<string, unknown>).code = 'ERR-003'
+          throw e
+        }
+      }
+    }
+    for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
+      const { body } = await getObject(a.r2Key)
+      fileParts.push({
+        type: 'file',
+        data: (body as Buffer).toString('base64'),
+        mediaType: a.mimeType,
+      })
+    }
+    for (const id of data.attachmentIds) {
+      await db
+        .update(attachments)
+        .set({ messageId: userMsg.id })
+        .where(eq(attachments.id, id))
+    }
+  }
+
   const genIds = data.modelIds.map(() => crypto.randomUUID())
 
   // Create assistant messages and generation runs before deduct? deduct must be before 9Router but after creation of gen ids
@@ -453,10 +572,23 @@ export async function sendCompareMessageCore({
     .where(eq(messages.conversationId, convId))
     .orderBy(asc(messages.createdAt))
 
-  const aiMessages = history.map((m) => ({
-    role: m.role as 'user' | 'assistant' | 'system',
-    content: m.content,
-  }))
+  let aiMessages: Array<{ role: string; content: unknown }> = history.map(
+    (m) => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    }),
+  )
+  if (fileParts.length) {
+    for (let i = aiMessages.length - 1; i >= 0; i--) {
+      if (aiMessages[i].role === 'user') {
+        aiMessages[i].content = [
+          { type: 'text', text: data.content },
+          ...fileParts,
+        ] as unknown as string
+        break
+      }
+    }
+  }
 
   const streams: ReadableStream<StreamEvent>[] = []
   const startTimes = new Map<string, number>()

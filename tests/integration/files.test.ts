@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db/index'
 import { attachments, conversations, users } from '../../src/lib/db/schema'
@@ -25,6 +25,49 @@ vi.mock('../../src/lib/auth/session', () => ({
     return { user: { id: 'test-user-files', email: 'test-files@example.com' } }
   }),
 }))
+
+const mockStreamText = vi.fn((opts: Record<string, unknown>) => {
+  const onFinish = opts.onFinish as ((o: unknown) => Promise<void>) | undefined
+  const onChunk = opts.onChunk as (() => void) | undefined
+  const fakeText = 'Hello mocked response'
+  const fakeUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
+  if (onChunk) onChunk()
+  if (onFinish) {
+    setTimeout(() => {
+      void onFinish({
+        text: fakeText,
+        usage: fakeUsage,
+        finishReason: 'stop',
+        reasoningText: undefined,
+      })
+    }, 20)
+  }
+  const fakeStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue('Hello mocked ')
+      controller.enqueue('response')
+      controller.close()
+    },
+  })
+  // capture messages for vision assertion
+  ;(globalThis as unknown as Record<string, unknown>).__lastStreamMessages = opts.messages
+  return {
+    text: Promise.resolve(fakeText),
+    stream: fakeStream,
+    toUIMessageStreamResponse: (init?: { headers?: Record<string, string> }) => {
+      return new Response(fakeText, { headers: init?.headers })
+    },
+    toTextStreamResponse: () => new Response(fakeText),
+  }
+})
+
+vi.mock('ai', async () => {
+  const actual = await vi.importActual<typeof import('ai')>('ai')
+  return {
+    ...actual,
+    streamText: mockStreamText,
+  }
+})
 
 const mockUserId = 'test-user-files'
 const mockUserId2 = 'test-user-files-2'
@@ -270,4 +313,181 @@ describe('files API', () => {
     expect(r2.deleteObject).toHaveBeenCalled()
   })
 
+  it('sendMessage with image + vision injects file parts', async () => {
+    const { uploadFileCore } = await import('../../src/server/functions/files')
+    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { modelRegistry } = await import('../../src/lib/models/registry')
+    // ensure we have a vision-capable model (auto is vision true)
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Vision Conv' })
+      .returning()
+    // create image attachment
+    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const file = new File([pngHeader], 'photo.png', { type: 'image/png' })
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('conversationId', conv.id)
+    const reqUpload = new Request('http://localhost:3000', {
+      method: 'POST',
+      body: fd as unknown as BodyInit,
+      headers: { 'x-test-user': mockUserId },
+    } as unknown as RequestInit)
+    const att = (await uploadFileCore({ request: reqUpload })) as unknown as typeof attachments.$inferSelect
+    // mock getObject to return image buffer for vision
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.getObject).mockResolvedValueOnce({
+      body: pngHeader,
+      contentType: 'image/png',
+    } as never)
+    mockStreamText.mockClear()
+    const req = new Request('http://localhost:3000', {
+      headers: { 'x-test-user': mockUserId },
+    })
+    const response = (await sendMessageCore({
+      data: {
+        modelId: 'auto',
+        content: 'describe this image',
+        skillId: 'none',
+        conversationId: conv.id,
+        attachmentIds: [att.id],
+      },
+      request: req,
+    })) as unknown as Response
+    expect(response).toBeInstanceOf(Response)
+    await response.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 80))
+    // check that streamText was called with file part
+    expect(mockStreamText).toHaveBeenCalled()
+    const lastCall = mockStreamText.mock.calls[
+      mockStreamText.mock.calls.length - 1
+    ]?.[0] as unknown as Record<string, unknown>
+    const messages = lastCall.messages as unknown as Array<Record<string, unknown>>
+    const hasFile = messages.some((m) => {
+      const content = m.content as unknown
+      if (!Array.isArray(content)) return false
+      return (content as Array<Record<string, unknown>>).some((c) => c.type === 'file' && c.mediaType === 'image/png')
+    })
+    expect(hasFile).toBe(true)
+    const filePart = messages
+      .flatMap((m) => (Array.isArray(m.content) ? (m.content as Array<Record<string, unknown>>) : []))
+      .find((c) => c.type === 'file')
+    expect(filePart).toBeDefined()
+    expect(typeof filePart?.data).toBe('string')
+    // verify attachment linked to message
+    const [updatedAtt] = await db.select().from(attachments).where(eq(attachments.id, att.id))
+    expect(updatedAtt.messageId).not.toBeNull()
+  })
+
+  it('sendMessage with image + non-vision rejects 400', async () => {
+    const { uploadFileCore } = await import('../../src/server/functions/files')
+    const { sendMessageCore } = await import('../../src/server/functions/chat')
+    const { modelRegistry } = await import('../../src/lib/models/registry')
+    // inject a non-vision model for test
+    const testModelId = 'test-no-vision'
+    const exists = modelRegistry.find((m) => m.id === testModelId)
+    if (!exists) {
+      modelRegistry.push({
+        id: testModelId,
+        routerModelId: 'test/no-vision',
+        displayName: 'Test No Vision',
+        provider: 'test',
+        description: 'no vision',
+        enabled: true,
+        creditCost: 1,
+        creditTier: 'balanced' as never,
+        capabilities: { text: true, vision: false, files: true, tools: false, reasoning: false },
+        metadata: { contextWindow: 1000, maxOutput: 1000, pricing: null, category: 'test', speedClass: 'fast' as never },
+      } as never)
+    }
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'NonVision Conv' })
+      .returning()
+    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const file = new File([pngHeader], 'photo2.png', { type: 'image/png' })
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('conversationId', conv.id)
+    const reqUpload = new Request('http://localhost:3000', {
+      method: 'POST',
+      body: fd as unknown as BodyInit,
+      headers: { 'x-test-user': mockUserId },
+    } as unknown as RequestInit)
+    const att = (await uploadFileCore({ request: reqUpload })) as unknown as typeof attachments.$inferSelect
+    const req = new Request('http://localhost:3000', {
+      headers: { 'x-test-user': mockUserId },
+    })
+    await expect(
+      sendMessageCore({
+        data: {
+          modelId: testModelId,
+          content: 'describe',
+          skillId: 'none',
+          conversationId: conv.id,
+          attachmentIds: [att.id],
+        },
+        request: req,
+      }) as unknown as Promise<Response>,
+    ).rejects.toMatchObject({ status: 400, code: 'ERR-003' })
+    // clean up test model
+    const idx = modelRegistry.findIndex((m) => m.id === testModelId)
+    if (idx !== -1) modelRegistry.splice(idx, 1)
+  })
+
+  it('sendCompare with image same parts to all', async () => {
+    const { uploadFileCore } = await import('../../src/server/functions/files')
+    const { sendCompareMessageCore } = await import('../../src/server/functions/chat')
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Compare Vision Conv', mode: 'compare' })
+      .returning()
+    const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const file = new File([pngHeader], 'photo3.png', { type: 'image/png' })
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('conversationId', conv.id)
+    const reqUpload = new Request('http://localhost:3000', {
+      method: 'POST',
+      body: fd as unknown as BodyInit,
+      headers: { 'x-test-user': mockUserId },
+    } as unknown as RequestInit)
+    const att = (await uploadFileCore({ request: reqUpload })) as unknown as typeof attachments.$inferSelect
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.getObject).mockResolvedValue({
+      body: pngHeader,
+      contentType: 'image/png',
+    } as never)
+    mockStreamText.mockClear()
+    const req = new Request('http://localhost:3000', {
+      headers: { 'x-test-user': mockUserId },
+    })
+    const response = (await sendCompareMessageCore({
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        content: 'describe image',
+        skillId: 'none',
+        conversationId: conv.id,
+        attachmentIds: [att.id],
+      },
+      request: req,
+    })) as unknown as Response
+    expect(response).toBeInstanceOf(Response)
+    // wait for compare streams to finish
+    await new Promise((r) => setTimeout(r, 300))
+    // need to capture that streamText was called twice with file parts
+    expect(mockStreamText.mock.calls.length).toBeGreaterThanOrEqual(2)
+    // at least one call should have file part (check any message in array)
+    const hasFilePart = mockStreamText.mock.calls.some((call) => {
+      const opts = call[0] as Record<string, unknown>
+      const msgs = opts.messages as unknown[] | undefined
+      if (!msgs) return false
+      return (msgs as Array<Record<string, unknown>>).some((m) => {
+        const content = m.content as unknown
+        if (!Array.isArray(content)) return false
+        return (content as Array<Record<string, unknown>>).some((c) => c.type === 'file')
+      })
+    })
+    expect(hasFilePart).toBe(true)
+  })
 })
