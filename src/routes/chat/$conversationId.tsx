@@ -144,6 +144,7 @@ function ChatThread() {
     modelId: string,
     skillId: string,
     attachmentIds?: string[],
+    enableWebSearch?: boolean,
   ) => {
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -162,7 +163,14 @@ function ChatThread() {
     setIsStreaming(true)
     try {
       const response = (await sendMessage({
-        data: { conversationId, modelId, skillId, content, attachmentIds },
+        data: {
+          conversationId,
+          modelId,
+          skillId,
+          content,
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
       })) as Response
       const genId = response.headers.get('X-Generation-Id')
       const routerModelId = response.headers.get('X-Router-Model-Id')
@@ -276,6 +284,7 @@ function ChatThread() {
     modelIds: string[],
     skillId: string,
     attachmentIds?: string[],
+    enableWebSearch?: boolean,
   ) => {
     setUserPrompt(content)
     const initialGens: CompareGeneration[] = modelIds.map((mid) => ({
@@ -291,7 +300,14 @@ function ChatThread() {
     setIsStreaming(true)
     try {
       const response = (await sendCompareMessage({
-        data: { conversationId, modelIds, skillId, content, attachmentIds },
+        data: {
+          conversationId,
+          modelIds,
+          skillId,
+          content,
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
       })) as Response
       const reader = response.body?.getReader()
       if (!reader) {

@@ -43,6 +43,13 @@
       "when": 1787969133644,
       "tag": "0005_wonderful_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787973137389,
+      "tag": "0006_mute_doctor_octopus",
+      "breakpoints": true
     }
   ]
 }

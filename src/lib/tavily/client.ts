@@ -1,8 +1,8 @@
-import { TAVILY_MAX_RESULTS } from "../utils/constants"
-import { AppError } from "../utils/errors"
+import { TAVILY_MAX_RESULTS } from '../utils/constants'
+import { AppError } from '../utils/errors'
 
-if (typeof window !== "undefined") {
-  throw new Error("src/lib/tavily/client.ts is server-only")
+if (typeof window !== 'undefined') {
+  throw new Error('src/lib/tavily/client.ts is server-only')
 }
 
 export type SearchResult = {
@@ -15,7 +15,7 @@ export type SearchResult = {
 export interface SearchProvider {
   search(
     query: string,
-    opts?: { searchDepth?: "basic" | "advanced"; maxResults?: number },
+    opts?: { searchDepth?: 'basic' | 'advanced'; maxResults?: number },
   ): Promise<SearchResult[]>
 }
 
@@ -31,32 +31,32 @@ type TavilyApiResponse = {
 export class TavilyProvider implements SearchProvider {
   async search(
     query: string,
-    opts?: { searchDepth?: "basic" | "advanced"; maxResults?: number },
+    opts?: { searchDepth?: 'basic' | 'advanced'; maxResults?: number },
   ): Promise<SearchResult[]> {
     const apiKey = process.env.TAVILY_API_KEY
     if (!apiKey) {
       throw new AppError(
-        "Web search unavailable. Responding without web results.",
+        'Web search unavailable. Responding without web results.',
         503,
-        "ERR-015",
+        'ERR-015',
       )
     }
-    const res = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         api_key: apiKey,
         query,
-        search_depth: opts?.searchDepth ?? "basic",
+        search_depth: opts?.searchDepth ?? 'basic',
         max_results: opts?.maxResults ?? TAVILY_MAX_RESULTS,
         include_answer: false,
       }),
     })
     if (!res.ok) {
       throw new AppError(
-        "Web search unavailable. Responding without web results.",
+        'Web search unavailable. Responding without web results.',
         503,
-        "ERR-015",
+        'ERR-015',
       )
     }
     const data = (await res.json()) as TavilyApiResponse

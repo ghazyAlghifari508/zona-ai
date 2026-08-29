@@ -1,16 +1,16 @@
-import { createServerFn } from "@tanstack/react-start"
-import { getRequest } from "@tanstack/react-start/server"
-import { z } from "zod"
-import { getAuthSession } from "../../lib/auth/session"
-import { searchProvider } from "../../lib/tavily/client"
+import { createServerFn } from '@tanstack/react-start'
+import { getRequest } from '@tanstack/react-start/server'
+import { z } from 'zod'
+import { getAuthSession } from '../../lib/auth/session'
+import { searchProvider } from '../../lib/tavily/client'
 
-if (typeof window !== "undefined") {
-  throw new Error("src/server/functions/search.ts is server-only")
+if (typeof window !== 'undefined') {
+  throw new Error('src/server/functions/search.ts is server-only')
 }
 
 const searchWebSchema = z.object({
   query: z.string().min(1).max(500),
-  searchDepth: z.enum(["basic", "advanced"]).default("basic"),
+  searchDepth: z.enum(['basic', 'advanced']).default('basic'),
 })
 
 export async function searchWebCore({
@@ -27,12 +27,12 @@ export async function searchWebCore({
     })
     return { results }
   } catch (e) {
-    console.error("Tavily fail", e)
+    console.error('Tavily fail', e)
     return { results: [] }
   }
 }
 
-export const searchWeb = createServerFn({ method: "POST" })
+export const searchWeb = createServerFn({ method: 'POST' })
   .validator((data: unknown) => searchWebSchema.parse(data))
   .handler(async ({ data }) => {
     const request = getRequest() as Request

@@ -27,9 +27,9 @@ import {
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
-import { AppError, type UsageLike } from '../../lib/utils/errors'
-import { TAVILY_MAX_RESULTS } from '../../lib/utils/constants'
 import { searchProvider } from '../../lib/tavily/client'
+import { TAVILY_MAX_RESULTS } from '../../lib/utils/constants'
+import { AppError, type UsageLike } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
 
@@ -235,15 +235,20 @@ export async function sendMessageCore({
     ragSuffix = `\n\nContext from documents:\n${truncated}`
   }
 
-  let webResults: Array<{ url: string; title: string; content: string; score: number }> = []
+  let webResults: Array<{
+    url: string
+    title: string
+    content: string
+    score: number
+  }> = []
   if (input.enableWebSearch) {
     try {
       webResults = await searchProvider.search(input.content, {
-        searchDepth: "basic",
+        searchDepth: 'basic',
         maxResults: TAVILY_MAX_RESULTS,
       })
     } catch (e) {
-      console.error("Tavily ERR-015", e)
+      console.error('Tavily ERR-015', e)
       webResults = []
     }
     if (webResults.length) {
@@ -263,8 +268,8 @@ export async function sendMessageCore({
   }
   const hasWeb = webResults.length > 0
   const webContext = hasWeb
-    ? `\n\nWeb context (cite as [1], [2]):\n${webResults.map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.content.slice(0, 500)}`).join("\n\n")}`
-    : ""
+    ? `\n\nWeb context (cite as [1], [2]):\n${webResults.map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.content.slice(0, 500)}`).join('\n\n')}`
+    : ''
   const systemPrompt =
     buildSystemPrompt({ skillId: input.skillId, hasWebSources: hasWeb }) +
     ragSuffix +
@@ -655,7 +660,7 @@ export async function sendCompareMessageCore({
         maxResults: TAVILY_MAX_RESULTS,
       })
     } catch (e) {
-      console.error("Tavily ERR-015", e)
+      console.error('Tavily ERR-015', e)
       webResultsCompare = []
     }
     if (webResultsCompare.length) {
@@ -677,8 +682,8 @@ export async function sendCompareMessageCore({
   }
   const hasWebCompare = webResultsCompare.length > 0
   const webContextCompare = hasWebCompare
-    ? `\n\nWeb context (cite as [1], [2]):\n${webResultsCompare.map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.content.slice(0, 500)}`).join("\n\n")}`
-    : ""
+    ? `\n\nWeb context (cite as [1], [2]):\n${webResultsCompare.map((r, i) => `[${i + 1}] ${r.title} - ${r.url}\n${r.content.slice(0, 500)}`).join('\n\n')}`
+    : ''
   const systemPrompt =
     buildSystemPrompt({
       skillId: data.skillId,

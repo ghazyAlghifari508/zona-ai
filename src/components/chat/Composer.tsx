@@ -13,12 +13,14 @@ type Props = {
     modelId: string,
     skillId: string,
     attachmentIds?: string[],
+    enableWebSearch?: boolean,
   ) => void
   onSendCompare?: (
     content: string,
     modelIds: string[],
     skillId: string,
     attachmentIds?: string[],
+    enableWebSearch?: boolean,
   ) => void
   onStop?: () => void
   isStreaming?: boolean
@@ -56,6 +58,7 @@ export function Composer({
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [enableWebSearch, setEnableWebSearch] = useState(false)
 
   useEffect(() => {
     getModels()
@@ -277,10 +280,23 @@ export function Composer({
     if (mode === 'compare') {
       if (!canSendCompare) return
       if (onSendCompare)
-        onSendCompare(trimmed, compareModelIds, skillId, attachmentIds)
-      else onSend(trimmed, compareModelIds.join(','), skillId, attachmentIds)
+        onSendCompare(
+          trimmed,
+          compareModelIds,
+          skillId,
+          attachmentIds,
+          enableWebSearch,
+        )
+      else
+        onSend(
+          trimmed,
+          compareModelIds.join(','),
+          skillId,
+          attachmentIds,
+          enableWebSearch,
+        )
     } else {
-      onSend(trimmed, modelId, skillId, attachmentIds)
+      onSend(trimmed, modelId, skillId, attachmentIds, enableWebSearch)
     }
     setContent('')
     setAttachments([])
@@ -456,11 +472,21 @@ export function Composer({
               </button>
               <button
                 type="button"
-                disabled
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-stone-gray opacity-50"
-                title="Web search (Fase 08)"
+                data-testid="web-toggle"
+                aria-pressed={enableWebSearch}
+                onClick={() => setEnableWebSearch((v) => !v)}
+                className={`flex h-8 items-center gap-1 rounded-[10px] border px-2 py-1 text-[13px] ${
+                  enableWebSearch
+                    ? 'bg-sandstone border-ink-black text-ink-black'
+                    : 'border-hairline-mist bg-pure-white text-ink-black'
+                }`}
+                title="Real-time web search via Tavily"
               >
-                <Globe size={14} strokeWidth={1.75} />
+                <Globe size={16} strokeWidth={1.5} />
+                Web
+                {enableWebSearch && (
+                  <span className="h-2 w-2 rounded-full bg-fresh-grass" />
+                )}
               </button>
             </div>
           </div>
