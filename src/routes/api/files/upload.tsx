@@ -12,15 +12,22 @@ export const Route = createFileRoute('/api/files/upload')({
             headers: { 'Content-Type': 'application/json' },
           })
         } catch (e) {
-          const err = e as Error & { status?: number; code?: string }
+          const err = e as Error & {
+            status?: number
+            code?: string
+            retryAfterSeconds?: number
+          }
           const status = err.status ?? 500
           const code = err.code
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          }
+          if (status === 429 && err.retryAfterSeconds) {
+            headers['Retry-After'] = String(err.retryAfterSeconds)
+          }
           return new Response(
             JSON.stringify({ message: err.message, code, status }),
-            {
-              status,
-              headers: { 'Content-Type': 'application/json' },
-            },
+            { status, headers },
           )
         }
       },

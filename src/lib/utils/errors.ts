@@ -150,6 +150,8 @@ export class ZonaApiError extends Error {
   readonly code: string
   readonly status: number
   readonly retryable: boolean
+  /** Seconds to wait before retrying (429 ERR-017 only). */
+  retryAfterSeconds?: number
   constructor(
     message: string,
     code: string,

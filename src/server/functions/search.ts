@@ -2,7 +2,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
+import { enforceRateLimit } from '../../lib/security/rate-limit'
 import { searchProvider } from '../../lib/tavily/client'
+import {
+  RATE_LIMIT_SEARCH_PER_MINUTE,
+  RATE_LIMIT_WINDOW_MS,
+} from '../../lib/utils/constants'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/functions/search.ts is server-only')
@@ -20,7 +25,13 @@ export async function searchWebCore({
   data: z.infer<typeof searchWebSchema>
   request: Request
 }) {
-  await getAuthSession(request)
+  const session = await getAuthSession(request)
+  // Rate limit per-user (SECURITY.md §13)
+  enforceRateLimit({
+    key: `search:${session.user.id}`,
+    limit: RATE_LIMIT_SEARCH_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
   try {
     const results = await searchProvider.search(data.query, {
       searchDepth: data.searchDepth,

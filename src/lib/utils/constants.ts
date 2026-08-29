@@ -33,3 +33,18 @@ export const TAVILY_MAX_RESULTS = Number(
 export const TAVILY_TIMEOUT_MS = Number(
   getEnv(['TAVILY', 'TIMEOUT', 'MS'].join('_')) ?? 10000,
 )
+
+// Rate limiting (in-memory per-user/IP) — SECURITY.md §13
+export const RATE_LIMIT_CHAT_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'CHAT', 'PER', 'MINUTE'].join('_')) ?? 20,
+)
+export const RATE_LIMIT_COMPARE_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'COMPARE', 'PER', 'MINUTE'].join('_')) ?? 20,
+)
+export const RATE_LIMIT_UPLOAD_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'UPLOAD', 'PER', 'MINUTE'].join('_')) ?? 10,
+)
+export const RATE_LIMIT_SEARCH_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'SEARCH', 'PER', 'MINUTE'].join('_')) ?? 30,
+)
+export const RATE_LIMIT_WINDOW_MS = 60_000

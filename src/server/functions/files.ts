@@ -6,6 +6,11 @@ import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
 import { attachments, conversations } from '../../lib/db/schema'
 import { deleteObject, getObject, putObject } from '../../lib/r2/client'
+import { enforceRateLimit } from '../../lib/security/rate-limit'
+import {
+  RATE_LIMIT_UPLOAD_PER_MINUTE,
+  RATE_LIMIT_WINDOW_MS,
+} from '../../lib/utils/constants'
 import { AppError } from '../../lib/utils/errors'
 import {
   sanitizeFilename,
@@ -21,6 +26,13 @@ function httpError(status: number, message: string, code?: string): AppError {
 export async function uploadFileCore({ request }: { request: Request }) {
   const session = await getAuthSession(request)
   const userId = session.user.id
+
+  // Rate limit before R2 write (SECURITY.md §13)
+  enforceRateLimit({
+    key: `upload:${userId}`,
+    limit: RATE_LIMIT_UPLOAD_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
 
   let formData: FormData
   try {

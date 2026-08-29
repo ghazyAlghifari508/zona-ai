@@ -27,8 +27,14 @@ import {
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
+import { enforceRateLimit } from '../../lib/security/rate-limit'
 import { searchProvider } from '../../lib/tavily/client'
-import { TAVILY_MAX_RESULTS } from '../../lib/utils/constants'
+import {
+  RATE_LIMIT_CHAT_PER_MINUTE,
+  RATE_LIMIT_COMPARE_PER_MINUTE,
+  RATE_LIMIT_WINDOW_MS,
+  TAVILY_MAX_RESULTS,
+} from '../../lib/utils/constants'
 import {
   AppError,
   throwZonaError,
@@ -58,6 +64,13 @@ export async function sendMessageCore({
 }): Promise<Response> {
   const session = await getAuthSession(request)
   const userId = session.user.id
+
+  // Rate limit before any DB write / credit deduction (SECURITY.md §13)
+  enforceRateLimit({
+    key: `chat:${userId}`,
+    limit: RATE_LIMIT_CHAT_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
 
   const modelEntry = getModelById(data.modelId)
   const input = data
@@ -444,6 +457,13 @@ export async function sendCompareMessageCore({
   const data = compareSchema.parse(rawData) as z.infer<typeof compareSchema>
   const session = await getAuthSession(request)
   const userId = session.user.id
+
+  // Rate limit before any DB write / credit deduction (SECURITY.md §13)
+  enforceRateLimit({
+    key: `compare:${userId}`,
+    limit: RATE_LIMIT_COMPARE_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
 
   // Validate enabled and collect costs/routerIds
   const costs: number[] = []
