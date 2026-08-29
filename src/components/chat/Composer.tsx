@@ -2,7 +2,6 @@ import { ArrowUp, Globe, Loader2, Paperclip, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
-import { getAttachments, reprocessAttachment } from '@/server/functions/files'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { CompareSelector } from './CompareSelector'
 import { ModelSelector } from './ModelSelector'
@@ -68,12 +67,19 @@ export function Composer({
   useEffect(() => {
     if (!conversationId) return
     const hasProcessing = attachments.some(
-      (a) => a.processingStatus === 'processing' || a.processingStatus === 'pending' || a.uploading,
+      (a) =>
+        a.processingStatus === 'processing' ||
+        a.processingStatus === 'pending' ||
+        a.uploading,
     )
     if (!hasProcessing) return
     const interval = setInterval(async () => {
       try {
-        const rows = (await getAttachments({ data: { conversationId } })) as unknown as Array<{
+        const res = await fetch(
+          `/api/attachments?conversationId=${encodeURIComponent(conversationId)}`,
+        )
+        if (!res.ok) return
+        const rows = (await res.json()) as Array<{
           id: string
           processingStatus: string
           fileName: string
@@ -224,20 +230,44 @@ export function Composer({
 
   async function handleRetry(id: string) {
     // Optimistic set to processing
-    setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, processingStatus: 'processing' } : a)))
+    setAttachments((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, processingStatus: 'processing' } : a,
+      ),
+    )
     try {
-      await reprocessAttachment({ data: { id } })
+      const res = await fetch('/api/attachments/reprocess', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error('reprocess failed')
       // After retry, poll will update status; force refresh once
-      const rows = (await getAttachments({ data: { conversationId: conversationId as string } })) as unknown as Array<{
-        id: string
-        processingStatus: string
-      }>
-      const updated = rows.find((r) => r.id === id)
-      if (updated) {
-        setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, processingStatus: updated.processingStatus } : a)))
+      const listRes = await fetch(
+        `/api/attachments?conversationId=${encodeURIComponent(conversationId as string)}`,
+      )
+      if (listRes.ok) {
+        const rows = (await listRes.json()) as Array<{
+          id: string
+          processingStatus: string
+        }>
+        const updated = rows.find((r) => r.id === id)
+        if (updated) {
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === id
+                ? { ...a, processingStatus: updated.processingStatus }
+                : a,
+            ),
+          )
+        }
       }
     } catch {
-      setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, processingStatus: 'failed' } : a)))
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === id ? { ...a, processingStatus: 'failed' } : a,
+        ),
+      )
     }
   }
 

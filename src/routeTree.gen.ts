@@ -14,7 +14,9 @@ import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as ChatConversationIdRouteImport } from './routes/chat/$conversationId'
+import { Route as ApiAttachmentsIndexRouteImport } from './routes/api/attachments/index'
 import { Route as ApiAttachmentsAttachmentIdRouteImport } from './routes/api/attachments/$attachmentId'
+import { Route as ApiAttachmentsReprocessRouteImport } from './routes/api/attachments/reprocess'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
@@ -44,12 +46,22 @@ const ChatConversationIdRoute = ChatConversationIdRouteImport.update({
   path: '/chat/$conversationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAttachmentsIndexRoute = ApiAttachmentsIndexRouteImport.update({
+  id: '/api/attachments/',
+  path: '/api/attachments/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAttachmentsAttachmentIdRoute =
   ApiAttachmentsAttachmentIdRouteImport.update({
     id: '/api/attachments/$attachmentId',
     path: '/api/attachments/$attachmentId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiAttachmentsReprocessRoute = ApiAttachmentsReprocessRouteImport.update({
+  id: '/api/attachments/reprocess',
+  path: '/api/attachments/reprocess',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -73,9 +85,11 @@ export interface FileRoutesByFullPath {
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/chat/': typeof ChatIndexRoute
   '/api/attachments/$attachmentId': typeof ApiAttachmentsAttachmentIdRoute
+  '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
+  '/api/attachments/': typeof ApiAttachmentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,9 +98,11 @@ export interface FileRoutesByTo {
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/chat': typeof ChatIndexRoute
   '/api/attachments/$attachmentId': typeof ApiAttachmentsAttachmentIdRoute
+  '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
+  '/api/attachments': typeof ApiAttachmentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,9 +112,11 @@ export interface FileRoutesById {
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/chat/': typeof ChatIndexRoute
   '/api/attachments/$attachmentId': typeof ApiAttachmentsAttachmentIdRoute
+  '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
+  '/api/attachments/': typeof ApiAttachmentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,9 +127,11 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/chat/'
     | '/api/attachments/$attachmentId'
+    | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
     | '/api/files/upload'
+    | '/api/attachments/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -120,9 +140,11 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/chat'
     | '/api/attachments/$attachmentId'
+    | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
     | '/api/files/upload'
+    | '/api/attachments'
   id:
     | '__root__'
     | '/'
@@ -131,9 +153,11 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/chat/'
     | '/api/attachments/$attachmentId'
+    | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
     | '/api/files/upload'
+    | '/api/attachments/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -143,9 +167,11 @@ export interface RootRouteChildren {
   ChatConversationIdRoute: typeof ChatConversationIdRoute
   ChatIndexRoute: typeof ChatIndexRoute
   ApiAttachmentsAttachmentIdRoute: typeof ApiAttachmentsAttachmentIdRoute
+  ApiAttachmentsReprocessRoute: typeof ApiAttachmentsReprocessRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiFilesUploadRoute: typeof ApiFilesUploadRoute
+  ApiAttachmentsIndexRoute: typeof ApiAttachmentsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -185,11 +211,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatConversationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/attachments/': {
+      id: '/api/attachments/'
+      path: '/api/attachments'
+      fullPath: '/api/attachments/'
+      preLoaderRoute: typeof ApiAttachmentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/attachments/$attachmentId': {
       id: '/api/attachments/$attachmentId'
       path: '/api/attachments/$attachmentId'
       fullPath: '/api/attachments/$attachmentId'
       preLoaderRoute: typeof ApiAttachmentsAttachmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/attachments/reprocess': {
+      id: '/api/attachments/reprocess'
+      path: '/api/attachments/reprocess'
+      fullPath: '/api/attachments/reprocess'
+      preLoaderRoute: typeof ApiAttachmentsReprocessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -223,9 +263,11 @@ const rootRouteChildren: RootRouteChildren = {
   ChatConversationIdRoute: ChatConversationIdRoute,
   ChatIndexRoute: ChatIndexRoute,
   ApiAttachmentsAttachmentIdRoute: ApiAttachmentsAttachmentIdRoute,
+  ApiAttachmentsReprocessRoute: ApiAttachmentsReprocessRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiFilesUploadRoute: ApiFilesUploadRoute,
+  ApiAttachmentsIndexRoute: ApiAttachmentsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -103,16 +103,18 @@ export async function uploadFileCore({ request }: { request: Request }) {
 
   // Trigger RAG processing async; in test await to make assertions deterministic
   try {
-    const { processDocument } = await import("../../lib/rag/process");
-    if (process.env.NODE_ENV === "test") {
-      await processDocument(attachmentId);
+    const { processDocument } = await import('../../lib/rag/process')
+    if (process.env.NODE_ENV === 'test') {
+      await processDocument(attachmentId)
     } else {
       setImmediate(() => {
-        processDocument(attachmentId).catch((e) => console.error("processDocument failed", e));
-      });
+        processDocument(attachmentId).catch((e) =>
+          console.error('processDocument failed', e),
+        )
+      })
     }
   } catch (e) {
-    console.error("processDocument trigger failed", e);
+    console.error('processDocument trigger failed', e)
   }
 
   return row
@@ -193,10 +195,16 @@ export async function getAttachmentsCore({
   }
   const userId = session.user.id
   const parsed = z.object({ conversationId: z.string().uuid() }).safeParse(data)
-  if (!parsed.success) throw httpError(400, "Invalid conversationId")
-  const [conv] = await db.select().from(conversations).where(eq(conversations.id, data.conversationId))
-  if (!conv || conv.userId !== userId) throw httpError(403, "Forbidden")
-  const rows = await db.select().from(attachments).where(eq(attachments.conversationId, data.conversationId))
+  if (!parsed.success) throw httpError(400, 'Invalid conversationId')
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, data.conversationId))
+  if (!conv || conv.userId !== userId) throw httpError(403, 'Forbidden')
+  const rows = await db
+    .select()
+    .from(attachments)
+    .where(eq(attachments.conversationId, data.conversationId))
   return rows
 }
 
@@ -212,13 +220,19 @@ export async function reprocessAttachmentCore({
   }
   const userId = session.user.id
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
-  if (!parsed.success) throw httpError(400, "Invalid id")
-  const [att] = await db.select().from(attachments).where(eq(attachments.id, data.id))
-  if (!att) throw httpError(404, "Not found")
-  if (att.userId !== userId) throw httpError(403, "Forbidden")
-  const { processDocument } = await import("../../lib/rag/process")
+  if (!parsed.success) throw httpError(400, 'Invalid id')
+  const [att] = await db
+    .select()
+    .from(attachments)
+    .where(eq(attachments.id, data.id))
+  if (!att) throw httpError(404, 'Not found')
+  if (att.userId !== userId) throw httpError(403, 'Forbidden')
+  const { processDocument } = await import('../../lib/rag/process')
   await processDocument(data.id)
-  const [updated] = await db.select().from(attachments).where(eq(attachments.id, data.id))
+  const [updated] = await db
+    .select()
+    .from(attachments)
+    .where(eq(attachments.id, data.id))
   return updated
 }
 
@@ -246,10 +260,15 @@ export const deleteAttachment = createServerFn({ method: 'POST' })
   })
 
 export const getAttachments = createServerFn({ method: 'GET' })
-  .validator((data: unknown) => z.object({ conversationId: z.string().uuid() }).parse(data))
+  .validator((data: unknown) =>
+    z.object({ conversationId: z.string().uuid() }).parse(data),
+  )
   .handler(async ({ data }) => {
     const request = getRequest() as Request
-    return getAttachmentsCore({ data: data as { conversationId: string }, request })
+    return getAttachmentsCore({
+      data: data as { conversationId: string },
+      request,
+    })
   })
 
 export const reprocessAttachment = createServerFn({ method: 'POST' })

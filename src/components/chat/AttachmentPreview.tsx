@@ -24,7 +24,8 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
         const isImage = a.mimeType.startsWith('image/')
         const ext =
           a.fileName.split('.').pop() ?? a.mimeType.split('/')[1] ?? ''
-        const status = a.processingStatus ?? (a.uploading ? 'pending' : undefined)
+        const status =
+          a.processingStatus ?? (a.uploading ? 'pending' : undefined)
         return (
           <div
             key={a.id}
@@ -60,25 +61,37 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
               </span>
             )}
             {status === 'pending' && (
-              <span data-testid="attachment-status-pending" className="flex items-center gap-1 text-[11px] text-stone-gray">
+              <span
+                data-testid="attachment-status-pending"
+                className="flex items-center gap-1 text-[11px] text-stone-gray"
+              >
                 <Loader2 size={12} className="animate-spin" />
                 Uploading...
               </span>
             )}
             {status === 'processing' && (
-              <span data-testid="attachment-status-processing" className="flex items-center gap-1 text-[11px] text-stone-gray">
+              <span
+                data-testid="attachment-status-processing"
+                className="flex items-center gap-1 text-[11px] text-stone-gray"
+              >
                 <Loader2 size={12} className="animate-spin" />
                 Indexing...
               </span>
             )}
             {status === 'completed' && (
-              <span data-testid="attachment-status-completed" className="flex items-center gap-1 text-[11px] text-ink-black">
+              <span
+                data-testid="attachment-status-completed"
+                className="flex items-center gap-1 text-[11px] text-ink-black"
+              >
                 <Check size={12} strokeWidth={1.75} />
                 Indexed
               </span>
             )}
             {status === 'failed' && (
-              <span data-testid="attachment-status-failed" className="flex items-center gap-1 text-[11px] text-stone-gray">
+              <span
+                data-testid="attachment-status-failed"
+                className="flex items-center gap-1 text-[11px] text-stone-gray"
+              >
                 <TriangleAlert size={12} strokeWidth={1.5} />
                 Could not process
               </span>

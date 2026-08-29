@@ -22,9 +22,9 @@ import {
   messages,
   usageRecords,
 } from '../../lib/db/schema'
-import { retrieveContext } from '../../lib/rag/retrieve'
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
+import { retrieveContext } from '../../lib/rag/retrieve'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
 
@@ -220,18 +220,26 @@ export async function sendMessageCore({
 
   let ragContext: string[] = []
   try {
-    const hasChunks = (
-      await db.select().from(documentChunks).where(eq(documentChunks.conversationId, convId)).limit(1)
-    ).length > 0
+    const hasChunks =
+      (
+        await db
+          .select()
+          .from(documentChunks)
+          .where(eq(documentChunks.conversationId, convId))
+          .limit(1)
+      ).length > 0
     if (hasChunks || input.attachmentIds?.length) {
-      ragContext = await retrieveContext({ conversationId: convId, query: input.content })
+      ragContext = await retrieveContext({
+        conversationId: convId,
+        query: input.content,
+      })
     }
   } catch (e) {
-    console.error("retrieve failed", e)
+    console.error('retrieve failed', e)
   }
-  let ragSuffix = ""
+  let ragSuffix = ''
   if (ragContext.length) {
-    const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join("\n\n")
+    const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')
     const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
     ragSuffix = `\n\nContext from documents:\n${truncated}`
   }
@@ -306,7 +314,7 @@ export async function sendMessageCore({
               promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
               completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
               totalTokens: u.totalTokens ?? 0,
-            })
+            } as never)
           }
         } catch (e) {
           console.error('onFinish update failed', e)
@@ -596,18 +604,26 @@ export async function sendCompareMessageCore({
 
   let ragContext: string[] = []
   try {
-    const hasChunks = (
-      await db.select().from(documentChunks).where(eq(documentChunks.conversationId, convId)).limit(1)
-    ).length > 0
+    const hasChunks =
+      (
+        await db
+          .select()
+          .from(documentChunks)
+          .where(eq(documentChunks.conversationId, convId))
+          .limit(1)
+      ).length > 0
     if (hasChunks || data.attachmentIds?.length) {
-      ragContext = await retrieveContext({ conversationId: convId, query: data.content })
+      ragContext = await retrieveContext({
+        conversationId: convId,
+        query: data.content,
+      })
     }
   } catch (e) {
-    console.error("retrieve failed", e)
+    console.error('retrieve failed', e)
   }
-  let ragSuffix = ""
+  let ragSuffix = ''
   if (ragContext.length) {
-    const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join("\n\n")
+    const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')
     const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
     ragSuffix = `\n\nContext from documents:\n${truncated}`
   }
@@ -703,7 +719,7 @@ export async function sendCompareMessageCore({
                     promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
                     completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
                     totalTokens: u.totalTokens ?? 0,
-                  })
+                  } as never)
                 }
               } catch (e) {
                 console.error('onFinish compare failed', e)
@@ -1081,7 +1097,7 @@ export async function retryGenerationCore({
           promptTokens: u.inputTokens ?? 0,
           completionTokens: u.outputTokens ?? 0,
           totalTokens: u.totalTokens ?? 0,
-        })
+        } as never)
       }
       controllers.delete(newGenId)
     },
