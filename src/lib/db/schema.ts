@@ -179,7 +179,7 @@ export const generationRuns = pgTable(
     status: text('status').notNull(),
     content: text('content'),
     reasoningContent: text('reasoning_content'),
-    error: jsonb('error'),
+    error: jsonb('error').$type<{ message: string; code?: string } | null>(),
     promptTokens: integer('prompt_tokens'),
     completionTokens: integer('completion_tokens'),
     totalTokens: integer('total_tokens'),
@@ -233,6 +233,9 @@ export const usageRecords = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    generationRunId: uuid('generation_run_id')
+      .notNull()
+      .references(() => generationRuns.id, { onDelete: 'cascade' }),
     modelId: text('model_id').notNull(),
     promptTokens: integer('prompt_tokens').notNull(),
     completionTokens: integer('completion_tokens').notNull(),
@@ -260,7 +263,10 @@ export const documentChunks = pgTable(
     chunkIndex: integer('chunk_index').notNull(),
     content: text('content').notNull(),
     embedding: vector('embedding', { dimensions: EMBEDDING_DIMENSION }),
-    metadata: jsonb('metadata'),
+    metadata: jsonb('metadata').$type<{
+      startOffset: number
+      endOffset: number
+    } | null>(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [

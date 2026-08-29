@@ -24,9 +24,10 @@ export async function extractText({
         ? new Uint8Array(buf)
         : (buf as Uint8Array)
       const { extractText: pdfExtract } = await import('unpdf')
+      // cast boundary: unpdf options type may not include mergePages in current typings
       const { text } = await pdfExtract(u8, {
         mergePages: true,
-      } as unknown as never)
+      } as { mergePages: boolean })
       const joined = Array.isArray(text)
         ? (text as string[]).join('\n')
         : (text as string)

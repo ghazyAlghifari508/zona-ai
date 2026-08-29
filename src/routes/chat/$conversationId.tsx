@@ -80,9 +80,11 @@ function ChatThread() {
   const { conversationId } = Route.useParams()
   const { conversation, persistedMessages } = Route.useLoaderData()
   const navigate = Route.useNavigate()
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    hydrateMessages(persistedMessages as never),
-  )
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    // cast boundary: loader data type mismatch with hydrateMessages expected shape
+    const typed = persistedMessages as Parameters<typeof hydrateMessages>[0]
+    return hydrateMessages(typed)
+  })
   const [isStreaming, setIsStreaming] = useState(false)
   const [generationId, setGenerationId] = useState<string | null>(null)
   const credits = 85
@@ -95,16 +97,15 @@ function ChatThread() {
     CompareGeneration[]
   >(() => {
     const allGens = (
-      persistedMessages as unknown as Array<{
-        generationRuns: CompareGeneration[]
-      }>
+      persistedMessages as Array<{ generationRuns: CompareGeneration[] }>
     ).flatMap((m) => m.generationRuns ?? [])
     const compareGens = allGens.filter((g) => g.comparisonRunId)
     if (compareGens.length === 0) return []
     // group by comparisonRunId, take latest group
     const byComp = new Map<string, CompareGeneration[]>()
     for (const g of compareGens) {
-      const key = g.comparisonRunId as string
+      if (!g.comparisonRunId) continue
+      const key = g.comparisonRunId
       const arr = byComp.get(key) ?? []
       arr.push(g)
       byComp.set(key, arr)
@@ -132,7 +133,7 @@ function ChatThread() {
     const lastUser = [...persistedMessages]
       .reverse()
       .find((m) => m.role === 'user')
-    return (lastUser as unknown as { content: string })?.content ?? ''
+    return (lastUser as { content: string } | undefined)?.content ?? ''
   })
   const [compareIsStreaming, setCompareIsStreaming] = useState(false)
 
@@ -162,7 +163,7 @@ function ChatThread() {
     try {
       const response = (await sendMessage({
         data: { conversationId, modelId, skillId, content, attachmentIds },
-      })) as unknown as Response
+      })) as Response
       const genId = response.headers.get('X-Generation-Id')
       const routerModelId = response.headers.get('X-Router-Model-Id')
       const routingReason = response.headers.get('X-Routing-Reason')
@@ -291,7 +292,7 @@ function ChatThread() {
     try {
       const response = (await sendCompareMessage({
         data: { conversationId, modelIds, skillId, content, attachmentIds },
-      })) as unknown as Response
+      })) as Response
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
@@ -507,7 +508,7 @@ function ChatThread() {
     try {
       const response = (await retryGeneration({
         data: { generationId: genId },
-      })) as unknown as Response
+      })) as Response
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
@@ -548,7 +549,7 @@ function ChatThread() {
     try {
       const response = (await regenerateMessage({
         data: { messageId },
-      })) as unknown as Response
+      })) as Response
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
@@ -558,7 +559,7 @@ function ChatThread() {
             id: crypto.randomUUID(),
             role: 'assistant',
             content: text,
-          } as ChatMessage,
+          } satisfies ChatMessage,
         ])
         return
       }
@@ -572,7 +573,7 @@ function ChatThread() {
           role: 'assistant',
           content: '',
           streaming: true,
-        } as ChatMessage,
+        } satisfies ChatMessage,
       ])
       while (true) {
         const { done, value } = await reader.read()

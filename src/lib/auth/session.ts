@@ -1,3 +1,4 @@
+import { AppError } from '../utils/errors'
 import { auth } from './auth'
 
 if (typeof window !== 'undefined') {
@@ -9,10 +10,9 @@ if (typeof window !== 'undefined') {
 export async function getAuthSession(request: Request) {
   const session = await auth.api.getSession({ headers: request.headers })
   if (!session) {
-    const e = new Error('UNAUTHORIZED') as unknown as Record<string, unknown>
-    ;(e as { status: number }).status = 401
-    ;(e as { code: string }).code = 'ERR-002'
-    throw e
+    throw new AppError('UNAUTHORIZED', 401, 'ERR-002')
   }
   return session
 }
+
+export type AuthSession = Awaited<ReturnType<typeof getAuthSession>>

@@ -31,7 +31,8 @@ export async function putObject({
     new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME as string,
       Key: key,
-      Body: body as never,
+      // cast boundary: S3 Body union includes Buffer/Uint8Array
+      Body: body as Uint8Array,
       ContentType: contentType,
     }),
   )

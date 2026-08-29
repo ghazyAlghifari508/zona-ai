@@ -6,6 +6,7 @@ import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
 import { attachments, conversations } from '../../lib/db/schema'
 import { deleteObject, getObject, putObject } from '../../lib/r2/client'
+import { AppError } from '../../lib/utils/errors'
 import {
   sanitizeFilename,
   validateMagicBytes,
@@ -13,19 +14,12 @@ import {
   validateSize,
 } from '../../lib/utils/file-validation'
 
-function httpError(status: number, message: string, code?: string) {
-  const e = Object.assign(new Error(message), { status } as Record<
-    string,
-    unknown
-  >)
-  if (code) (e as Record<string, unknown>).code = code
-  return e
+function httpError(status: number, message: string, code?: string): AppError {
+  return new AppError(message, status, code ?? 'ERR-000')
 }
 
 export async function uploadFileCore({ request }: { request: Request }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
 
   let formData: FormData
@@ -127,9 +121,7 @@ export async function getAttachmentCore({
   data: { id: string }
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
 
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
@@ -143,7 +135,7 @@ export async function getAttachmentCore({
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
   const { body, contentType } = await getObject(att.r2Key)
-  return new Response(body as unknown as BodyInit, {
+  return new Response(new Uint8Array(body), {
     headers: {
       'Content-Type': contentType || att.mimeType,
       'Content-Disposition': `inline; filename="${att.fileName}"`,
@@ -159,9 +151,7 @@ export async function deleteAttachmentCore({
   data: { id: string }
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
 
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
@@ -190,9 +180,7 @@ export async function getAttachmentsCore({
   data: { conversationId: string }
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
   const parsed = z.object({ conversationId: z.string().uuid() }).safeParse(data)
   if (!parsed.success) throw httpError(400, 'Invalid conversationId')
@@ -215,9 +203,7 @@ export async function reprocessAttachmentCore({
   data: { id: string }
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
   if (!parsed.success) throw httpError(400, 'Invalid id')

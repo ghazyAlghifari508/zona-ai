@@ -19,7 +19,7 @@ export const Route = createFileRoute('/api/attachments/$attachmentId')({
             data: { id: params.attachmentId },
             request,
           })
-          return result as unknown as Response
+          return result
         } catch (e) {
           const err = e as Error & { status?: number; code?: string }
           const status = err.status ?? 500

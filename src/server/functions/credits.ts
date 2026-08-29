@@ -5,9 +5,7 @@ import { getAuthSession } from '../../lib/auth/session'
 
 export async function resetDevCreditsCore({ request }: { request: Request }) {
   if (process.env.NODE_ENV === 'production') throw new Error('Forbidden')
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const bal = await resetDevCredits(session.user.id)
   return { success: true as const, newBalance: bal }
 }

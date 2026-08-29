@@ -58,8 +58,8 @@ export async function processDocument(attachmentId: string): Promise<void> {
         chunkIndex: c.index,
         // biome-ignore lint/suspicious/noControlCharactersInRegex: need to strip null bytes from content before DB insert
         content: c.content.replace(/\x00/g, ''),
-        embedding: vectors[i] as unknown as never,
-        metadata: c.metadata as unknown as never,
+        embedding: vectors[i],
+        metadata: c.metadata ?? null,
       })),
     )
 

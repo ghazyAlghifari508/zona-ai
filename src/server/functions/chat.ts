@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import type { ModelMessage } from 'ai'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -25,6 +26,7 @@ import {
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
+import { AppError, type UsageLike } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
 
@@ -47,9 +49,7 @@ export async function sendMessageCore({
   data: z.infer<typeof chatSchema>
   request: Request
 }): Promise<Response> {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
 
   const modelEntry = getModelById(data.modelId)
@@ -73,17 +73,14 @@ export async function sendMessageCore({
     cost = resolved.cost
     routingReason = resolved.reason
   } else {
-    cost = modelEntry.creditCost as number
+    cost =
+      typeof modelEntry.creditCost === 'number'
+        ? modelEntry.creditCost
+        : modelEntry.creditCost.max
   }
 
   if (currentCredits < cost) {
-    const e = new Error('Kredit tidak mencukupi') as Error & {
-      status: number
-      code: string
-    }
-    e.status = 402
-    e.code = 'ERR-019'
-    throw e
+    throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
   }
 
   let convId = input.conversationId
@@ -94,9 +91,7 @@ export async function sendMessageCore({
       .from(conversations)
       .where(eq(conversations.id, convId))
     if (!conv || conv.userId !== userId) {
-      const e = new Error('Forbidden') as Error & { status: number }
-      e.status = 403
-      throw e
+      throw new AppError('Forbidden', 403, 'ERR-003')
     }
     conversationTitle = conv.title
   } else {
@@ -144,27 +139,20 @@ export async function sendMessageCore({
         ),
       )
     if (atts.length !== input.attachmentIds.length) {
-      const e = new Error('Forbidden') as Error & { status: number }
-      e.status = 403
-      throw e
+      throw new AppError('Forbidden', 403, 'ERR-003')
     }
     for (const a of atts) {
       if (a.conversationId !== convId) {
-        const e = new Error('Attachment not in conversation') as Error & {
-          status: number
-        }
-        e.status = 400
-        throw e
+        throw new AppError('Attachment not in conversation', 400, 'ERR-003')
       }
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
     if (hasImage && !isVisionCapable(input.modelId)) {
-      const e = new Error(
+      throw new AppError(
         'Model tidak mendukung vision. Pilih model vision-capable.',
-      ) as Error & { status: number; code: string }
-      ;(e as unknown as Record<string, unknown>).status = 400
-      ;(e as unknown as Record<string, unknown>).code = 'ERR-003'
-      throw e
+        400,
+        'ERR-003',
+      )
     }
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
@@ -248,19 +236,23 @@ export async function sendMessageCore({
   const abortController = new AbortController()
   controllers.set(genId, abortController)
 
-  const aiMessages: Array<{ role: string; content: unknown }> = history.map(
-    (m) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content,
-    }),
+  const aiMessages: ModelMessage[] = history.map(
+    (m) =>
+      ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      }) as ModelMessage,
   )
   if (fileParts.length) {
     for (let i = aiMessages.length - 1; i >= 0; i--) {
       if (aiMessages[i].role === 'user') {
-        aiMessages[i].content = [
-          { type: 'text', text: input.content },
-          ...fileParts,
-        ] as unknown as string
+        const current = aiMessages[i]
+        if (typeof current.content === 'string') {
+          current.content = [
+            { type: 'text', text: input.content },
+            ...fileParts,
+          ] as ModelMessage['content']
+        }
         break
       }
     }
@@ -270,7 +262,7 @@ export async function sendMessageCore({
     const result = streamText({
       model: nineRouter(routerModelId),
       system: systemPrompt,
-      messages: aiMessages as never,
+      messages: aiMessages,
       abortSignal: abortController.signal,
       onChunk: () => {
         if (firstTokenAt === null) firstTokenAt = Date.now()
@@ -279,13 +271,7 @@ export async function sendMessageCore({
         const latencyMs = Date.now() - startTime
         const ttft = firstTokenAt ? firstTokenAt - startTime : null
         try {
-          const u = usage as unknown as {
-            inputTokens?: number
-            outputTokens?: number
-            totalTokens?: number
-            promptTokens?: number
-            completionTokens?: number
-          }
+          const u = usage as UsageLike
           await db
             .update(generationRuns)
             .set({
@@ -314,7 +300,7 @@ export async function sendMessageCore({
               promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
               completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
               totalTokens: u.totalTokens ?? 0,
-            } as never)
+            })
           }
         } catch (e) {
           console.error('onFinish update failed', e)
@@ -328,7 +314,7 @@ export async function sendMessageCore({
             .update(generationRuns)
             .set({
               status: 'failed',
-              error: { message: (error as Error).message } as unknown as never,
+              error: { message: (error as Error).message },
               completedAt: new Date(),
             })
             .where(eq(generationRuns.id, genId))
@@ -337,7 +323,13 @@ export async function sendMessageCore({
       },
     })
 
-    const anyResult = result as unknown as Record<string, unknown>
+    // cast boundary: AI SDK StreamTextResult version variance
+    const anyResult = result as {
+      toUIMessageStreamResponse?: (opts?: unknown) => Response
+      toTextStreamResponse?: () => Response
+      stream?: ReadableStream
+      textStream?: ReadableStream<string>
+    }
     let response: Response
     if (typeof anyResult.toUIMessageStreamResponse === 'function') {
       response = (
@@ -371,7 +363,7 @@ export async function sendMessageCore({
       .update(generationRuns)
       .set({
         status: 'failed',
-        error: { message: (err as Error).message } as unknown as never,
+        error: { message: (err as Error).message },
         completedAt: new Date(),
       })
       .where(eq(generationRuns.id, genId))
@@ -397,9 +389,7 @@ export async function sendCompareMessageCore({
   request: Request
 }): Promise<Response> {
   const data = compareSchema.parse(rawData) as z.infer<typeof compareSchema>
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const userId = session.user.id
 
   // Validate enabled and collect costs/routerIds
@@ -408,16 +398,14 @@ export async function sendCompareMessageCore({
   for (const mid of data.modelIds) {
     try {
       const entry = getModelById(mid)
-      costs.push(entry.creditCost as number)
+      costs.push(
+        typeof entry.creditCost === 'number'
+          ? entry.creditCost
+          : entry.creditCost.max,
+      )
       routerModelIds.push(entry.routerModelId)
     } catch {
-      const e = new Error(`ERR-003: model ${mid} not available`) as Error & {
-        status: number
-        code: string
-      }
-      e.status = 400
-      e.code = 'ERR-003'
-      throw e
+      throw new AppError(`ERR-003: model ${mid} not available`, 400, 'ERR-003')
     }
   }
   const total = costs.reduce((a, b) => a + b, 0)
@@ -428,12 +416,11 @@ export async function sendCompareMessageCore({
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
   if (currentCredits < total) {
-    const e = new Error(
+    throw new AppError(
       `Kredit tidak mencukupi. Butuh ${total} (Sisa ${currentCredits})`,
-    ) as Error & { status: number; code: string }
-    e.status = 402
-    e.code = 'ERR-019'
-    throw e
+      402,
+      'ERR-019',
+    )
   }
 
   let convId = data.conversationId
@@ -444,9 +431,7 @@ export async function sendCompareMessageCore({
       .from(conversations)
       .where(eq(conversations.id, convId))
     if (!conv || conv.userId !== userId) {
-      const e = new Error('Forbidden') as Error & { status: number }
-      e.status = 403
-      throw e
+      throw new AppError('Forbidden', 403, 'ERR-003')
     }
     conversationTitle = conv.title
     await db
@@ -489,29 +474,22 @@ export async function sendCompareMessageCore({
         ),
       )
     if (atts.length !== data.attachmentIds.length) {
-      const e = new Error('Forbidden') as Error & { status: number }
-      e.status = 403
-      throw e
+      throw new AppError('Forbidden', 403, 'ERR-003')
     }
     for (const a of atts) {
       if (a.conversationId !== convId) {
-        const e = new Error('Attachment not in conversation') as Error & {
-          status: number
-        }
-        e.status = 400
-        throw e
+        throw new AppError('Attachment not in conversation', 400, 'ERR-003')
       }
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
     if (hasImage) {
       for (const mid of data.modelIds) {
         if (!isVisionCapable(mid)) {
-          const e = new Error(
+          throw new AppError(
             'Model tidak mendukung vision. Pilih model vision-capable.',
-          ) as Error & { status: number; code: string }
-          ;(e as unknown as Record<string, unknown>).status = 400
-          ;(e as unknown as Record<string, unknown>).code = 'ERR-003'
-          throw e
+            400,
+            'ERR-003',
+          )
         }
       }
     }
@@ -550,7 +528,7 @@ export async function sendCompareMessageCore({
     await db.insert(generationRuns).values({
       id: genIds[i],
       messageId: assistantMessages[i].id,
-      comparisonRunId: undefined as unknown as string, // placeholder, will update after comparisonRuns inserted
+      comparisonRunId: null,
       conversationId: convId,
       modelId: data.modelIds[i],
       routerModelId: routerModelIds[i],
@@ -629,19 +607,23 @@ export async function sendCompareMessageCore({
   }
   const systemPrompt = buildSystemPrompt({ skillId: data.skillId }) + ragSuffix
 
-  const aiMessages: Array<{ role: string; content: unknown }> = history.map(
-    (m) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content,
-    }),
+  const aiMessages: ModelMessage[] = history.map(
+    (m) =>
+      ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      }) as ModelMessage,
   )
   if (fileParts.length) {
     for (let i = aiMessages.length - 1; i >= 0; i--) {
       if (aiMessages[i].role === 'user') {
-        aiMessages[i].content = [
-          { type: 'text', text: data.content },
-          ...fileParts,
-        ] as unknown as string
+        const current = aiMessages[i]
+        if (typeof current.content === 'string') {
+          current.content = [
+            { type: 'text', text: data.content },
+            ...fileParts,
+          ] as ModelMessage['content']
+        }
         break
       }
     }
@@ -672,7 +654,7 @@ export async function sendCompareMessageCore({
           const result = streamText({
             model: nineRouter(routerId),
             system: systemPrompt,
-            messages: aiMessages as never,
+            messages: aiMessages,
             abortSignal: abortController.signal,
             onChunk: () => {
               if (!firstTokenAts.has(genId))
@@ -685,13 +667,7 @@ export async function sendCompareMessageCore({
                 ? (firstTokenAts.get(genId) ?? 0) - (startTimes.get(genId) ?? 0)
                 : null
               try {
-                const u = usage as unknown as {
-                  inputTokens?: number
-                  outputTokens?: number
-                  totalTokens?: number
-                  promptTokens?: number
-                  completionTokens?: number
-                }
+                const u = usage as UsageLike
                 await db
                   .update(generationRuns)
                   .set({
@@ -719,7 +695,7 @@ export async function sendCompareMessageCore({
                     promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
                     completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
                     totalTokens: u.totalTokens ?? 0,
-                  } as never)
+                  })
                 }
               } catch (e) {
                 console.error('onFinish compare failed', e)
@@ -733,9 +709,7 @@ export async function sendCompareMessageCore({
                   .update(generationRuns)
                   .set({
                     status: 'failed',
-                    error: {
-                      message: (error as Error).message,
-                    } as unknown as never,
+                    error: { message: (error as Error).message },
                     completedAt: new Date(),
                   })
                   .where(eq(generationRuns.id, genId))
@@ -751,7 +725,13 @@ export async function sendCompareMessageCore({
           })
 
           // Consume stream to trigger onChunk/onFinish; we still produce text-delta events for multiplex
-          const anyResult = result as unknown as Record<string, unknown>
+          // cast boundary: AI SDK StreamTextResult version variance
+          const anyResult = result as {
+            toUIMessageStreamResponse?: (opts?: unknown) => Response
+            toTextStreamResponse?: () => Response
+            stream?: ReadableStream
+            textStream?: ReadableStream<string>
+          }
           let effectiveStream: ReadableStream<
             string | Record<string, unknown>
           > | null = null
@@ -759,12 +739,10 @@ export async function sendCompareMessageCore({
             effectiveStream = anyResult.textStream as ReadableStream<
               string | Record<string, unknown>
             >
-          } else if (
-            (result as unknown as { stream: ReadableStream<string> }).stream
-          ) {
-            effectiveStream = (
-              result as unknown as { stream: ReadableStream<string> }
-            ).stream as ReadableStream<string | Record<string, unknown>>
+          } else if (anyResult.stream) {
+            effectiveStream = anyResult.stream as ReadableStream<
+              string | Record<string, unknown>
+            >
           }
           if (effectiveStream) {
             const effReader = effectiveStream.getReader()
@@ -825,7 +803,7 @@ export async function sendCompareMessageCore({
                 .update(generationRuns)
                 .set({
                   status: 'failed',
-                  error: { message: msg } as unknown as never,
+                  error: { message: msg },
                   completedAt: new Date(),
                 })
                 .where(eq(generationRuns.id, genId))
@@ -930,16 +908,14 @@ export async function getComparisonRunsCore({
   conversationId: string
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const [conv] = await db
     .select()
     .from(conversations)
     .where(eq(conversations.id, conversationId))
-  if (!conv) throw Object.assign(new Error('Not Found'), { status: 404 })
+  if (!conv) throw new AppError('Not Found', 404, 'ERR-003')
   if (conv.userId !== session.user.id)
-    throw Object.assign(new Error('Forbidden'), { status: 403 })
+    throw new AppError('Forbidden', 403, 'ERR-003')
   const runs = await db
     .select()
     .from(comparisonRuns)
@@ -969,7 +945,7 @@ export const getComparisonRuns = createServerFn({ method: 'GET' })
       conversationId: (data as { conversationId: string }).conversationId,
       request,
     })
-    return res as unknown as never
+    return res
   })
 
 export async function retryGenerationCore({
@@ -979,36 +955,31 @@ export async function retryGenerationCore({
   generationId: string
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const [gen] = await db
     .select()
     .from(generationRuns)
     .where(eq(generationRuns.id, generationId))
-  if (!gen) throw Object.assign(new Error('Not Found'), { status: 404 })
+  if (!gen) throw new AppError('Not Found', 404, 'ERR-003')
   const [conv] = await db
     .select()
     .from(conversations)
     .where(eq(conversations.id, gen.conversationId))
   if (!conv || conv.userId !== session.user.id)
-    throw Object.assign(new Error('Forbidden'), { status: 403 })
+    throw new AppError('Forbidden', 403, 'ERR-003')
   if (gen.status !== 'failed')
-    throw Object.assign(new Error('Only failed generations can be retried'), {
-      status: 400,
-    })
+    throw new AppError('Only failed generations can be retried', 400, 'ERR-003')
   const modelEntry = getModelById(gen.modelId)
-  const cost = modelEntry.creditCost as number
+  const cost =
+    typeof modelEntry.creditCost === 'number'
+      ? modelEntry.creditCost
+      : modelEntry.creditCost.max
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${session.user.id}`,
   )
   const rows = getRows<{ credits: number }>(creditRes)
   const cur = rows[0]?.credits ?? 0
-  if (cur < cost)
-    throw Object.assign(new Error('Kredit tidak mencukupi'), {
-      status: 402,
-      code: 'ERR-019',
-    })
+  if (cur < cost) throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
 
   const [msg] = await db
     .select()
@@ -1056,10 +1027,13 @@ export async function retryGenerationCore({
   const result = streamText({
     model: nineRouter(gen.routerModelId),
     system: buildSystemPrompt({ skillId: gen.skillId ?? 'none' }),
-    messages: history.map((m) => ({
-      role: m.role as 'user',
-      content: m.content,
-    })) as never,
+    messages: history.map(
+      (m) =>
+        ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+        }) as ModelMessage,
+    ),
     abortSignal: abortController.signal,
     onChunk: () => {
       if (firstTokenAt === null) firstTokenAt = Date.now()
@@ -1067,11 +1041,7 @@ export async function retryGenerationCore({
     onFinish: async ({ text, usage }) => {
       const latencyMs = Date.now() - startTime
       const ttft = firstTokenAt ? firstTokenAt - startTime : null
-      const u = usage as unknown as {
-        inputTokens?: number
-        outputTokens?: number
-        totalTokens?: number
-      }
+      const u = usage as UsageLike
       await db
         .update(generationRuns)
         .set({
@@ -1097,7 +1067,7 @@ export async function retryGenerationCore({
           promptTokens: u.inputTokens ?? 0,
           completionTokens: u.outputTokens ?? 0,
           totalTokens: u.totalTokens ?? 0,
-        } as never)
+        })
       }
       controllers.delete(newGenId)
     },
@@ -1106,7 +1076,7 @@ export async function retryGenerationCore({
         .update(generationRuns)
         .set({
           status: 'failed',
-          error: { message: (error as Error).message } as unknown as never,
+          error: { message: (error as Error).message },
           completedAt: new Date(),
         })
         .where(eq(generationRuns.id, newGenId))
@@ -1121,7 +1091,13 @@ export async function retryGenerationCore({
       controllers.delete(newGenId)
     },
   })
-  const anyResult = result as unknown as Record<string, unknown>
+  // cast boundary: AI SDK StreamTextResult version variance
+  const anyResult = result as {
+    toUIMessageStreamResponse?: (opts?: unknown) => Response
+    toTextStreamResponse?: () => Response
+    stream?: ReadableStream
+    textStream?: ReadableStream<string>
+  }
   let response: Response
   if (typeof anyResult.toUIMessageStreamResponse === 'function') {
     response = (
@@ -1194,22 +1170,18 @@ export async function regenerateMessageCore({
   modelId?: string
   request: Request
 }) {
-  const session = (await getAuthSession(request)) as unknown as {
-    user: { id: string }
-  }
+  const session = await getAuthSession(request)
   const [msg] = await db
     .select()
     .from(messages)
     .where(eq(messages.id, messageId))
-  if (!msg) throw new Error('Message not found')
+  if (!msg) throw new AppError('Message not found', 404, 'ERR-003')
   const [conv] = await db
     .select()
     .from(conversations)
     .where(eq(conversations.id, msg.conversationId))
   if (!conv || conv.userId !== session.user.id) {
-    const e = new Error('Forbidden') as Error & { status: number }
-    e.status = 403
-    throw e
+    throw new AppError('Forbidden', 403, 'ERR-003')
   }
 
   const targetModelId = modelId ?? 'auto'
@@ -1232,7 +1204,10 @@ export async function regenerateMessageCore({
     routerModelId = resolved.routerModelId
     cost = resolved.cost
   } else {
-    cost = modelEntry.creditCost as number
+    cost =
+      typeof modelEntry.creditCost === 'number'
+        ? modelEntry.creditCost
+        : modelEntry.creditCost.max
   }
 
   const creditRes = await db.execute(
@@ -1241,13 +1216,7 @@ export async function regenerateMessageCore({
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
   if (currentCredits < cost) {
-    const e = new Error('Kredit tidak mencukupi') as Error & {
-      status: number
-      code: string
-    }
-    e.status = 402
-    e.code = 'ERR-019'
-    throw e
+    throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
   }
 
   const [assistantMsg] = await db
@@ -1292,17 +1261,16 @@ export async function regenerateMessageCore({
   const result = streamText({
     model: nineRouter(routerModelId),
     system: buildSystemPrompt({ skillId: 'none' }),
-    messages: history.map((m) => ({
-      role: m.role as unknown as 'user',
-      content: m.content,
-    })),
+    messages: history.map(
+      (m) =>
+        ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+        }) as ModelMessage,
+    ),
     abortSignal: abortController.signal,
     onFinish: async ({ text, usage }) => {
-      const u = usage as unknown as {
-        inputTokens?: number
-        outputTokens?: number
-        totalTokens?: number
-      }
+      const u = usage as UsageLike
       await db
         .update(generationRuns)
         .set({
@@ -1322,7 +1290,13 @@ export async function regenerateMessageCore({
     },
   })
 
-  const anyResult = result as unknown as Record<string, unknown>
+  // cast boundary: AI SDK StreamTextResult version variance
+  const anyResult = result as {
+    toUIMessageStreamResponse?: (opts?: unknown) => Response
+    toTextStreamResponse?: () => Response
+    stream?: ReadableStream
+    textStream?: ReadableStream<string>
+  }
   if (typeof anyResult.toUIMessageStreamResponse === 'function') {
     return (anyResult.toUIMessageStreamResponse as () => Response).call(result)
   }
@@ -1330,7 +1304,7 @@ export async function regenerateMessageCore({
     stream: toTextStream({
       stream: (result as { stream: unknown }).stream as ReadableStream,
     }),
-  } as never)
+  })
 }
 
 export const regenerateMessage = createServerFn({ method: 'POST' })

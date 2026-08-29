@@ -20,6 +20,6 @@ export async function seedDev() {
       email: 'alice@test.zona.ai',
       name: 'Alice Developer',
       credits: 100,
-    } as never)
+    })
   }
 }
