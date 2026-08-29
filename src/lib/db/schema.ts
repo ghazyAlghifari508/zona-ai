@@ -4,6 +4,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
   text,
   timestamp,
   uuid,
@@ -272,5 +273,32 @@ export const documentChunks = pgTable(
   (table) => [
     index('document_chunks_attachment_id_idx').on(table.attachmentId),
     index('document_chunks_conversation_id_idx').on(table.conversationId),
+  ],
+)
+
+export const webSources = pgTable(
+  'web_sources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    generationRunId: uuid('generation_run_id')
+      .notNull()
+      .references(() => generationRuns.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    url: text('url').notNull(),
+    title: text('title'),
+    snippet: text('snippet'),
+    score: real('score'),
+    position: integer('position').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('web_sources_generation_run_id_idx').on(table.generationRunId),
+    index('web_sources_conversation_id_idx').on(table.conversationId),
+    index('web_sources_generation_run_id_position_idx').on(
+      table.generationRunId,
+      table.position,
+    ),
   ],
 )

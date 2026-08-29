@@ -25,3 +25,11 @@ const getEnv = (key: string) =>
 export const EMBEDDING_DIMENSION = Number(
   getEnv(['EMBEDDING', 'DIMENSION'].join('_')) ?? 1536,
 )
+
+export const TAVILY_MAX_RESULTS = Number(
+  getEnv(['TAVILY', 'MAX', 'RESULTS'].join('_')) ?? 5,
+)
+
+export const TAVILY_TIMEOUT_MS = Number(
+  getEnv(['TAVILY', 'TIMEOUT', 'MS'].join('_')) ?? 10000,
+)
