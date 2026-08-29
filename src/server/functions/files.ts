@@ -181,6 +181,47 @@ export async function deleteAttachmentCore({
   return { success: true as const }
 }
 
+export async function getAttachmentsCore({
+  data,
+  request,
+}: {
+  data: { conversationId: string }
+  request: Request
+}) {
+  const session = (await getAuthSession(request)) as unknown as {
+    user: { id: string }
+  }
+  const userId = session.user.id
+  const parsed = z.object({ conversationId: z.string().uuid() }).safeParse(data)
+  if (!parsed.success) throw httpError(400, "Invalid conversationId")
+  const [conv] = await db.select().from(conversations).where(eq(conversations.id, data.conversationId))
+  if (!conv || conv.userId !== userId) throw httpError(403, "Forbidden")
+  const rows = await db.select().from(attachments).where(eq(attachments.conversationId, data.conversationId))
+  return rows
+}
+
+export async function reprocessAttachmentCore({
+  data,
+  request,
+}: {
+  data: { id: string }
+  request: Request
+}) {
+  const session = (await getAuthSession(request)) as unknown as {
+    user: { id: string }
+  }
+  const userId = session.user.id
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
+  if (!parsed.success) throw httpError(400, "Invalid id")
+  const [att] = await db.select().from(attachments).where(eq(attachments.id, data.id))
+  if (!att) throw httpError(404, "Not found")
+  if (att.userId !== userId) throw httpError(403, "Forbidden")
+  const { processDocument } = await import("../../lib/rag/process")
+  await processDocument(data.id)
+  const [updated] = await db.select().from(attachments).where(eq(attachments.id, data.id))
+  return updated
+}
+
 // TanStack Start wrappers
 
 export const uploadFile = createServerFn({ method: 'POST' }).handler(
@@ -202,4 +243,18 @@ export const deleteAttachment = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const request = getRequest() as Request
     return deleteAttachmentCore({ data: data as { id: string }, request })
+  })
+
+export const getAttachments = createServerFn({ method: 'GET' })
+  .validator((data: unknown) => z.object({ conversationId: z.string().uuid() }).parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return getAttachmentsCore({ data: data as { conversationId: string }, request })
+  })
+
+export const reprocessAttachment = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return reprocessAttachmentCore({ data: data as { id: string }, request })
   })

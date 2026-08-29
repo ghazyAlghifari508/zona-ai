@@ -2,6 +2,7 @@ import { ArrowUp, Globe, Loader2, Paperclip, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
+import { getAttachments, reprocessAttachment } from '@/server/functions/files'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { CompareSelector } from './CompareSelector'
 import { ModelSelector } from './ModelSelector'
@@ -62,6 +63,45 @@ export function Composer({
       .then((m) => setRegistry(m as ModelRegistryEntry[]))
       .catch(() => setRegistry([]))
   }, [])
+
+  // Poll attachments processing status when any is pending/processing
+  useEffect(() => {
+    if (!conversationId) return
+    const hasProcessing = attachments.some(
+      (a) => a.processingStatus === 'processing' || a.processingStatus === 'pending' || a.uploading,
+    )
+    if (!hasProcessing) return
+    const interval = setInterval(async () => {
+      try {
+        const rows = (await getAttachments({ data: { conversationId } })) as unknown as Array<{
+          id: string
+          processingStatus: string
+          fileName: string
+          mimeType: string
+          fileSize: number
+        }>
+        setAttachments((prev) =>
+          prev.map((p) => {
+            const updated = rows.find((r) => r.id === p.id)
+            if (updated) {
+              return {
+                ...p,
+                processingStatus: updated.processingStatus,
+                fileName: updated.fileName,
+                mimeType: updated.mimeType,
+                fileSize: updated.fileSize,
+                uploading: false,
+              }
+            }
+            return { ...p, uploading: false }
+          }),
+        )
+      } catch {
+        // ignore polling errors
+      }
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [attachments, conversationId])
 
   const compareTotal = compareModelIds.reduce((sum, id) => {
     const m = registry.find((x) => x.id === id)
@@ -131,6 +171,7 @@ export function Composer({
           fileName: string
           mimeType: string
           fileSize: number
+          processingStatus?: string
         }
         setAttachments((prev) => {
           const filtered = prev.filter((a) => a.id !== tempId)
@@ -141,6 +182,7 @@ export function Composer({
               fileName: data.fileName,
               mimeType: data.mimeType,
               fileSize: data.fileSize,
+              processingStatus: data.processingStatus ?? 'pending',
             },
           ]
         })
@@ -177,6 +219,25 @@ export function Composer({
     } catch {
       // ignore; already removed locally
       void removed
+    }
+  }
+
+  async function handleRetry(id: string) {
+    // Optimistic set to processing
+    setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, processingStatus: 'processing' } : a)))
+    try {
+      await reprocessAttachment({ data: { id } })
+      // After retry, poll will update status; force refresh once
+      const rows = (await getAttachments({ data: { conversationId: conversationId as string } })) as unknown as Array<{
+        id: string
+        processingStatus: string
+      }>
+      const updated = rows.find((r) => r.id === id)
+      if (updated) {
+        setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, processingStatus: updated.processingStatus } : a)))
+      }
+    } catch {
+      setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, processingStatus: 'failed' } : a)))
     }
   }
 
@@ -273,6 +334,7 @@ export function Composer({
             <AttachmentPreview
               attachments={attachments}
               onRemove={handleRemove}
+              onRetry={handleRetry}
             />
           )}
           {error && (

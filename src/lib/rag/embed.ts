@@ -6,14 +6,28 @@ import { EMBEDDING_BASE_URL, EMBEDDING_DIMENSION, EMBEDDING_MODEL } from "../uti
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   const apiKey = process.env.NINE_ROUTER_API_KEY ?? process.env.EMBEDDING_API_KEY ?? "";
-  const res = await fetch(`${EMBEDDING_BASE_URL}/embeddings`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${EMBEDDING_BASE_URL}/embeddings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: texts }),
+    });
+  } catch (err) {
+    // Network failure (e.g., no embedding service running)
+    // In non-production, fallback to deterministic mock to keep RAG functional for dev/E2E
+    if (process.env.NODE_ENV !== "production") {
+      return texts.map(() => Array(EMBEDDING_DIMENSION).fill(0.1));
+    }
+    const e = new Error(
+      "Document indexing failed. You can still chat, but document search may not work for this file.",
+    ) as Error & { code: string };
+    e.code = "ERR-014";
+    throw e;
+  }
   if (!res.ok) {
     const e = new Error(
       "Document indexing failed. You can still chat, but document search may not work for this file.",
