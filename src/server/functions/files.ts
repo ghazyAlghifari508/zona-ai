@@ -13,12 +13,11 @@ import {
   validateSize,
 } from '../../lib/utils/file-validation'
 
-if (typeof window !== 'undefined') {
-  throw new Error('src/server/functions/files.ts is server-only')
-}
-
 function httpError(status: number, message: string, code?: string) {
-  const e = Object.assign(new Error(message), { status } as Record<string, unknown>)
+  const e = Object.assign(new Error(message), { status } as Record<
+    string,
+    unknown
+  >)
   if (code) (e as Record<string, unknown>).code = code
   return e
 }
@@ -81,7 +80,7 @@ export async function uploadFileCore({ request }: { request: Request }) {
 
   try {
     await putObject({ key: r2Key, body: buffer, contentType: mime })
-  } catch (e) {
+  } catch (_e) {
     throw httpError(500, 'File upload failed. Please try again.', 'ERR-010')
   }
 
@@ -96,7 +95,7 @@ export async function uploadFileCore({ request }: { request: Request }) {
       fileSize: file.size,
       mimeType: mime,
       r2Key,
-      r2Bucket: process.env.R2_BUCKET_NAME!,
+      r2Bucket: process.env.R2_BUCKET_NAME as string,
       processingStatus: 'pending',
       extractedText: null,
     })

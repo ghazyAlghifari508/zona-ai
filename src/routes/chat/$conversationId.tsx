@@ -142,6 +142,7 @@ function ChatThread() {
     content: string,
     modelId: string,
     skillId: string,
+    attachmentIds?: string[],
   ) => {
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -160,7 +161,7 @@ function ChatThread() {
     setIsStreaming(true)
     try {
       const response = (await sendMessage({
-        data: { conversationId, modelId, skillId, content },
+        data: { conversationId, modelId, skillId, content, attachmentIds },
       })) as unknown as Response
       const genId = response.headers.get('X-Generation-Id')
       const routerModelId = response.headers.get('X-Router-Model-Id')
@@ -273,6 +274,7 @@ function ChatThread() {
     content: string,
     modelIds: string[],
     skillId: string,
+    attachmentIds?: string[],
   ) => {
     setUserPrompt(content)
     const initialGens: CompareGeneration[] = modelIds.map((mid) => ({
@@ -288,7 +290,7 @@ function ChatThread() {
     setIsStreaming(true)
     try {
       const response = (await sendCompareMessage({
-        data: { conversationId, modelIds, skillId, content },
+        data: { conversationId, modelIds, skillId, content, attachmentIds },
       })) as unknown as Response
       const reader = response.body?.getReader()
       if (!reader) {
@@ -685,6 +687,7 @@ function ChatThread() {
           mode={mode}
           compareModelIds={compareModelIds}
           onCompareModelIdsChange={setCompareModelIds}
+          conversationId={conversationId}
         />
       </div>
     </WorkspaceShell>

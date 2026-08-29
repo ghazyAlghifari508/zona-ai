@@ -1,11 +1,12 @@
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_BYTES } from './constants'
 
 export function sanitizeFilename(original: string): string {
-  const base =
-    original.split('/').pop()?.split('\\').pop() ?? original
+  const base = original.split('/').pop()?.split('\\').pop() ?? original
   return (
-    base.replace(/\.\./g, '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100) ||
-    'file'
+    base
+      .replace(/\.\./g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .slice(0, 100) || 'file'
   )
 }
 

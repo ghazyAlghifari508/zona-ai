@@ -1,14 +1,25 @@
-import { ArrowUp, Globe, Paperclip, Square } from 'lucide-react'
+import { ArrowUp, Globe, Loader2, Paperclip, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
+import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { CompareSelector } from './CompareSelector'
 import { ModelSelector } from './ModelSelector'
 import { SkillSelector } from './SkillSelector'
 
 type Props = {
-  onSend: (content: string, modelId: string, skillId: string) => void
-  onSendCompare?: (content: string, modelIds: string[], skillId: string) => void
+  onSend: (
+    content: string,
+    modelId: string,
+    skillId: string,
+    attachmentIds?: string[],
+  ) => void
+  onSendCompare?: (
+    content: string,
+    modelIds: string[],
+    skillId: string,
+    attachmentIds?: string[],
+  ) => void
   onStop?: () => void
   isStreaming?: boolean
   credits?: number
@@ -17,6 +28,7 @@ type Props = {
   mode?: 'normal' | 'compare'
   compareModelIds?: string[]
   onCompareModelIdsChange?: (ids: string[]) => void
+  conversationId?: string
 }
 
 export function Composer({
@@ -30,12 +42,20 @@ export function Composer({
   mode = 'normal',
   compareModelIds = [],
   onCompareModelIdsChange,
+  conversationId,
 }: Props) {
   const [content, setContent] = useState('')
   const [modelId, setModelId] = useState(initialModel)
   const [skillId, setSkillId] = useState(initialSkill)
   const [registry, setRegistry] = useState<ModelRegistryEntry[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const [attachments, setAttachments] = useState<PreviewAttachment[]>([])
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     getModels()
@@ -51,25 +71,130 @@ export function Composer({
     return sum + cost
   }, 0)
   const compareInsufficient = credits < compareTotal
+  const hasContent = content.trim().length > 0 || attachmentIds.length > 0
   const canSendCompare =
-    content.trim().length > 0 &&
+    hasContent &&
     compareModelIds.length >= 2 &&
     compareModelIds.length <= 4 &&
     !compareInsufficient &&
-    !isStreaming
-  const canSendNormal = content.trim().length > 0 && !isStreaming
+    !isStreaming &&
+    !uploading
+  const canSendNormal = hasContent && !isStreaming && !uploading
+
+  async function handleFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList as FileList)
+    if (files.length === 0) return
+    if (!conversationId) {
+      setError('Buat percakapan terlebih dahulu sebelum upload file')
+      return
+    }
+    if (attachments.length + files.length > 5) {
+      setError('Maksimum 5 file per pesan')
+      return
+    }
+    setError(null)
+    for (const f of files) {
+      const tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          fileName: f.name,
+          mimeType: f.type || 'application/octet-stream',
+          fileSize: f.size,
+          uploading: true,
+        },
+      ])
+      setUploading(true)
+      const fd = new FormData()
+      fd.append('file', f)
+      fd.append('conversationId', conversationId)
+      try {
+        const res = await fetch('/api/files/upload', {
+          method: 'POST',
+          body: fd,
+        })
+        if (!res.ok) {
+          const body = await res
+            .json()
+            .catch(() => ({ message: 'Upload failed' }))
+          const msg =
+            body.message ||
+            body.error ||
+            'File upload failed. Please try again.'
+          setError(msg)
+          setAttachments((prev) => prev.filter((a) => a.id !== tempId))
+          continue
+        }
+        const data = (await res.json()) as {
+          id: string
+          fileName: string
+          mimeType: string
+          fileSize: number
+        }
+        setAttachments((prev) => {
+          const filtered = prev.filter((a) => a.id !== tempId)
+          return [
+            ...filtered,
+            {
+              id: data.id,
+              fileName: data.fileName,
+              mimeType: data.mimeType,
+              fileSize: data.fileSize,
+            },
+          ]
+        })
+        setAttachmentIds((prev) => [...prev, data.id])
+      } catch {
+        setError('File upload failed. Please try again.')
+        setAttachments((prev) => prev.filter((a) => a.id !== tempId))
+      } finally {
+        setUploading(false)
+      }
+    }
+    // reset file input
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function handleRemove(id: string) {
+    // Optimistic remove
+    const removed = attachments.find((a) => a.id === id)
+    setAttachments((prev) => prev.filter((a) => a.id !== id))
+    setAttachmentIds((prev) => prev.filter((x) => x !== id))
+    if (id.startsWith('uploading-')) return
+    try {
+      const res = await fetch(`/api/attachments/${id}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        // fallback to POST on same endpoint with JSON body
+        await fetch(`/api/attachments/${id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }),
+        })
+      }
+    } catch {
+      // ignore; already removed locally
+      void removed
+    }
+  }
 
   const handleSend = () => {
     const trimmed = content.trim()
-    if (!trimmed || isStreaming) return
+    if ((!trimmed && attachmentIds.length === 0) || isStreaming) return
     if (mode === 'compare') {
       if (!canSendCompare) return
-      if (onSendCompare) onSendCompare(trimmed, compareModelIds, skillId)
-      else onSend(trimmed, compareModelIds.join(','), skillId)
+      if (onSendCompare)
+        onSendCompare(trimmed, compareModelIds, skillId, attachmentIds)
+      else onSend(trimmed, compareModelIds.join(','), skillId, attachmentIds)
     } else {
-      onSend(trimmed, modelId, skillId)
+      onSend(trimmed, modelId, skillId, attachmentIds)
     }
     setContent('')
+    setAttachments([])
+    setAttachmentIds([])
+    setError(null)
     if (textareaRef.current) {
       textareaRef.current.style.height = '24px'
     }
@@ -87,6 +212,26 @@ export function Composer({
     const el = e.target
     el.style.height = '24px'
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(true)
+  }
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    // only set false if leaving the container, not child
+    if (e.currentTarget === e.target) setDragOver(false)
+    // fallback: if relatedTarget is null or outside
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false)
+  }
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files)
   }
 
   const isPremium = modelId === 'gpt-5.6-sol'
@@ -107,7 +252,37 @@ export function Composer({
             )}
           </div>
         )}
-        <div className="flex flex-col gap-2 rounded-[50px] border border-hairline-mist bg-pure-white p-2">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: composer drag container */}
+        <div
+          data-testid="composer"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className="relative flex flex-col gap-2 rounded-[50px] border border-hairline-mist bg-pure-white p-2"
+        >
+          {dragOver && (
+            <div
+              data-testid="drag-overlay"
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-[50px] border-2 border-dashed border-ink-black bg-sandstone text-[15px] font-medium text-stone-gray"
+            >
+              Drop files here
+            </div>
+          )}
+          {attachments.length > 0 && (
+            <AttachmentPreview
+              attachments={attachments}
+              onRemove={handleRemove}
+            />
+          )}
+          {error && (
+            <div
+              data-testid="composer-error"
+              className="mx-2 rounded-[10px] border border-hairline-mist bg-cream-paper px-3 py-2 text-[13px] text-ink-black"
+            >
+              {error}
+            </div>
+          )}
           <div className="flex items-end gap-2 px-2">
             <textarea
               ref={textareaRef}
@@ -135,7 +310,7 @@ export function Composer({
                 data-testid="send-button"
                 onClick={handleSend}
                 disabled={mode === 'compare' ? !canSendCompare : !canSendNormal}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fresh-grass text-ink-black hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fresh-grass text-ink-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Send message"
               >
                 <ArrowUp size={18} strokeWidth={1.75} />
@@ -158,13 +333,34 @@ export function Composer({
                 />
               )}
               <SkillSelector value={skillId} onChange={setSkillId} />
+              <input
+                ref={fileRef}
+                type="file"
+                hidden
+                accept=".pdf,.docx,.txt,.csv,image/png,image/jpeg,image/webp"
+                multiple
+                onChange={(e) => {
+                  if (e.target.files) void handleFiles(e.target.files)
+                }}
+                data-testid="file-input"
+              />
               <button
                 type="button"
-                disabled
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-stone-gray opacity-50"
-                title="Attachment (Fase 06)"
+                data-testid="attachment-btn"
+                onClick={() => fileRef.current?.click()}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-ink-black hover:bg-sandstone"
+                title="Attachment"
+                aria-label="Attach file"
               >
-                <Paperclip size={14} strokeWidth={1.75} />
+                {uploading ? (
+                  <Loader2
+                    size={14}
+                    strokeWidth={1.75}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Paperclip size={14} strokeWidth={1.75} />
+                )}
               </button>
               <button
                 type="button"

@@ -11,10 +11,10 @@ if (typeof window !== 'undefined') {
 
 const s3 = new S3Client({
   region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  endpoint: `https://${process.env.R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
   },
 })
 
@@ -29,7 +29,7 @@ export async function putObject({
 }) {
   await s3.send(
     new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME!,
+      Bucket: process.env.R2_BUCKET_NAME as string,
       Key: key,
       Body: body as never,
       ContentType: contentType,
@@ -42,7 +42,7 @@ export async function getObject(
 ): Promise<{ body: Buffer; contentType: string }> {
   const res = await s3.send(
     new GetObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME!,
+      Bucket: process.env.R2_BUCKET_NAME as string,
       Key: key,
     }),
   )
@@ -62,7 +62,10 @@ export async function getObject(
       bodyStream as { transformToByteArray: () => Promise<Uint8Array> }
     ).transformToByteArray()
     buffer = Buffer.from(arr)
-  } else if (typeof (bodyStream as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] === 'function') {
+  } else if (
+    typeof (bodyStream as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] ===
+    'function'
+  ) {
     const chunks: Uint8Array[] = []
     for await (const chunk of bodyStream as AsyncIterable<Uint8Array>) {
       chunks.push(chunk)
@@ -91,7 +94,7 @@ export async function getObject(
 export async function deleteObject(key: string) {
   await s3.send(
     new DeleteObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME!,
+      Bucket: process.env.R2_BUCKET_NAME as string,
       Key: key,
     }),
   )
