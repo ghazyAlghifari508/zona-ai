@@ -47,6 +47,9 @@ type Props = {
   onNewChat?: () => void
   onSelectConversation?: (id: string) => void
   activeConversationId?: string
+  /** Mobile: visibility toggled by hamburger. On desktop (>=lg), always visible. */
+  mobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
 type ConversationsCache = {
@@ -81,6 +84,8 @@ export function Sidebar({
   onNewChat,
   onSelectConversation,
   activeConversationId,
+  mobileOpen = false,
+  onMobileClose,
 }: Props) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -205,12 +210,16 @@ export function Sidebar({
     conversationsQuery.data?.pages.flatMap((page) => page.conversations) ?? []
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[280px] shrink-0 flex-col border-r border-hairline-mist bg-pure-white">
+    <aside
+      data-testid="sidebar"
+      className={`${mobileOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen w-[280px] flex-col border-r border-hairline-mist bg-pure-white lg:sticky lg:flex`}
+    >
       <div className="p-4">
         <div className="text-[15px] font-medium text-ink-black">Zona.ai</div>
         <button
           type="button"
           onClick={() => {
+            onMobileClose?.()
             if (onNewChat) onNewChat()
             else createMutation.mutate()
           }}
@@ -303,6 +312,7 @@ export function Sidebar({
                   <button
                     type="button"
                     onClick={() => {
+                      onMobileClose?.()
                       if (onSelectConversation)
                         onSelectConversation(conversation.id)
                       else window.location.assign(`/chat/${conversation.id}`)

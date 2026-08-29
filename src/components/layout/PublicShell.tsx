@@ -35,7 +35,7 @@ export function PublicShell({ children }: { children: React.ReactNode }) {
             href="/auth/sign-in"
             className="flex items-center gap-2 rounded-full border border-ink-black bg-pure-white px-5 py-2 text-[15px] font-medium text-ink-black"
           >
-            Get a quote
+            Masuk
             <span
               className="block h-4 w-4 rounded-full bg-sky-pop"
               aria-hidden="true"

@@ -75,6 +75,7 @@ test('searches, renames, archives, and deletes conversations', async ({
     { userId, title: 'Beta project' },
   ])
   await page.goto('/chat')
+  await page.waitForLoadState('networkidle')
 
   await page.getByRole('searchbox', { name: 'Cari percakapan' }).fill('Alpha')
   await expect(page.getByText('Alpha project')).toBeVisible()
@@ -85,6 +86,8 @@ test('searches, renames, archives, and deletes conversations', async ({
   const rename = page.getByRole('textbox', { name: 'Rename Alpha project' })
   await rename.fill('Renamed project')
   await rename.press('Enter')
+  // Clear the search filter so the renamed item is no longer filtered out
+  await page.getByRole('searchbox', { name: 'Cari percakapan' }).fill('')
   await expect(page.getByText('Renamed project')).toBeVisible()
 
   await page.getByRole('button', { name: 'Menu Renamed project' }).click()
