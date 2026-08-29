@@ -107,6 +107,26 @@ export const messages = pgTable(
   ],
 )
 
+export const comparisonRuns = pgTable(
+  'comparison_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    userMessageId: uuid('user_message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    status: text('status').notNull(),
+    modelIds: text('model_ids').array().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('comparison_runs_conversation_id_idx').on(table.conversationId),
+  ],
+)
+
 export const generationRuns = pgTable(
   'generation_runs',
   {
@@ -114,7 +134,10 @@ export const generationRuns = pgTable(
     messageId: uuid('message_id')
       .notNull()
       .references(() => messages.id, { onDelete: 'cascade' }),
-    comparisonRunId: uuid('comparison_run_id'),
+    comparisonRunId: uuid('comparison_run_id').references(
+      () => comparisonRuns.id,
+      { onDelete: 'set null' },
+    ),
     conversationId: uuid('conversation_id')
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
