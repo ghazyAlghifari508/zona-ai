@@ -1,4 +1,4 @@
-import {
+﻿import {
   Bot,
   Check,
   ClipboardList,
@@ -25,7 +25,7 @@ const SKILLS = [
     id: 'prd-plan',
     label: 'PRD Plan',
     icon: FileText,
-    desc: 'Objective → DoD',
+    desc: 'Objective â†’ DoD',
   },
   {
     id: 'agent-skill',
@@ -52,7 +52,7 @@ export function SkillSelector({ value, onChange }: Props) {
           data-testid="skill-selector-trigger"
           className="flex items-center gap-1.5 rounded-full border border-hairline-mist bg-pure-white px-3 py-1.5 text-[13px] text-ink-black hover:bg-sandstone"
         >
-          <Wrench size={14} strokeWidth={1.75} className="text-stone-gray" />
+          <Wrench size={14} strokeWidth={1.75} className="text-stone-deep" />
           <span>{selected.label}</span>
         </button>
       </PopoverTrigger>
@@ -60,7 +60,7 @@ export function SkillSelector({ value, onChange }: Props) {
         align="start"
         className="w-[280px] rounded-[10px] border border-hairline-mist bg-pure-white p-2"
       >
-        <div className="mb-2 px-2 py-1 text-xs font-medium tracking-wide text-stone-gray">
+        <div className="mb-2 px-2 py-1 text-xs font-medium tracking-wide text-stone-deep">
           PILIH SKILL
         </div>
         <div className="space-y-1">
@@ -83,7 +83,7 @@ export function SkillSelector({ value, onChange }: Props) {
                   <div className="text-[14px] font-medium text-ink-black">
                     {s.label}
                   </div>
-                  <div className="text-xs text-stone-gray">{s.desc}</div>
+                  <div className="text-xs text-stone-deep">{s.desc}</div>
                 </div>
                 {isActive && (
                   <Check

@@ -1,4 +1,4 @@
-import { Check, FileText, Loader2, TriangleAlert, X } from 'lucide-react'
+﻿import { Check, FileText, Loader2, TriangleAlert, X } from 'lucide-react'
 
 export type PreviewAttachment = {
   id: string
@@ -33,9 +33,9 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             className="flex items-center gap-2 rounded-[10px] border border-hairline-mist bg-sandstone px-2 py-1 text-xs text-ink-black"
           >
             {a.uploading || status === 'pending' ? (
-              <Loader2 size={14} className="animate-spin text-stone-gray" />
+              <Loader2 size={14} className="animate-spin text-stone-deep" />
             ) : status === 'processing' ? (
-              <Loader2 size={14} className="animate-spin text-stone-gray" />
+              <Loader2 size={14} className="animate-spin text-stone-deep" />
             ) : isImage ? (
               <img
                 src={`/api/attachments/${a.id}`}
@@ -56,14 +56,14 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
               {ext}
             </span>
             {a.fileSize !== undefined && (
-              <span className="text-[10px] text-stone-gray">
+              <span className="text-[10px] text-stone-deep">
                 {(a.fileSize / 1024).toFixed(0)}KB
               </span>
             )}
             {status === 'pending' && (
               <span
                 data-testid="attachment-status-pending"
-                className="flex items-center gap-1 text-[11px] text-stone-gray"
+                className="flex items-center gap-1 text-[11px] text-stone-deep"
               >
                 <Loader2 size={12} className="animate-spin" />
                 Uploading...
@@ -72,7 +72,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'processing' && (
               <span
                 data-testid="attachment-status-processing"
-                className="flex items-center gap-1 text-[11px] text-stone-gray"
+                className="flex items-center gap-1 text-[11px] text-stone-deep"
               >
                 <Loader2 size={12} className="animate-spin" />
                 Indexing...
@@ -90,7 +90,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'failed' && (
               <span
                 data-testid="attachment-status-failed"
-                className="flex items-center gap-1 text-[11px] text-stone-gray"
+                className="flex items-center gap-1 text-[11px] text-stone-deep"
               >
                 <TriangleAlert size={12} strokeWidth={1.5} />
                 Could not process

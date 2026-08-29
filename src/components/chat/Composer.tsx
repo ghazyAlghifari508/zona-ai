@@ -1,4 +1,4 @@
-import { ArrowUp, Globe, Loader2, Paperclip, Square } from 'lucide-react'
+﻿import { ArrowUp, Globe, Loader2, Paperclip, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
@@ -349,11 +349,11 @@ export function Composer({
         {mode === 'compare' && (
           <div className="flex items-center justify-between rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-2 text-sm">
             <span data-testid="composer-compare-banner">
-              Compare mode: {compareModelIds.length} model • Total:{' '}
+              Compare mode: {compareModelIds.length} model â€¢ Total:{' '}
               {compareTotal} Kredit
             </span>
             {compareInsufficient && (
-              <span className="text-xs text-stone-gray">
+              <span className="text-xs text-stone-deep">
                 Butuh {compareTotal} (Sisa {credits})
               </span>
             )}
@@ -371,7 +371,7 @@ export function Composer({
           {dragOver && (
             <div
               data-testid="drag-overlay"
-              className="absolute inset-0 z-10 flex items-center justify-center rounded-[50px] border-2 border-dashed border-ink-black bg-sandstone text-[15px] font-medium text-stone-gray"
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-[50px] border-2 border-dashed border-ink-black bg-sandstone text-[15px] font-medium text-stone-deep"
             >
               Drop files here
             </div>
@@ -400,7 +400,7 @@ export function Composer({
               placeholder="Tanyakan apa saja ke Zona.ai..."
               rows={1}
               data-testid="composer-input"
-              className="min-h-[24px] max-h-[160px] flex-1 resize-none bg-transparent text-[15px] text-ink-black placeholder:text-stone-gray focus:outline-none"
+              className="min-h-[24px] max-h-[160px] flex-1 resize-none bg-transparent text-[15px] text-ink-black placeholder:text-stone-deep focus:outline-none"
             />
             {isStreaming ? (
               <button
@@ -493,14 +493,14 @@ export function Composer({
         </div>
         {mode === 'compare' ? (
           compareInsufficient ? (
-            <p className="px-2 text-[13px] text-stone-gray">
+            <p className="px-2 text-[13px] text-stone-deep">
               Kredit tidak cukup untuk compare ini.
             </p>
           ) : null
         ) : (
           isPremium && (
-            <p className="px-2 text-[13px] text-stone-gray">
-              GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
+            <p className="px-2 text-[13px] text-stone-deep">
+              GPT-5.6 Sol memakai kredit lebih cepat â€” pakai Auto â†’
             </p>
           )
         )}

@@ -8,6 +8,8 @@
   --color-pure-white: #ffffff;
   --color-sandstone: #e0dbce;
   --color-stone-gray: #80827f;
+  /* Stone Gray darkened for AA text contrast (4.5:1+) on white surfaces */
+  --color-stone-deep: #6a6c68;
   --color-hairline-mist: #d5d5d4;
   --color-pure-ink: #000000;
   --color-sky-pop: #2ba0ff;
@@ -60,4 +62,22 @@ body {
   background: var(--color-cream-paper);
   font-family: var(--font-inter);
   color: var(--color-ink-black);
+}
+
+/* Accessibility — visible focus ring (WCAG 2.1 AA, 2.4.7) */
+*:focus-visible {
+  outline: 2px solid #2c2e2a;
+  outline-offset: 2px;
+}
+
+/* Accessibility — respect prefers-reduced-motion (WCAG 2.1 AA, 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

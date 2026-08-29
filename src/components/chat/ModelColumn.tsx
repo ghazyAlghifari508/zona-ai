@@ -1,4 +1,4 @@
-import { Bot, Copy, RotateCw, Square, Timer } from 'lucide-react'
+﻿import { Bot, Copy, RotateCw, Square, Timer } from 'lucide-react'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
@@ -67,16 +67,16 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
             data-testid={`status-dot-${generation.status}`}
           />
           {generation.status === 'streaming' && (
-            <span className="text-xs text-stone-gray">Streaming</span>
+            <span className="text-xs text-stone-deep">Streaming</span>
           )}
           {generation.status === 'completed' && (
-            <span className="text-xs text-stone-gray">Completed</span>
+            <span className="text-xs text-stone-deep">Completed</span>
           )}
           {generation.status === 'failed' && (
-            <span className="text-xs text-stone-gray">Failed</span>
+            <span className="text-xs text-stone-deep">Failed</span>
           )}
           {generation.status === 'cancelled' && (
-            <span className="text-xs text-stone-gray">Cancelled</span>
+            <span className="text-xs text-stone-deep">Cancelled</span>
           )}
         </div>
         <div className="flex items-center gap-1">
@@ -105,14 +105,14 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-stone-gray hover:bg-sandstone hover:text-ink-black"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-stone-deep hover:bg-sandstone hover:text-ink-black"
               aria-label="Copy"
               data-testid={`copy-${generation.id}`}
             >
               <Copy size={14} strokeWidth={1.75} />
             </button>
           )}
-          {copied && <span className="text-xs text-stone-gray">Copied</span>}
+          {copied && <span className="text-xs text-stone-deep">Copied</span>}
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
             <div className="prose prose-sm max-w-none text-[15px] leading-relaxed text-ink-black">
               {generation.reasoningContent && (
                 <details className="mb-2 rounded-[10px] border border-hairline-mist bg-cream-paper p-2">
-                  <summary className="cursor-pointer text-xs text-stone-gray">
+                  <summary className="cursor-pointer text-xs text-stone-deep">
                     Reasoning
                   </summary>
                   <div className="mt-1 text-sm text-ink-black">
@@ -182,8 +182,8 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                   {generation.content}
                 </ReactMarkdown>
               ) : generation.status === 'streaming' ? (
-                <span className="inline-block animate-pulse text-stone-gray motion-reduce:animate-none">
-                  ▌ Menunggu model...
+                <span className="inline-block animate-pulse text-stone-deep motion-reduce:animate-none">
+                  â–Œ Menunggu model...
                 </span>
               ) : null}
             </div>
@@ -194,12 +194,12 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-hairline-mist p-3 text-xs text-stone-gray">
+      <div className="flex items-center gap-2 border-t border-hairline-mist p-3 text-xs text-stone-deep">
         <Timer size={12} strokeWidth={1.75} />
         <span>{generation.totalTokens ?? '-'} tokens</span>
-        <span>·</span>
+        <span>Â·</span>
         <span>{generation.timeToFirstTokenMs ?? '-'}ms TTFT</span>
-        <span>·</span>
+        <span>Â·</span>
         <span>{generation.latencyMs ?? '-'}ms</span>
       </div>
     </div>

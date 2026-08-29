@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual'
+﻿import { useVirtualizer } from '@tanstack/react-virtual'
 import { Bot } from 'lucide-react'
 import { useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -82,7 +82,7 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
             <h2 className="text-[30px] font-medium text-ink-black">
               Mulai percakapan
             </h2>
-            <p className="text-[15px] text-stone-gray">
+            <p className="text-[15px] text-stone-deep">
               Tanyakan apa saja ke Zona.ai
             </p>
           </div>
@@ -108,7 +108,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
           </div>
           <div className="flex-1 space-y-2">
             {(message.modelId || message.routerModelId) && (
-              <div className="flex items-center gap-2 text-xs text-stone-gray">
+              <div className="flex items-center gap-2 text-xs text-stone-deep">
                 {message.modelId && (
                   <span className="font-medium">{message.modelId}</span>
                 )}
@@ -142,7 +142,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
               </ReactMarkdown>
               {message.streaming && (
                 <span className="ml-1 inline-block animate-pulse motion-reduce:animate-none">
-                  ▌
+                  â–Œ
                 </span>
               )}
             </div>

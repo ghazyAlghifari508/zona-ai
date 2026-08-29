@@ -1,4 +1,4 @@
-import { ModelColumn } from './ModelColumn'
+﻿import { ModelColumn } from './ModelColumn'
 
 type Generation = {
   id: string
@@ -55,7 +55,7 @@ export function CompareGrid({
   return (
     <div className="space-y-4">
       {prompt && (
-        <div className="text-center text-[15px] text-stone-gray">
+        <div className="text-center text-[15px] text-stone-deep">
           You: {prompt}
         </div>
       )}

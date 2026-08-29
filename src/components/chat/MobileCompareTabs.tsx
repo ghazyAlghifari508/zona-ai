@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { ModelColumn } from './ModelColumn'
 
 type Generation = {
@@ -65,7 +65,7 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
             className={`flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${
               safeActive === g.id
                 ? 'bg-sandstone border border-ink-black text-ink-black'
-                : 'text-stone-gray hover:text-ink-black border border-transparent'
+                : 'text-stone-deep hover:text-ink-black border border-transparent'
             }`}
           >
             {g.modelId}

@@ -1,4 +1,4 @@
-import { ChevronDown, Zap } from 'lucide-react'
+﻿import { ChevronDown, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Popover,
@@ -55,7 +55,7 @@ export function ModelSelector({ value, onChange, credits = 100 }: Props) {
           <ChevronDown
             size={14}
             strokeWidth={1.75}
-            className="text-stone-gray"
+            className="text-stone-deep"
           />
         </button>
       </PopoverTrigger>
@@ -92,8 +92,8 @@ export function ModelSelector({ value, onChange, credits = 100 }: Props) {
                   <span className="font-medium text-ink-black">
                     {m.displayName}
                   </span>
-                  <span className="text-xs text-stone-gray">
-                    {m.provider} • {m.creditTier}
+                  <span className="text-xs text-stone-deep">
+                    {m.provider} â€¢ {m.creditTier}
                   </span>
                 </div>
                 <span className="flex items-center gap-1 rounded-full bg-cream-paper px-2 py-1 text-xs font-medium">
@@ -103,7 +103,7 @@ export function ModelSelector({ value, onChange, credits = 100 }: Props) {
             )
           })}
           {models.length === 0 && (
-            <div className="p-3 text-sm text-stone-gray">Memuat model...</div>
+            <div className="p-3 text-sm text-stone-deep">Memuat model...</div>
           )}
         </div>
       </PopoverContent>

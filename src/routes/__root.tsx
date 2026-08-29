@@ -10,6 +10,17 @@ import '../styles/app.css'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
+    head: () => ({
+      meta: [
+        { charSet: 'utf-8' },
+        { title: 'Zona.ai — Ruang kerja AI multi-model' },
+        {
+          name: 'description',
+          content:
+            'Zona.ai — workspace chat AI multi-model dengan Compare Mode, web search, dan RAG.',
+        },
+      ],
+    }),
     component: Root,
   },
 )

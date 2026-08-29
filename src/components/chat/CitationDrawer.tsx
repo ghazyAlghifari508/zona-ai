@@ -1,4 +1,4 @@
-import { ChevronDown, ExternalLink } from 'lucide-react'
+﻿import { ChevronDown, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 
 export type CitationSource = {
@@ -35,7 +35,7 @@ export function CitationDrawer({ sources }: Props) {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1 text-xs text-stone-gray"
+          className="flex items-center gap-1 text-xs text-stone-deep"
           data-testid="citation-toggle"
         >
           Sources ({sources.length})
@@ -66,16 +66,16 @@ export function CitationDrawer({ sources }: Props) {
                 <div className="truncate text-[15px] font-medium text-ink-black">
                   {s.title ?? s.url}
                 </div>
-                <div className="truncate text-[13px] text-stone-gray">
+                <div className="truncate text-[13px] text-stone-deep">
                   {s.url}
                 </div>
                 {s.snippet && (
-                  <div className="line-clamp-2 text-sm text-stone-gray">
+                  <div className="line-clamp-2 text-sm text-stone-deep">
                     {s.snippet}
                   </div>
                 )}
               </div>
-              <ExternalLink size={12} className="shrink-0 text-stone-gray" />
+              <ExternalLink size={12} className="shrink-0 text-stone-deep" />
             </a>
           ))}
         </div>

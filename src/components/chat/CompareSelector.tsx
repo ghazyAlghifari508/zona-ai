@@ -1,4 +1,4 @@
-import { ChevronDown, X, Zap } from 'lucide-react'
+﻿import { ChevronDown, X, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Popover,
@@ -69,7 +69,7 @@ export function CompareSelector({ value, onChange, credits = 100 }: Props) {
           <ChevronDown
             size={14}
             strokeWidth={1.75}
-            className="text-stone-gray"
+            className="text-stone-deep"
           />
         </button>
       </PopoverTrigger>
@@ -77,7 +77,7 @@ export function CompareSelector({ value, onChange, credits = 100 }: Props) {
         align="start"
         className="w-[360px] rounded-[10px] border border-hairline-mist bg-pure-white p-3"
       >
-        <div className="text-[11px] uppercase tracking-wide text-stone-gray">
+        <div className="text-[11px] uppercase tracking-wide text-stone-deep">
           Pilih 2-4 Model
         </div>
 
@@ -139,8 +139,8 @@ export function CompareSelector({ value, onChange, credits = 100 }: Props) {
                   <span className="font-medium text-ink-black">
                     {m.displayName}
                   </span>
-                  <span className="ml-2 text-xs text-stone-gray">
-                    {m.provider} • {m.creditTier}
+                  <span className="ml-2 text-xs text-stone-deep">
+                    {m.provider} â€¢ {m.creditTier}
                   </span>
                 </span>
                 <span className="flex items-center gap-1 rounded-full bg-cream-paper px-2 py-1 text-xs font-medium">
@@ -150,11 +150,11 @@ export function CompareSelector({ value, onChange, credits = 100 }: Props) {
             )
           })}
           {models.length === 0 && (
-            <div className="p-3 text-sm text-stone-gray">Memuat model...</div>
+            <div className="p-3 text-sm text-stone-deep">Memuat model...</div>
           )}
           {/* Also render Auto explicitly disabled if not in models list? Already included */}
           {models.find((m) => m.id === 'auto') && (
-            <div className="px-3 py-1 text-[11px] text-stone-gray">
+            <div className="px-3 py-1 text-[11px] text-stone-deep">
               Auto (Smart Router) tidak tersedia di Compare
             </div>
           )}
@@ -166,23 +166,23 @@ export function CompareSelector({ value, onChange, credits = 100 }: Props) {
         >
           <span>Total: {total} Kredit</span>
           <span
-            className={insufficient ? 'text-stone-gray' : 'text-stone-gray'}
+            className={insufficient ? 'text-stone-deep' : 'text-stone-deep'}
           >
             Sisa: {credits}
           </span>
         </div>
         {insufficient && (
-          <div className="mt-1 text-xs text-stone-gray">
+          <div className="mt-1 text-xs text-stone-deep">
             Butuh {total} (Sisa {credits})
           </div>
         )}
         {value.length < 2 && (
-          <div className="mt-1 text-xs text-stone-gray">
+          <div className="mt-1 text-xs text-stone-deep">
             Pilih minimal 2 model
           </div>
         )}
         {value.length > 4 && (
-          <div className="mt-1 text-xs text-stone-gray">Maksimal 4 model</div>
+          <div className="mt-1 text-xs text-stone-deep">Maksimal 4 model</div>
         )}
 
         <div className="mt-3 flex justify-end">

@@ -1,4 +1,4 @@
-import {
+﻿import {
   useInfiniteQuery,
   useMutation,
   useQueryClient,
@@ -216,7 +216,7 @@ export function Sidebar({
           }}
           disabled={createMutation.isPending}
           data-testid="new-chat-button"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone disabled:cursor-wait disabled:text-stone-gray"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone disabled:cursor-wait disabled:text-stone-deep"
         >
           {createMutation.isPending ? (
             <LoaderCircle
@@ -235,7 +235,7 @@ export function Sidebar({
           <Search
             size={14}
             strokeWidth={1.75}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-gray"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-deep"
             aria-hidden="true"
           />
           <input
@@ -243,7 +243,7 @@ export function Sidebar({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Cari percakapan..."
-            className="w-full rounded-[10px] border border-hairline-mist bg-cream-paper py-2 pl-9 pr-3 text-[15px] text-ink-black outline-none placeholder:text-stone-gray focus-visible:border-ink-black"
+            className="w-full rounded-[10px] border border-hairline-mist bg-cream-paper py-2 pl-9 pr-3 text-[15px] text-ink-black outline-none placeholder:text-stone-deep focus-visible:border-ink-black"
           />
         </label>
       </div>
@@ -260,7 +260,7 @@ export function Sidebar({
             ))}
           </div>
         ) : conversationsQuery.isError ? (
-          <p className="rounded-[10px] border border-hairline-mist p-3 text-[13px] text-stone-gray">
+          <p className="rounded-[10px] border border-hairline-mist p-3 text-[13px] text-stone-deep">
             Gagal memuat percakapan.
           </p>
         ) : conversationItems.length === 0 ? (
@@ -269,7 +269,7 @@ export function Sidebar({
               {debouncedSearch ? 'No results found' : 'Belum ada percakapan'}
             </p>
             {!debouncedSearch && (
-              <p className="mt-1 text-[13px] text-stone-gray">
+              <p className="mt-1 text-[13px] text-stone-deep">
                 Mulai chat baru untuk melihat riwayat di sini.
               </p>
             )}
@@ -312,7 +312,7 @@ export function Sidebar({
                     <span className="block truncate text-[15px] font-medium text-ink-black">
                       {conversation.title ?? 'New Chat'}
                     </span>
-                    <span className="mt-1 flex items-center gap-1 text-[13px] text-stone-gray">
+                    <span className="mt-1 flex items-center gap-1 text-[13px] text-stone-deep">
                       <Bot size={12} strokeWidth={1.75} aria-hidden="true" />
                       {conversation.updatedAt
                         ? new Date(conversation.updatedAt).toLocaleDateString(
@@ -327,7 +327,7 @@ export function Sidebar({
                     <button
                       type="button"
                       aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
-                      className="mr-1 rounded-[10px] p-2 text-stone-gray opacity-0 hover:text-ink-black focus:opacity-100 group-hover:opacity-100"
+                      className="mr-1 rounded-[10px] p-2 text-stone-deep opacity-0 hover:text-ink-black focus:opacity-100 group-hover:opacity-100"
                     >
                       <MoreHorizontal
                         size={16}
@@ -380,7 +380,7 @@ export function Sidebar({
             type="button"
             onClick={() => conversationsQuery.fetchNextPage()}
             disabled={conversationsQuery.isFetchingNextPage}
-            className="mt-3 w-full rounded-full border border-hairline-mist px-3 py-2 text-[13px] text-ink-black hover:bg-sandstone disabled:text-stone-gray"
+            className="mt-3 w-full rounded-full border border-hairline-mist px-3 py-2 text-[13px] text-ink-black hover:bg-sandstone disabled:text-stone-deep"
           >
             {conversationsQuery.isFetchingNextPage ? 'Memuat...' : 'Load more'}
           </button>
@@ -392,7 +392,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => authClient.signOut()}
-          className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-[14px] text-stone-gray hover:bg-sandstone hover:text-ink-black"
+          className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-[14px] text-stone-deep hover:bg-sandstone hover:text-ink-black"
         >
           <LogOut size={16} strokeWidth={1.75} aria-hidden="true" />
           Keluar

@@ -1,4 +1,4 @@
-import { TriangleAlert } from 'lucide-react'
+﻿import { TriangleAlert } from 'lucide-react'
 
 type Props = {
   code?: string
@@ -7,7 +7,7 @@ type Props = {
 }
 
 /**
- * Inline error — White L1 surface, 10px radius, hairline border.
+ * Inline error â€” White L1 surface, 10px radius, hairline border.
  * TriangleAlert Lucide icon (no emoji), Retry pill ghost button.
  */
 export function InlineError({ code, message, onRetry }: Props) {
@@ -20,11 +20,11 @@ export function InlineError({ code, message, onRetry }: Props) {
       <TriangleAlert
         size={16}
         strokeWidth={1.75}
-        className="shrink-0 text-stone-gray"
+        className="shrink-0 text-stone-deep"
         aria-hidden="true"
       />
       <span className="min-w-0 flex-1">
-        {code && <span className="mr-1 text-xs text-stone-gray">{code}</span>}
+        {code && <span className="mr-1 text-xs text-stone-deep">{code}</span>}
         {message}
       </span>
       {onRetry && (

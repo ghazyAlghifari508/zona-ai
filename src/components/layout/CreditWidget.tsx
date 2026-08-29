@@ -1,4 +1,4 @@
-import { Gem, Zap } from 'lucide-react'
+﻿import { Gem, Zap } from 'lucide-react'
 import { resetDevCreditsFn } from '@/server/functions/credits'
 
 type Props = {
@@ -25,7 +25,7 @@ export function CreditWidget({ credits, onReset }: Props) {
       className="border-t border-hairline-mist p-4"
     >
       <div className="flex items-center gap-2 text-[15px] font-medium text-ink-black">
-        <Gem size={16} strokeWidth={1.75} className="text-stone-gray" />
+        <Gem size={16} strokeWidth={1.75} className="text-stone-deep" />
         <span>{credits} Kredit</span>
       </div>
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-sandstone">
