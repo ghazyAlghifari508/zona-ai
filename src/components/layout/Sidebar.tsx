@@ -401,7 +401,13 @@ export function Sidebar({
       <div className="border-t border-hairline-mist p-4">
         <button
           type="button"
-          onClick={() => authClient.signOut()}
+          onClick={() => {
+            void authClient.signOut({
+              fetchOptions: {
+                onSuccess: () => window.location.assign('/auth/sign-in'),
+              },
+            })
+          }}
           className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-[14px] text-stone-deep hover:bg-sandstone hover:text-ink-black"
         >
           <LogOut size={16} strokeWidth={1.75} aria-hidden="true" />

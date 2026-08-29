@@ -9,7 +9,23 @@ export default defineConfig({
     command: 'bun run dev',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
   },
   use: { baseURL },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  workers: 2,
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    {
+      name: 'tablet',
+      use: { browserName: 'chromium', viewport: { width: 768, height: 800 } },
+    },
+    {
+      name: 'mobile',
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 375, height: 667 },
+        isMobile: true,
+      },
+    },
+  ],
 })
