@@ -171,3 +171,52 @@ This document details the environment variables required for the Zona.ai applica
     *   **Environments:** All environments
     *   **Expected Format:** Enum (`development`, `production`, `test`)
     *   **Example Value:** `development`
+
+### RATE LIMITING (Fase 10 Hardening)
+
+*   **`RATE_LIMIT_CHAT_PER_MINUTE`**
+    *   **Purpose:** Max single-chat generations per user per minute (in-memory).
+    *   **Server/Client:** Server-only
+    *   **Requirement:** Optional (default 20)
+    *   **Environments:** All environments
+    *   **Expected Format:** Integer
+    *   **Example Value:** `20`
+
+*   **`RATE_LIMIT_COMPARE_PER_MINUTE`**
+    *   **Purpose:** Max compare runs per user per minute (in-memory).
+    *   **Server/Client:** Server-only
+    *   **Requirement:** Optional (default 20)
+    *   **Environments:** All environments
+    *   **Expected Format:** Integer
+    *   **Example Value:** `20`
+
+*   **`RATE_LIMIT_UPLOAD_PER_MINUTE`**
+    *   **Purpose:** Max file uploads per user per minute (in-memory).
+    *   **Server/Client:** Server-only
+    *   **Requirement:** Optional (default 10)
+    *   **Environments:** All environments
+    *   **Expected Format:** Integer
+    *   **Example Value:** `10`
+
+*   **`RATE_LIMIT_SEARCH_PER_MINUTE`**
+    *   **Purpose:** Max web-search calls per user per minute (in-memory).
+    *   **Server/Client:** Server-only
+    *   **Requirement:** Optional (default 30)
+    *   **Environments:** All environments
+    *   **Expected Format:** Integer
+    *   **Example Value:** `30`
+
+> Implementation: `src/lib/security/rate-limit.ts` — in-memory `Map` per user/IP.
+> Exceeding a limit returns HTTP 429 `ERR-017` with a `Retry-After` header (seconds).
+> TODO Redis: replace with Redis INCR + EXPIRE for multi-instance deployments.
+
+### RAG / FILE / EMBEDDING (Fase 06-08, direview Fase 10)
+
+*   **`MAX_FILE_SIZE_BYTES`** — Batas ukuran upload per file. Server-only. Optional (default `10485760` = 10MB). 413 `ERR-012` bila terlampaui.
+*   **`R2_BUCKET_NAME`** — Nama bucket Cloudflare R2. Server-only. Required.
+*   **`EMBEDDING_DIMENSION`** — Dimensi vektor embedding pgvector. Server-only. Optional (default `1536`).
+*   **`RAG_CHUNK_SIZE`** — Panjang karakter per chunk dokumen. Server-only. Optional (default `1000`).
+*   **`RAG_CHUNK_OVERLAP`** — Overlap antar chunk. Server-only. Optional (default `200`).
+*   **`RAG_TOP_K`** — Jumlah chunk yang diretrieval per query. Server-only. Optional (default `5`).
+*   **`TAVILY_MAX_RESULTS`** — Jumlah hasil web search Tavily. Server-only. Optional (default `5`).
+*   **`TAVILY_TIMEOUT_MS`** — Timeout request Tavily (ms). Server-only. Optional (default `10000`).

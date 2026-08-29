@@ -335,3 +335,30 @@ interface GenerationErrorEvent extends BaseEvent {
   code: string;
 }
 ```
+
+## Rate Limiting (Fase 10)
+
+Semua endpoint generatif (chat, compare, upload, web search) menerapkan rate limiting
+in-memory per user (`src/lib/security/rate-limit.ts`):
+
+| Scope | Key | Default |
+|---|---|---|
+| `sendMessage` | `chat:{userId}` | 20/menit |
+| `sendCompareMessage` | `compare:{userId}` | 20/menit |
+| `uploadFile` | `upload:{userId}` | 10/menit |
+| `searchWeb` | `search:{userId}` | 30/menit |
+
+Batas dapat dikonfigurasi via env `RATE_LIMIT_*_PER_MINUTE` (lihat `docs/ENVIRONMENT.md`).
+Rate limit diperiksa sebelum deduct kredit (fail-fast).
+
+### Response 429 (ERR-017)
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 42
+Content-Type: application/json
+
+{ "message": "ERR-017: Too many requests. Please wait a moment and try again. Retry-After: 42s", "code": "ERR-017", "status": 429 }
+```
+
+Client harus menunggu sesuai header `Retry-After` (detik) sebelum mencoba ulang.
