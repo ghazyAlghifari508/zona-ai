@@ -101,6 +101,20 @@ export async function uploadFileCore({ request }: { request: Request }) {
     })
     .returning()
 
+  // Trigger RAG processing async; in test await to make assertions deterministic
+  try {
+    const { processDocument } = await import("../../lib/rag/process");
+    if (process.env.NODE_ENV === "test") {
+      await processDocument(attachmentId);
+    } else {
+      setImmediate(() => {
+        processDocument(attachmentId).catch((e) => console.error("processDocument failed", e));
+      });
+    }
+  } catch (e) {
+    console.error("processDocument trigger failed", e);
+  }
+
   return row
 }
 
