@@ -9,6 +9,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
+import { TopNav } from '@/components/layout/TopNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { authClient } from '@/lib/auth/auth-client'
 import {
@@ -269,20 +270,12 @@ function ChatHome() {
                   {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
                 </button>
               )}
-            {authStatus === 'unauthenticated' && (
-              <button
-                type="button"
-                data-testid="home-sign-in"
-                onClick={() => void signIn()}
-                disabled={signingIn}
-                className="flex min-h-9 items-center rounded-md bg-notion-blue px-4 text-[14px] font-medium text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
-              >
-                {signingIn ? 'Menghubungkan...' : 'Masuk'}
-              </button>
-            )}
-            {authStatus === 'loading' && (
-              <div className="h-9 w-20 rounded-md bg-sandstone/30 animate-pulse" />
-            )}
+            <TopNav
+              user={activeSession?.user}
+              authState={authStatus}
+              onSignIn={() => void signIn()}
+              signingIn={signingIn}
+            />
           </header>
           <div className="flex flex-1 items-center justify-center py-2 sm:px-4">
             <div className="w-full max-w-[820px] px-1 sm:px-4">

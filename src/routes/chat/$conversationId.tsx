@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
+import { TopNav } from '@/components/layout/TopNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
 import {
@@ -30,12 +31,19 @@ export const Route = createFileRoute('/chat/$conversationId')({
     }
   },
   loader: async ({ params }) => {
-    const [conversation, persistedMessages, credit] = await Promise.all([
-      getConversation({ data: { id: params.conversationId } }),
-      getMessages({ data: { conversationId: params.conversationId } }),
-      getCreditBalanceFn(),
-    ])
-    return { conversation, persistedMessages, creditBalance: credit.balance }
+    const [conversation, persistedMessages, credit, session] =
+      await Promise.all([
+        getConversation({ data: { id: params.conversationId } }),
+        getMessages({ data: { conversationId: params.conversationId } }),
+        getCreditBalanceFn(),
+        getCurrentSession(),
+      ])
+    return {
+      conversation,
+      persistedMessages,
+      creditBalance: credit.balance,
+      user: session.user,
+    }
   },
   errorComponent: ConversationError,
   component: ConversationRoute,
@@ -71,7 +79,7 @@ function ConversationError() {
 
 function ChatThread() {
   const { conversationId } = Route.useParams()
-  const { persistedMessages, creditBalance } = Route.useLoaderData()
+  const { persistedMessages, creditBalance, user } = Route.useLoaderData()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const refreshConversationList = () => {
@@ -693,6 +701,7 @@ function ChatThread() {
             </span>
           )}
           <span className="flex-1" />
+          <TopNav user={user} authState="authenticated" />
         </header>
 
         <MessageList
