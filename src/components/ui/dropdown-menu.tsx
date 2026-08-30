@@ -1,5 +1,10 @@
-﻿import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
-import { Check, ChevronRight, Circle } from 'lucide-react'
+﻿import {
+  ArrowRight01Icon,
+  CircleIcon,
+  Tick01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
@@ -19,14 +24,14 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      'flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-sandstone',
+      'flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm text-ink outline-none focus:bg-ink/5',
       inset && 'pl-8',
       className,
     )}
     {...props}
   >
     {children}
-    <ChevronRight className="ml-auto h-4 w-4" />
+    <HugeiconsIcon icon={ArrowRight01Icon} className="ml-auto h-4 w-4" />
   </DropdownMenuPrimitive.SubTrigger>
 ))
 DropdownMenuSubTrigger.displayName =
@@ -39,7 +44,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-hairline-mist bg-pure-white p-1 text-ink-black',
+      'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-hairline bg-pure-white p-1 text-ink shadow-[0_8px_24px_rgba(0,0,0,0.08)]',
       className,
     )}
     {...props}
@@ -57,7 +62,7 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-hairline-mist bg-pure-white p-1 text-ink-black',
+        'z-50 min-w-[8rem] overflow-hidden rounded-lg border border-hairline bg-pure-white p-1 text-ink shadow-[0_8px_24px_rgba(0,0,0,0.08)]',
         className,
       )}
       {...props}
@@ -75,7 +80,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-sandstone focus:text-ink-black',
+      'relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm text-ink outline-none transition-colors focus:bg-ink/5 focus:text-ink',
       inset && 'pl-8',
       className,
     )}
@@ -91,7 +96,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-sandstone focus:text-ink-black',
+      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm text-ink outline-none transition-colors focus:bg-ink/5 focus:text-ink',
       className,
     )}
     checked={checked}
@@ -99,7 +104,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <HugeiconsIcon icon={Tick01Icon} className="h-4 w-4" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -115,14 +120,14 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-sandstone focus:text-ink-black',
+      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm text-ink outline-none transition-colors focus:bg-ink/5 focus:text-ink',
       className,
     )}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Circle className="h-2 w-2 fill-current" />
+        <HugeiconsIcon icon={CircleIcon} className="h-2 w-2 fill-current" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -139,7 +144,7 @@ const DropdownMenuLabel = React.forwardRef<
   <DropdownMenuPrimitive.Label
     ref={ref}
     className={cn(
-      'px-2 py-1.5 text-sm font-medium text-ink-black',
+      'px-2 py-1.5 text-sm font-medium text-ink',
       inset && 'pl-8',
       className,
     )}
@@ -154,7 +159,7 @@ const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn('-mx-1 my-1 h-px bg-hairline-mist', className)}
+    className={cn('-mx-1 my-1 h-px bg-hairline', className)}
     {...props}
   />
 ))
@@ -166,10 +171,7 @@ const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => {
   return (
     <span
-      className={cn(
-        'ml-auto text-xs tracking-widest text-stone-deep',
-        className,
-      )}
+      className={cn('ml-auto text-xs tracking-widest text-stone', className)}
       {...props}
     />
   )

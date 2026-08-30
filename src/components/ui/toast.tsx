@@ -1,6 +1,7 @@
 'use client'
 
-import { TriangleAlert, X } from 'lucide-react'
+import { Alert02Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect } from 'react'
 
 type Props = {
@@ -30,9 +31,10 @@ export function ErrorToast({
     <div
       role="status"
       data-testid="error-toast"
-      className="fixed right-6 bottom-6 z-50 flex max-w-[360px] items-start gap-2 rounded-[10px] bg-ink-black p-3 text-sm text-pure-white"
+      className="fixed right-6 bottom-6 z-50 flex max-w-[360px] items-start gap-2 rounded-lg border border-hairline bg-pure-white p-3 text-sm text-ink"
     >
-      <TriangleAlert
+      <HugeiconsIcon
+        icon={Alert02Icon}
         size={16}
         strokeWidth={1.75}
         className="mt-0.5 shrink-0"
@@ -49,7 +51,12 @@ export function ErrorToast({
           aria-label="Tutup notifikasi"
           className="shrink-0 rounded-[10px] p-0.5 hover:opacity-70"
         >
-          <X size={14} strokeWidth={1.75} aria-hidden="true" />
+          <HugeiconsIcon
+            icon={Cancel01Icon}
+            size={14}
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         </button>
       )}
     </div>

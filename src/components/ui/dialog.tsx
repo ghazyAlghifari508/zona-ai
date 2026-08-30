@@ -1,5 +1,6 @@
-﻿import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
+﻿import { Cancel01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
@@ -32,14 +33,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-hairline-mist bg-pure-white p-6 rounded-[20px]',
+        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border border-hairline bg-pure-white p-6',
         className,
       )}
       {...props}
     >
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
-        <X className="h-4 w-4" />
+        <HugeiconsIcon icon={Cancel01Icon} className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -81,10 +82,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn(
-      'text-lg font-medium leading-none tracking-tight text-ink-black',
-      className,
-    )}
+    className={cn('text-[18px] font-bold text-ink', className)}
     {...props}
   />
 ))
@@ -96,7 +94,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-stone-deep', className)}
+    className={cn('text-[14px] text-stone', className)}
     {...props}
   />
 ))

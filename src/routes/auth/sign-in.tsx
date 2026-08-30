@@ -1,5 +1,6 @@
-﻿import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
+﻿import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { PublicShell } from '@/components/layout/PublicShell'
 import { authClient } from '@/lib/auth/auth-client'
@@ -22,7 +23,7 @@ function SignIn() {
     try {
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/chat',
+        callbackURL: '/',
       })
     } finally {
       setLoading(false)
@@ -31,25 +32,30 @@ function SignIn() {
 
   return (
     <PublicShell>
-      <div className="flex min-h-[80vh] items-center justify-center bg-cream-paper px-4">
+      <div className="flex min-h-[80vh] items-center justify-center bg-paper px-4">
         <div
           data-testid="auth-card"
-          className="w-full max-w-[420px] rounded-[50px] border border-hairline-mist bg-pure-white p-10"
+          className="w-full max-w-[420px] rounded-lg border border-hairline bg-pure-white p-10"
         >
-          <h1 className="text-center font-medium text-[30px] text-ink-black">
+          <h1 className="text-center text-[24px] font-bold tracking-[-0.02em] text-ink">
             Masuk ke Zona.ai
           </h1>
-          <p className="mt-2 text-center text-[15px] text-stone-deep">
+          <p className="mt-2 text-center text-[15px] text-stone">
             Satu klik untuk mulai membandingkan model AI.
           </p>
           <button
             type="button"
             onClick={handleGoogle}
             disabled={loading}
-            className="mt-8 flex w-full items-center justify-center gap-2 rounded-full border border-ink-black bg-pure-white px-5 py-3 font-medium text-[15px] text-ink-black hover:bg-sandstone disabled:opacity-50"
+            className="mt-8 flex w-full items-center justify-center gap-2 rounded-md border border-hairline-strong bg-pure-white px-5 py-3 text-[15px] font-medium text-ink hover:bg-ink/5 disabled:opacity-50"
           >
             {loading ? (
-              <Loader2 size={20} className="animate-spin" aria-hidden="true" />
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                size={20}
+                className="animate-spin"
+                aria-hidden="true"
+              />
             ) : (
               <svg
                 width="20"
