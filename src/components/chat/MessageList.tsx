@@ -1,5 +1,4 @@
 ﻿import { useVirtualizer } from '@tanstack/react-virtual'
-import { Bot } from 'lucide-react'
 import { useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
@@ -7,6 +6,8 @@ import rehypeSanitize from 'rehype-sanitize'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { InlineError } from './InlineError'
+import { TypingDots } from './TypingDots'
+import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 export type ChatMessage = {
   id: string
@@ -24,6 +25,7 @@ export type ChatMessage = {
 
 export function MessageList({ messages }: { messages: ChatMessage[] }) {
   const parentRef = useRef<HTMLDivElement>(null)
+  const catalog = useModelCatalog()
   const shouldVirtualize = messages.length > 50
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -40,7 +42,7 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
       aria-live="polite"
       aria-label="Chat messages"
       data-testid="message-list"
-      className={`flex-1 overflow-y-auto p-4 ${shouldVirtualize ? '' : 'flex flex-col gap-6'}`}
+      className={`min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 ${shouldVirtualize ? '' : 'flex flex-col'}`}
     >
       {shouldVirtualize ? (
         <div
@@ -64,25 +66,24 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
                   width: '100%',
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
-                className="pb-6"
               >
-                <MessageItem message={message} />
+                <MessageItem message={message} catalog={catalog} />
               </div>
             )
           })}
         </div>
       ) : (
         messages.map((message) => (
-          <MessageItem key={message.id} message={message} />
+          <MessageItem key={message.id} message={message} catalog={catalog} />
         ))
       )}
       {messages.length === 0 && (
         <div className="flex flex-1 items-center justify-center py-20 text-center">
           <div className="space-y-2">
-            <h2 className="text-[30px] font-medium text-ink-black">
+            <h2 className="text-[22px] font-bold tracking-[-0.242px] text-ink">
               Mulai percakapan
             </h2>
-            <p className="text-[15px] text-stone-deep">
+            <p className="text-[14px] text-stone">
               Tanyakan apa saja ke Zona.ai
             </p>
           </div>
@@ -92,34 +93,50 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
   )
 }
 
-function MessageItem({ message }: { message: ChatMessage }) {
+function MessageItem({
+  message,
+  catalog,
+}: {
+  message: ChatMessage
+  catalog: ReturnType<typeof useModelCatalog>
+}) {
+  const entry = findCatalogEntry(catalog, message.modelId)
   return (
-    <div
-      className={`flex w-full ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-    >
-      {message.role === 'user' ? (
-        <div className="max-w-[70%] rounded-[10px] bg-sandstone px-3 py-2 text-[18px] leading-relaxed text-ink-black">
-          {message.content}
-        </div>
-      ) : (
-        <div className="flex max-w-[80%] gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline-mist bg-pure-white">
-            <Bot size={16} strokeWidth={1.75} className="text-ink-black" />
-          </div>
-          <div className="flex-1 space-y-2">
-            {(message.modelId || message.routerModelId) && (
-              <div className="flex items-center gap-2 text-xs text-stone-deep">
-                {message.modelId && (
-                  <span className="font-medium">{message.modelId}</span>
-                )}
-                {message.routingReason && message.routerModelId && (
-                  <span data-testid="routed-badge">
-                    Routed to {message.routerModelId}
-                  </span>
-                )}
-              </div>
+    <div className="grid grid-cols-[34px_minmax(0,1fr)] gap-3.5 py-5">
+      <div
+        className={
+          message.role === 'user'
+            ? 'flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-coral bg-pure-white text-[11px] font-extrabold text-ink'
+            : 'flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[11px] font-extrabold tracking-[-0.04em] text-notion-blue'
+        }
+      >
+        {message.role === 'user' ? 'K' : 'ZA'}
+      </div>
+      <div className="min-w-0 pt-0.5">
+        <div className="mb-1.5 flex items-center gap-2">
+          <span className="text-[13px] font-bold text-ink">
+            {message.role === 'user'
+              ? 'Kamu'
+              : (entry?.displayName ?? 'Zona.ai')}
+          </span>
+          {message.role !== 'user' &&
+            message.routerModelId &&
+            message.routingReason && (
+              <span
+                data-testid="routed-badge"
+                className="rounded-full bg-sky-tint px-2 py-0.5 text-[10px] font-bold text-notion-blue"
+              >
+                Routed to {message.routerModelId}
+              </span>
             )}
-            <div className="prose prose-sm max-w-none text-[15px] leading-relaxed text-ink-black">
+        </div>
+        {message.role === 'user' ? (
+          <div className="text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
+            {message.content}
+          </div>
+        ) : (
+          <div className="min-w-0 space-y-2">
+            <div className="prose prose-sm max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
               <ReactMarkdown
                 rehypePlugins={[rehypeSanitize, rehypeHighlight]}
                 components={{
@@ -130,7 +147,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
                       return <CodeBlock>{String(children)}</CodeBlock>
                     }
                     return (
-                      <code className="rounded bg-sandstone px-1 py-0.5 text-[14px]">
+                      <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
                         {children}
                       </code>
                     )
@@ -140,11 +157,7 @@ function MessageItem({ message }: { message: ChatMessage }) {
               >
                 {message.content}
               </ReactMarkdown>
-              {message.streaming && (
-                <span className="ml-1 inline-block animate-pulse motion-reduce:animate-none">
-                  â–Œ
-                </span>
-              )}
+              {message.streaming && !message.content && <TypingDots />}
             </div>
             {message.errorMessage && (
               <InlineError
@@ -157,8 +170,8 @@ function MessageItem({ message }: { message: ChatMessage }) {
               <CitationDrawer sources={message.webSources} />
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

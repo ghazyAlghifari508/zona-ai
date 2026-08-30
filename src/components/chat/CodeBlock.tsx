@@ -1,4 +1,5 @@
-import { Check, Copy } from 'lucide-react'
+import { Copy01Icon, Tick01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 
 export function CodeBlock({ children }: { children: string }) {
@@ -15,18 +16,18 @@ export function CodeBlock({ children }: { children: string }) {
   }
 
   return (
-    <div className="relative rounded-[10px] bg-sandstone p-4">
+    <div className="relative max-w-full rounded-lg border border-hairline bg-pure-white p-4">
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-2 right-2 flex items-center gap-1 rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-xs text-ink-black hover:bg-cream-paper"
+        className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-hairline bg-pure-white px-2 py-1 text-xs text-ink hover:bg-ink/5"
       >
         {copied ? (
-          <Check size={14} strokeWidth={1.75} />
+          <HugeiconsIcon icon={Tick01Icon} size={14} strokeWidth={1.75} />
         ) : (
-          <Copy size={14} strokeWidth={1.75} />
+          <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />
         )}
-        {copied ? 'Copied' : 'Copy'}
+        {copied ? 'Tersalin' : 'Salin'}
       </button>
       <pre className="overflow-x-auto text-[14px] leading-relaxed">
         <code>{children}</code>
