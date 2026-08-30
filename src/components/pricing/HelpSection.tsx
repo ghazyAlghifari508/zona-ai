@@ -1,7 +1,6 @@
 import {
   ArrowRight01Icon,
   BookOpen01Icon,
-  CustomerSupportIcon,
   Mail02Icon,
   MessageQuestionIcon,
 } from '@hugeicons/core-free-icons'
@@ -36,15 +35,7 @@ export function HelpSection() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 py-12 lg:px-6 lg:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-tint text-notion-blue">
-          <HugeiconsIcon
-            icon={CustomerSupportIcon}
-            size={24}
-            strokeWidth={1.75}
-            aria-hidden="true"
-          />
-        </span>
-        <h1 className="mt-4 text-[clamp(28px,4.5vw,44px)] font-bold leading-[1.1] tracking-[-0.03em] text-ink">
+        <h1 className="text-[clamp(28px,4.5vw,44px)] font-bold leading-[1.1] tracking-[-0.03em] text-ink">
           Ada yang bisa kami bantu?
         </h1>
         <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-graphite">

@@ -29,7 +29,7 @@ function PricingPage() {
       : 'unauthenticated'
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-pure-white">
       <GlobalNav
         user={activeSession?.user}
         authState={authState}
