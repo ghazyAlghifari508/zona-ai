@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowDown01Icon,
   ImageIcon,
   Tick01Icon,
@@ -84,31 +84,31 @@ export function ModelSelector({
           type="button"
           data-testid="model-selector-trigger"
           aria-label="Pilih model"
-          className="flex min-h-[38px] items-center gap-2 rounded-md px-2.5 text-ink transition-colors duration-200 hover:bg-ink/5"
+          className="flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
         >
-          <span className="flex h-5 w-5 items-center justify-center text-ink">
+          <span className="flex h-4 w-4 items-center justify-center text-ink">
             <ProviderIcon provider={triggerIconProvider} size={14} />
           </span>
           {compareEnabled ? (
             <span
               data-testid="compare-trigger-label"
-              className="text-[14px] font-bold tracking-[-0.015em]"
+              className="text-[13px] font-medium tracking-[-0.01em]"
             >
               {compareModelIds.length} model dipilih
             </span>
           ) : (
-            <span className="text-[14px] font-bold tracking-[-0.015em]">
+            <span className="text-[13px] font-medium tracking-[-0.01em]">
               {selected?.displayName ?? 'Auto'}
             </span>
           )}
           {selected && !compareEnabled && (
-            <span className="rounded-full bg-sky-tint px-2 py-0.5 text-[10px] font-bold text-midnight">
+            <span className="rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-midnight">
               {costLabel(selected)}
             </span>
           )}
           <HugeiconsIcon
             icon={ArrowDown01Icon}
-            size={14}
+            size={13}
             strokeWidth={1.75}
             className="text-ink/40"
           />
@@ -185,7 +185,8 @@ export function ModelSelector({
                     : undefined
                 }
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-200',
+                  'flex w-full gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-200',
+                  m.id === 'auto' ? 'items-start' : 'items-center',
                   isSelected ? 'bg-paper' : 'hover:bg-ink/5',
                   blocked && 'cursor-not-allowed opacity-50',
                 )}
@@ -194,7 +195,7 @@ export function ModelSelector({
                   className={cn(
                     'flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border',
                     m.id === 'auto'
-                      ? 'border-ink bg-ink'
+                      ? 'mt-0.5 border-ink bg-ink'
                       : 'border-hairline bg-pure-white text-ink',
                   )}
                 >
@@ -218,6 +219,11 @@ export function ModelSelector({
                       </span>
                     )}
                   </span>
+                  {m.id === 'auto' && (
+                    <p className="mt-0.5 text-[11.5px] leading-[1.3] text-stone">
+                      Pilih model otomatis sesuai bobot tugas.
+                    </p>
+                  )}
                   <span className="mt-0.5 flex items-center gap-1.5">
                     {m.id !== 'auto' && (
                       <span
@@ -263,6 +269,7 @@ export function ModelSelector({
                     aria-hidden="true"
                     className={cn(
                       'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150',
+                      m.id === 'auto' && 'mt-1',
                       isSelected
                         ? 'border-notion-blue bg-notion-blue'
                         : 'border-hairline-strong bg-pure-white',
@@ -283,7 +290,10 @@ export function ModelSelector({
                       icon={Tick01Icon}
                       size={16}
                       strokeWidth={1.75}
-                      className="shrink-0 text-notion-blue"
+                      className={cn(
+                        'shrink-0 text-notion-blue',
+                        m.id === 'auto' && 'mt-1',
+                      )}
                     />
                   )
                 )}

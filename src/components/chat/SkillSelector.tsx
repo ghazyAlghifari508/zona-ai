@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowDown01Icon,
   CheckListIcon,
   File01Icon,
@@ -60,20 +60,20 @@ export function SkillSelector({ value, onChange }: Props) {
         <button
           type="button"
           data-testid="skill-selector-trigger"
-          className="flex min-h-[38px] items-center gap-1.5 rounded-md px-2.5 text-ink transition-colors duration-200 hover:bg-ink/5"
+          className="flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
         >
           <HugeiconsIcon
             icon={selected.icon}
-            size={15}
+            size={14}
             strokeWidth={1.75}
             className="text-ink"
           />
-          <span className="text-[14px] font-bold tracking-[-0.015em]">
+          <span className="text-[13px] font-medium tracking-[-0.01em]">
             {selected.label}
           </span>
           <HugeiconsIcon
             icon={ArrowDown01Icon}
-            size={14}
+            size={13}
             strokeWidth={1.75}
             className="text-ink/40"
           />

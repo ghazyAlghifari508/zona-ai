@@ -1,8 +1,9 @@
 import {
+  Analytics01Icon,
   Compass01Icon,
-  GitCompareIcon,
   Idea01Icon,
   SourceCodeIcon,
+  ZapIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -16,29 +17,51 @@ import {
   takeGuestDraft,
 } from '@/lib/chat/guest-draft'
 import { createConversation } from '@/server/functions/conversations'
+import { resetDevCreditsFn } from '@/server/functions/credits'
 
 const STARTERS = [
   {
     id: 'build',
     title: 'Build something',
     sub: 'Rancang produk, fitur, atau arsitektur aplikasi.',
-    prompt: 'Bantu saya merancang aplikasi AI dari nol',
+    prompt: `Saya ingin merancang aplikasi SaaS manajemen inventaris berbasis AI untuk UMKM retail (toko baju & kelontong).
+
+Tolong bantu susun:
+1. Arsitektur sistem & teknologi stack yang scalable (frontend, backend, database, vector search).
+2. Skema database PostgreSQL (tabel products, inventory_logs, reorder_alerts).
+3. Alur rekomendasi restock otomatis menggunakan AI berbasis tren penjualan mingguan.
+4. Rekomendasi UX flow ringkas untuk onboarding kasir dan pemilik toko.`,
     icon: SourceCodeIcon,
     iconClass: 'bg-sky-tint text-notion-blue',
   },
   {
-    id: 'compare',
-    title: 'Compare AI models',
-    sub: 'Bandingkan kualitas, speed, dan use case model.',
-    prompt: 'Bandingkan beberapa model AI untuk coding',
-    icon: GitCompareIcon,
+    id: 'analyze',
+    title: 'Analyze data & documents',
+    sub: 'Bedah dokumen atau ringkas insight dari data kompleks.',
+    prompt: `Berikut adalah ringkasan metrik kuartal terakhir dari startup e-commerce kami:
+- GMV: Rp 4,2 Miliar (tumbuh 8% QoQ, target: 15%)
+- Customer Acquisition Cost (CAC): Naik dari Rp 85.000 ke Rp 125.000
+- Monthly Retention Rate M1: Turun dari 42% ke 31%
+- Average Order Value (AOV): Rp 195.000 (naik 12%)
+
+Analisis data di atas secara mendalam:
+1. Temukan akar masalah (root cause) dari kenaikan CAC dan penurunan retensi.
+2. 3 hipotesis bisnis mengapa AOV naik saat pertumbuhan GMV melambat.
+3. Rekomendasi langkah taktis prioritas tinggi untuk 30 hari ke depan guna menstabilkan churn.`,
+    icon: Analytics01Icon,
     iconClass: 'bg-[#fff0e8] text-coral',
   },
   {
     id: 'research',
     title: 'Research a topic',
     sub: 'Susun riset yang lebih terarah dan mudah dipahami.',
-    prompt: 'Bantu saya riset teknologi yang sedang relevan',
+    prompt: `Buat riset komparatif mendalam antara arsitektur pgvector (PostgreSQL) vs dedicated vector database (seperti Qdrant atau Pinecone) untuk aplikasi multi-tenant AI workspace.
+
+Bahas dalam format laporan terstruktur:
+1. Analisis performa latency query HNSW/IVFFlat pada skala 5 juta embedding vectors.
+2. Kompleksitas operasional, biaya infrastruktur (RAM & storage), dan kemudahan backup.
+3. Manajemen isolasi data multi-tenant (Row Level Security vs metadata filtering).
+4. Matriks keputusan: kapan harus tetap di pgvector dan kapan wajib migrasi ke dedicated vector DB.`,
     icon: Compass01Icon,
     iconClass: 'bg-[#fff4cf] text-[#8a5a00]',
   },
@@ -46,7 +69,13 @@ const STARTERS = [
     id: 'review',
     title: 'Review an idea',
     sub: 'Bedah ide, UX, positioning, dan risiko produk.',
-    prompt: 'Review ide produk saya dan kasih kritik',
+    prompt: `Saya punya ide produk: "TalentPulse", platform AI mock interview interaktif untuk developer software di Asia Tenggara, dengan feedback realtime pada code architecture dan komunikasi verbal dalam Bahasa Inggris & Indonesia.
+
+Tolong review ide ini dari perspektif Product & VC:
+1. Evaluasi Value Proposition & Keunikan dibanding alternatif umum (ChatGPT biasa / MockMate).
+2. Identifikasi 3 risiko terbesar (teknis, monetisasi, dan akuisisi user).
+3. Saran positioning & model monetisasi (Freemium, Pay-per-interview, atau B2B ke Bootcamp).
+4. Fitur Minimum Viable Product (MVP) yang paling esensial untuk validasi pasar dalam 2 minggu.`,
     icon: Idea01Icon,
     iconClass: 'bg-[#e9edff] text-midnight',
   },
@@ -66,6 +95,21 @@ function ChatHome() {
   const [composerKey, setComposerKey] = useState(0)
   const [compareEnabled, setCompareEnabled] = useState(false)
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
+  const [credits, setCredits] = useState(85)
+  const [resettingCredits, setResettingCredits] = useState(false)
+
+  const handleResetCredits = async () => {
+    if (resettingCredits) return
+    setResettingCredits(true)
+    try {
+      const res = await resetDevCreditsFn()
+      setCredits(res.newBalance)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setResettingCredits(false)
+    }
+  }
 
   useEffect(() => setDraft(takeGuestDraft()), [])
 
@@ -103,7 +147,13 @@ function ChatHome() {
       const conversation = await createConversation({
         data: { mode: 'normal' },
       })
-      savePendingMessage({ content, modelId, skillId, enableWebSearch })
+      savePendingMessage({
+        conversationId: conversation.id,
+        content,
+        modelId,
+        skillId,
+        enableWebSearch,
+      })
       await navigate({
         to: '/chat/$conversationId',
         params: { conversationId: conversation.id },
@@ -130,6 +180,7 @@ function ChatHome() {
         data: { mode: 'compare' },
       })
       savePendingMessage({
+        conversationId: conversation.id,
         content,
         modelId: modelIds[0] ?? 'auto',
         modelIds,
@@ -147,6 +198,7 @@ function ChatHome() {
 
   return (
     <WorkspaceShell
+      credits={credits}
       guest={!session?.user}
       signingIn={signingIn}
       onSignIn={() => void signIn()}
@@ -162,8 +214,26 @@ function ChatHome() {
         })
       }}
     >
-      <div className="flex min-h-[calc(100dvh-2rem)] flex-col">
-        <header className="flex min-h-12 items-center justify-end">
+      <div className="flex h-full min-h-full flex-col justify-between">
+        <header className="flex h-10 shrink-0 items-center justify-end gap-2.5">
+          {process.env.NODE_ENV !== 'production' && session?.user && (
+            <button
+              type="button"
+              data-testid="reset-credits-btn"
+              onClick={handleResetCredits}
+              disabled={resettingCredits}
+              className="flex min-h-9 items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+              title="Reset ke 100 kredit (mode dev)"
+            >
+              <HugeiconsIcon
+                icon={ZapIcon}
+                size={14}
+                strokeWidth={1.75}
+                className="text-amber-500"
+              />
+              {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
+            </button>
+          )}
           {!session?.user && (
             <button
               type="button"
@@ -176,22 +246,18 @@ function ChatHome() {
             </button>
           )}
         </header>
-        <div className="flex flex-1 items-center justify-center py-6 sm:px-6">
-          <div className="-translate-y-[2vh] w-full max-w-[820px] px-1 sm:px-4">
-            <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[15px] font-extrabold tracking-[-0.04em] text-notion-blue">
-              ZA
+        <div className="flex flex-1 items-center justify-center py-2 sm:px-4">
+          <div className="w-full max-w-[820px] px-1 sm:px-4">
+            <div className="flex flex-col items-center text-center">
+              <h1 className="text-[clamp(26px,3.6vw,36px)] leading-[1.2] font-bold tracking-[-0.03em] text-ink">
+                Ada yang bisa dibantu?
+              </h1>
+              <p className="mt-2.5 max-w-[620px] font-editorial text-[16px] leading-[1.5] text-graphite">
+                Tanya apa saja, bandingkan ide, riset teknologi, bantu coding,
+                atau ubah gagasan mentah jadi sesuatu yang siap dibangun.
+              </p>
             </div>
-            <h1 className="mt-6 max-w-[690px] text-[clamp(42px,5.8vw,72px)] leading-[1.02] font-bold tracking-[-0.048em] text-ink">
-              Ada yang bisa{' '}
-              <span className="inline-block -rotate-1 rounded-full bg-marigold px-[0.25em] pt-[0.02em] pb-[0.12em] leading-[0.9]">
-                dibantu?
-              </span>
-            </h1>
-            <p className="mt-5 max-w-[640px] font-editorial text-[18px] leading-[1.6] text-graphite">
-              Tanya apa saja, bandingkan ide, riset teknologi, bantu coding,
-              atau ubah gagasan mentah jadi sesuatu yang siap dibangun.
-            </p>
-            <div className="mt-10 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {STARTERS.map((starter) => (
                 <button
                   key={starter.id}
@@ -201,7 +267,7 @@ function ChatHome() {
                     setDraft(starter.prompt)
                     setComposerKey((current) => current + 1)
                   }}
-                  className="flex min-h-[118px] flex-col items-start justify-between rounded-lg border border-hairline bg-pure-white p-[18px] text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
+                  className="flex min-h-[104px] flex-col items-start justify-between rounded-lg border border-hairline bg-pure-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
                 >
                   <span
                     className={`flex h-[30px] w-[30px] items-center justify-center rounded-full ${starter.iconClass}`}
@@ -213,7 +279,7 @@ function ChatHome() {
                       aria-hidden="true"
                     />
                   </span>
-                  <span className="mt-[18px] block">
+                  <span className="mt-3 block">
                     <span className="block text-[14px] font-semibold leading-[1.35] text-ink">
                       {starter.title}
                     </span>
@@ -224,7 +290,7 @@ function ChatHome() {
                 </button>
               ))}
             </div>
-            <div className="mt-6">
+            <div className="mt-5">
               <Composer
                 key={composerKey}
                 placement="inline"

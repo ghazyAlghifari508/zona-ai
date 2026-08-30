@@ -4,6 +4,7 @@ import {
   savePendingMessage,
   takeGuestDraft,
   takePendingMessage,
+  takePendingMessageForConversation,
 } from '../../src/lib/chat/guest-draft'
 
 describe('guest chat draft', () => {
@@ -25,6 +26,7 @@ describe('guest chat draft', () => {
   it('keeps an authenticated submit separate from the guest draft', () => {
     saveGuestDraft('guest draft')
     savePendingMessage({
+      conversationId: 'conversation-1',
       content: 'send this',
       modelId: 'auto',
       skillId: 'none',
@@ -32,11 +34,32 @@ describe('guest chat draft', () => {
     })
 
     expect(takePendingMessage()).toEqual({
+      conversationId: 'conversation-1',
       content: 'send this',
       modelId: 'auto',
       skillId: 'none',
       enableWebSearch: false,
     })
     expect(takeGuestDraft()).toBe('guest draft')
+  })
+
+  it('only consumes a pending message from its target conversation', () => {
+    savePendingMessage({
+      conversationId: 'conversation-1',
+      content: 'send this',
+      modelId: 'auto',
+      skillId: 'none',
+      enableWebSearch: false,
+    })
+
+    expect(takePendingMessageForConversation('conversation-2')).toBeNull()
+    expect(takePendingMessageForConversation('conversation-1')).toEqual({
+      conversationId: 'conversation-1',
+      content: 'send this',
+      modelId: 'auto',
+      skillId: 'none',
+      enableWebSearch: false,
+    })
+    expect(takePendingMessageForConversation('conversation-1')).toBeNull()
   })
 })

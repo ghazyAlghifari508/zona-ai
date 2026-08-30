@@ -1,12 +1,15 @@
 ﻿import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { CompareGrid } from '@/components/chat/CompareGrid'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { MobileCompareTabs } from '@/components/chat/MobileCompareTabs'
-import { ModelSelector } from '@/components/chat/ModelSelector'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
+import {
+  type PendingMessage,
+  takePendingMessageForConversation,
+} from '@/lib/chat/guest-draft'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
   regenerateMessage,
@@ -151,11 +154,6 @@ function ChatThread() {
   const compareEnabled = mode === 'compare'
   const setCompareEnabled = (enabled: boolean) =>
     setMode(enabled ? 'compare' : 'normal')
-  const showCompare =
-    compareEnabled &&
-    compareGenerations.length > 0 &&
-    compareModelIds.length >= 2
-
   const handleSend = async (
     content: string,
     modelId: string,
@@ -520,6 +518,34 @@ function ChatThread() {
     }
   }
 
+  const sendPendingMessage = useEffectEvent((pending: PendingMessage) => {
+    setModelId(pending.modelId)
+    if (pending.modelIds && pending.modelIds.length >= 2) {
+      setMode('compare')
+      setCompareModelIds(pending.modelIds)
+      void handleSendCompare(
+        pending.content,
+        pending.modelIds,
+        pending.skillId,
+        undefined,
+        pending.enableWebSearch,
+      )
+      return
+    }
+    void handleSend(
+      pending.content,
+      pending.modelId,
+      pending.skillId,
+      undefined,
+      pending.enableWebSearch,
+    )
+  })
+
+  useEffect(() => {
+    const pending = takePendingMessageForConversation(conversationId)
+    if (pending) sendPendingMessage(pending)
+  }, [conversationId])
+
   const handleStop = async () => {
     if (mode === 'compare') {
       // stop all compare generations
@@ -608,7 +634,7 @@ function ChatThread() {
     setIsStreaming(true)
     try {
       const response = (await regenerateMessage({
-        data: { messageId },
+        data: { messageId, modelId: msg.modelId },
       })) as Response
       const reader = response.body?.getReader()
       if (!reader) {
@@ -619,6 +645,8 @@ function ChatThread() {
             id: crypto.randomUUID(),
             role: 'assistant',
             content: text,
+            modelId: msg.modelId,
+            routerModelId: msg.routerModelId,
           } satisfies ChatMessage,
         ])
         return
@@ -632,6 +660,8 @@ function ChatThread() {
           id: newId,
           role: 'assistant',
           content: '',
+          modelId: msg.modelId,
+          routerModelId: msg.routerModelId,
           streaming: true,
         } satisfies ChatMessage,
       ])
@@ -646,6 +676,10 @@ function ChatThread() {
       }
       setMessages((prev) =>
         prev.map((m) => (m.id === newId ? { ...m, streaming: false } : m)),
+      )
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
       )
     } catch (e) {
       console.error(e)
@@ -668,7 +702,7 @@ function ChatThread() {
         })
       }}
     >
-      <div className="flex h-[calc(100dvh-2rem)] flex-col lg:h-[calc(100dvh-3rem)]">
+      <div className="flex h-[calc(100dvh-2rem)] min-h-0 flex-col lg:h-[calc(100dvh-3rem)]">
         {webSearchToast && (
           <div
             role="status"
@@ -678,18 +712,8 @@ function ChatThread() {
             Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        <header className="flex h-16 shrink-0 items-center gap-3 px-1 lg:px-2">
-          {!compareEnabled ? (
-            <ModelSelector
-              value={modelId}
-              onChange={setModelId}
-              credits={credits}
-              compareEnabled={compareEnabled}
-              onCompareEnabledChange={setCompareEnabled}
-              compareModelIds={compareModelIds}
-              onCompareModelIdsChange={setCompareModelIds}
-            />
-          ) : (
+        <header className="flex h-12 shrink-0 items-center gap-3 px-1 lg:px-2">
+          {compareEnabled && (
             <span
               data-testid="topbar-compare-label"
               className="text-[14px] font-bold text-ink"
@@ -698,23 +722,6 @@ function ChatThread() {
             </span>
           )}
           <span className="flex-1" />
-          {!showCompare &&
-            messages.some((m) => m.role === 'assistant' && !m.streaming) && (
-              <button
-                type="button"
-                data-testid="regenerate-button"
-                onClick={() => {
-                  const lastAssistant = [...messages]
-                    .reverse()
-                    .find((m) => m.role === 'assistant')
-                  if (lastAssistant) handleRegenerate(lastAssistant.id)
-                }}
-                disabled={isStreaming}
-                className="flex min-h-9 items-center rounded-md px-3 text-[13px] text-stone transition-colors duration-200 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
-              >
-                Buat ulang
-              </button>
-            )}
         </header>
 
         {mode === 'compare' ? (
@@ -752,7 +759,7 @@ function ChatThread() {
             </div>
           </>
         ) : (
-          <MessageList messages={messages} />
+          <MessageList messages={messages} onRegenerate={handleRegenerate} />
         )}
 
         <Composer
@@ -768,6 +775,7 @@ function ChatThread() {
           compareModelIds={compareModelIds}
           onCompareModelIdsChange={setCompareModelIds}
           conversationId={conversationId}
+          placement="inline"
         />
       </div>
     </WorkspaceShell>

@@ -2,6 +2,7 @@ const GUEST_DRAFT_KEY = 'zona-ai:guest-draft'
 const PENDING_MESSAGE_KEY = 'zona-ai:pending-message'
 
 export type PendingMessage = {
+  conversationId: string
   content: string
   modelId: string
   modelIds?: string[]
@@ -31,16 +32,30 @@ export function savePendingMessage(message: PendingMessage) {
 export function takePendingMessage() {
   const stored = sessionStorage.getItem(PENDING_MESSAGE_KEY)
   sessionStorage.removeItem(PENDING_MESSAGE_KEY)
+  return parsePendingMessage(stored)
+}
+
+export function takePendingMessageForConversation(conversationId: string) {
+  const stored = sessionStorage.getItem(PENDING_MESSAGE_KEY)
+  const message = parsePendingMessage(stored)
+  if (message?.conversationId !== conversationId) return null
+  sessionStorage.removeItem(PENDING_MESSAGE_KEY)
+  return message
+}
+
+function parsePendingMessage(stored: string | null) {
   if (!stored) return null
   try {
     const message: unknown = JSON.parse(stored)
     if (
       typeof message === 'object' &&
       message !== null &&
+      'conversationId' in message &&
       'content' in message &&
       'modelId' in message &&
       'skillId' in message &&
       'enableWebSearch' in message &&
+      typeof message.conversationId === 'string' &&
       typeof message.content === 'string' &&
       typeof message.modelId === 'string' &&
       typeof message.skillId === 'string' &&
@@ -53,9 +68,10 @@ export function takePendingMessage() {
           ? (message.modelIds as string[])
           : undefined
       return {
+        conversationId: message.conversationId,
         content: message.content,
         modelId: message.modelId,
-        modelIds,
+        ...(modelIds ? { modelIds } : {}),
         skillId: message.skillId,
         enableWebSearch: message.enableWebSearch,
       } satisfies PendingMessage

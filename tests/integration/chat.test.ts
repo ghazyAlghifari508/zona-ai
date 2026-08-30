@@ -329,6 +329,49 @@ describe('sendMessage integration', () => {
     )
   })
 
+  it('regenerates with the original response model as a text stream', async () => {
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Regenerate' })
+      .returning()
+    await db.insert(messages).values({
+      conversationId: conversation.id,
+      role: 'user',
+      content: 'Original prompt',
+    })
+    const [assistant] = await db
+      .insert(messages)
+      .values({
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: 'Original answer',
+      })
+      .returning()
+    await db.insert(generationRuns).values({
+      messageId: assistant.id,
+      conversationId: conversation.id,
+      modelId: 'gemini-3.7-flash-high',
+      routerModelId: 'ag/gemini-3.7-flash-high',
+      status: 'completed',
+    })
+    const { regenerateMessageCore } = await import('../../src/server/core/chat')
+
+    const response = await regenerateMessageCore({
+      messageId: assistant.id,
+      request: new Request('http://localhost:3000', {
+        headers: { 'x-test-user': mockUserId },
+      }),
+    })
+
+    expect(response.headers.get('Content-Type')).toContain('text/plain')
+    await response.text()
+    const runs = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.conversationId, conversation.id))
+    expect(runs.at(-1)?.modelId).toBe('gemini-3.7-flash-high')
+  })
+
   it('getModels returns 3', async () => {
     const { getModelsCore } = await import('../../src/server/core/models')
     const request = new Request('http://localhost:3000', {

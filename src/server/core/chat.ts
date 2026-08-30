@@ -1246,7 +1246,15 @@ export async function regenerateMessageCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   }
 
-  const targetModelId = modelId ?? 'auto'
+  const [originalRun] = await db
+    .select()
+    .from(generationRuns)
+    .where(eq(generationRuns.messageId, messageId))
+  if (!originalRun) {
+    throw new AppError('Generation not found', 404, 'ERR-003')
+  }
+
+  const targetModelId = modelId ?? originalRun.modelId
   const modelEntry = getModelById(targetModelId)
 
   let routerModelId = modelEntry.routerModelId
@@ -1316,6 +1324,10 @@ export async function regenerateMessageCore({
     .from(messages)
     .where(eq(messages.conversationId, conv.id))
     .orderBy(asc(messages.createdAt))
+  const targetMessageIndex = history.findIndex(
+    (message) => message.id === msg.id,
+  )
+  const regenerationHistory = history.slice(0, targetMessageIndex)
 
   const abortController = new AbortController()
   controllers.set(genId, abortController)
@@ -1323,7 +1335,7 @@ export async function regenerateMessageCore({
   const result = streamText({
     model: nineRouter(routerModelId),
     system: buildSystemPrompt({ skillId: 'none' }),
-    messages: history.map(
+    messages: regenerationHistory.map(
       (m) =>
         ({
           role: m.role as 'user' | 'assistant' | 'system',
@@ -1352,19 +1364,14 @@ export async function regenerateMessageCore({
     },
   })
 
-  // cast boundary: AI SDK StreamTextResult version variance
-  const anyResult = result as {
-    toUIMessageStreamResponse?: (opts?: unknown) => Response
-    toTextStreamResponse?: () => Response
-    stream?: ReadableStream
-    textStream?: ReadableStream<string>
-  }
-  if (typeof anyResult.toUIMessageStreamResponse === 'function') {
-    return (anyResult.toUIMessageStreamResponse as () => Response).call(result)
-  }
   return createTextStreamResponse({
     stream: toTextStream({
       stream: (result as { stream: unknown }).stream as ReadableStream,
     }),
+    headers: {
+      'X-Generation-Id': genId,
+      'X-Model-Id': targetModelId,
+      'X-Router-Model-Id': routerModelId,
+    },
   })
 }

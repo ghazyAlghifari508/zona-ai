@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowUp02Icon,
   Attachment01Icon,
   GlobalSearchIcon,
@@ -6,7 +6,13 @@
   StopIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
@@ -46,6 +52,9 @@ type Props = {
   modelValue?: string
   onModelChange?: (id: string) => void
 }
+
+const MIN_TEXTAREA_HEIGHT = 56
+const MAX_TEXTAREA_HEIGHT = 240
 
 export function Composer({
   onSend,
@@ -87,7 +96,31 @@ export function Composer({
   const [uploading, setUploading] = useState(false)
   const [enableWebSearch, setEnableWebSearch] = useState(false)
 
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = '0px'
+    const scrollHeight = el.scrollHeight
+    const newHeight = Math.max(
+      MIN_TEXTAREA_HEIGHT,
+      Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT),
+    )
+    el.style.height = `${newHeight}px`
+    el.style.overflowY = scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
+  }, [])
+
   useEffect(() => setContent(initialContent), [initialContent])
+
+  useLayoutEffect(() => {
+    void content
+    resizeTextarea()
+  }, [content, resizeTextarea])
+
+  useEffect(() => {
+    void content
+    const timer = setTimeout(resizeTextarea, 20)
+    return () => clearTimeout(timer)
+  }, [content, resizeTextarea])
 
   useEffect(() => {
     if (autoFocusInput) textareaRef.current?.focus()
@@ -337,7 +370,8 @@ export function Composer({
     setAttachmentIds([])
     setError(null)
     if (textareaRef.current) {
-      textareaRef.current.style.height = '24px'
+      textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`
+      textareaRef.current.style.overflowY = 'hidden'
     }
   }
 
@@ -351,8 +385,14 @@ export function Composer({
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value)
     const el = e.target
-    el.style.height = '24px'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+    el.style.height = '0px'
+    const scrollHeight = el.scrollHeight
+    const newHeight = Math.max(
+      MIN_TEXTAREA_HEIGHT,
+      Math.min(scrollHeight, MAX_TEXTAREA_HEIGHT),
+    )
+    el.style.height = `${newHeight}px`
+    el.style.overflowY = scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
   }
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -381,7 +421,7 @@ export function Composer({
     <div
       className={
         placement === 'fixed'
-          ? 'fixed bottom-0 left-0 right-0 z-30 bg-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]'
+          ? 'fixed bottom-0 left-0 right-0 z-30 bg-pure-white/95 backdrop-blur-md p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]'
           : 'w-full'
       }
     >
@@ -431,7 +471,7 @@ export function Composer({
               {error}
             </div>
           )}
-          <div className="flex items-end gap-2 px-2">
+          <div className="px-2 pt-1">
             <textarea
               ref={textareaRef}
               value={content}
@@ -443,61 +483,24 @@ export function Composer({
               }
               rows={1}
               data-testid="composer-input"
-              className="min-h-[24px] max-h-[160px] flex-1 resize-none bg-transparent text-[15px] leading-[1.5] text-ink placeholder:text-ink/35 focus:outline-none"
+              className="min-h-[56px] max-h-[240px] w-full resize-none bg-transparent text-[15px] leading-[1.5] text-ink placeholder:text-ink/35 focus:outline-none"
             />
-            {isStreaming ? (
-              <button
-                type="button"
-                data-testid="stop-button"
-                onClick={onStop}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink text-pure-white hover:bg-ink/80"
-                aria-label="Stop generation"
-              >
-                <HugeiconsIcon
-                  icon={StopIcon}
-                  size={16}
-                  strokeWidth={1.75}
-                  fill="currentColor"
-                />
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-testid="send-button"
-                onClick={handleSend}
-                disabled={
-                  compareEnabled && compareModelIds.length >= 2
-                    ? !canSendCompare
-                    : !canSendNormal
-                }
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-notion-blue text-pure-white hover:bg-blue-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Send message"
-              >
-                <HugeiconsIcon
-                  icon={ArrowUp02Icon}
-                  size={18}
-                  strokeWidth={1.75}
-                />
-              </button>
-            )}
           </div>
-          <div className="flex items-center justify-between px-2 pb-1">
-            <div className="flex items-center gap-2">
-              {(modelValue === undefined || compareEnabled) && (
-                <ModelSelector
-                  value={modelId}
-                  onChange={changeModel}
-                  credits={credits}
-                  compareEnabled={compareEnabled}
-                  onCompareEnabledChange={(enabled) =>
-                    onCompareEnabledChange?.(enabled)
-                  }
-                  compareModelIds={compareModelIds}
-                  onCompareModelIdsChange={(ids) =>
-                    onCompareModelIdsChange?.(ids)
-                  }
-                />
-              )}
+          <div className="flex items-center justify-between px-1 pt-1">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <ModelSelector
+                value={modelId}
+                onChange={changeModel}
+                credits={credits}
+                compareEnabled={compareEnabled}
+                onCompareEnabledChange={(enabled) =>
+                  onCompareEnabledChange?.(enabled)
+                }
+                compareModelIds={compareModelIds}
+                onCompareModelIdsChange={(ids) =>
+                  onCompareModelIdsChange?.(ids)
+                }
+              />
               <SkillSelector value={skillId} onChange={setSkillId} />
               <input
                 ref={fileRef}
@@ -520,7 +523,7 @@ export function Composer({
                   }
                   fileRef.current?.click()
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink hover:bg-ink/5"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink/70 transition-all duration-200 hover:bg-ink/5 hover:text-ink active:scale-95"
                 title={guest ? 'Masuk untuk melampirkan file' : 'Attachment'}
                 aria-label="Attach file"
               >
@@ -534,7 +537,7 @@ export function Composer({
                 ) : (
                   <HugeiconsIcon
                     icon={Attachment01Icon}
-                    size={14}
+                    size={15}
                     strokeWidth={1.75}
                   />
                 )}
@@ -544,24 +547,60 @@ export function Composer({
                 data-testid="web-toggle"
                 aria-pressed={enableWebSearch}
                 onClick={() => setEnableWebSearch((v) => !v)}
-                className={`flex h-8 items-center gap-1 rounded-md border px-2 py-1 text-[13px] ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 active:scale-95 ${
                   enableWebSearch
-                    ? 'border-notion-blue bg-sky-tint text-notion-blue'
-                    : 'border-hairline bg-pure-white text-ink hover:bg-ink/5'
+                    ? 'border-notion-blue/40 bg-sky-tint text-notion-blue shadow-none'
+                    : 'border-hairline bg-pure-white text-ink/60 hover:bg-ink/5 hover:text-ink'
                 }`}
-                title="Real-time web search via Tavily"
+                title={
+                  enableWebSearch
+                    ? 'Pencarian web aktif — model akan mencari informasi terkini'
+                    : 'Aktifkan pencarian web via Tavily'
+                }
+                aria-label={
+                  enableWebSearch
+                    ? 'Matikan pencarian web'
+                    : 'Aktifkan pencarian web'
+                }
               >
                 <HugeiconsIcon
                   icon={GlobalSearchIcon}
-                  size={16}
-                  strokeWidth={1.5}
+                  size={15}
+                  strokeWidth={1.75}
                 />
-                Web
-                {enableWebSearch && (
-                  <span className="h-2 w-2 rounded-full bg-notion-blue" />
-                )}
               </button>
             </div>
+            {isStreaming ? (
+              <button
+                type="button"
+                data-testid="stop-button"
+                onClick={onStop}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-pure-white transition-all duration-200 hover:bg-ink/80 active:scale-95"
+                aria-label="Stop generation"
+              >
+                <HugeiconsIcon
+                  icon={StopIcon}
+                  size={14}
+                  strokeWidth={1.75}
+                  fill="currentColor"
+                />
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="send-button"
+                onClick={handleSend}
+                disabled={
+                  compareEnabled && compareModelIds.length >= 2
+                    ? !canSendCompare
+                    : !canSendNormal
+                }
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-notion-blue text-pure-white transition-all duration-200 hover:bg-blue-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Send message"
+              >
+                <HugeiconsIcon icon={ArrowUp02Icon} size={16} strokeWidth={2} />
+              </button>
+            )}
           </div>
         </div>
         {compareEnabled && compareModelIds.length >= 2 ? (

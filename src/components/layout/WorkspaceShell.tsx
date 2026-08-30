@@ -5,6 +5,7 @@ import {
   MessageAdd01Icon,
   Search01Icon,
   SidebarLeft01Icon,
+  SidebarRight01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
@@ -34,7 +35,7 @@ export function WorkspaceShell({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   return (
-    <div className="flex min-h-screen bg-paper">
+    <div className="flex h-screen overflow-hidden bg-pure-white">
       <button
         type="button"
         data-testid="hamburger"
@@ -58,37 +59,58 @@ export function WorkspaceShell({
           }`}
         >
           <div className="flex h-full flex-col p-3">
-            <div className="flex items-center gap-2">
-              <span
-                data-testid="brand-mark"
-                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue"
-              >
-                ZA
-              </span>
-              {!collapsed && (
-                <span className="min-w-0 flex-1 flex-col">
-                  <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
-                    ZonaAI
+            <div
+              className={`flex items-center ${
+                collapsed ? 'justify-center' : 'gap-2'
+              }`}
+            >
+              {!collapsed ? (
+                <>
+                  <span
+                    data-testid="brand-mark"
+                    className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue"
+                  >
+                    ZA
                   </span>
-                  <span className="block text-[11px] text-graphite">
-                    Your intelligent space
+                  <span className="min-w-0 flex-1 flex-col">
+                    <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
+                      ZonaAI
+                    </span>
+                    <span className="block text-[11px] text-graphite">
+                      Your intelligent space
+                    </span>
                   </span>
-                </span>
+                  <button
+                    type="button"
+                    data-testid="sidebar-collapse"
+                    aria-label="Perkecil sidebar"
+                    onClick={() => setCollapsed((v) => !v)}
+                    className="ml-auto hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink lg:flex"
+                  >
+                    <HugeiconsIcon
+                      icon={SidebarLeft01Icon}
+                      size={18}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="sidebar-collapse"
+                  aria-label="Perbesar sidebar"
+                  onClick={() => setCollapsed((v) => !v)}
+                  className="flex h-9 w-9 items-center justify-center rounded-md text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
+                >
+                  <HugeiconsIcon
+                    icon={SidebarRight01Icon}
+                    size={18}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                </button>
               )}
-              <button
-                type="button"
-                data-testid="sidebar-collapse"
-                aria-label={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
-                onClick={() => setCollapsed((v) => !v)}
-                className="ml-auto hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink lg:flex"
-              >
-                <HugeiconsIcon
-                  icon={SidebarLeft01Icon}
-                  size={18}
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                />
-              </button>
             </div>
             <button
               type="button"
@@ -183,7 +205,7 @@ export function WorkspaceShell({
           onToggleCollapse={() => setCollapsed((v) => !v)}
         />
       )}
-      <main className="min-w-0 flex-1 bg-paper p-4 lg:p-6">
+      <main className="min-w-0 flex-1 overflow-y-auto bg-pure-white p-4 lg:p-6">
         <div className="mx-auto h-full max-w-[920px] pt-12 lg:pt-0">
           {children}
         </div>
