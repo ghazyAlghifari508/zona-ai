@@ -4,13 +4,14 @@ import {
   Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { resolveModelFallback } from '@/lib/models/preference'
 import { cn } from '@/lib/utils'
 import { COMPARE_MAX_MODELS } from '@/lib/utils/constants'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
@@ -36,6 +37,15 @@ export function ModelSelector({
 }: Props) {
   const catalog = useModelCatalog()
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (catalog.length > 0 && value !== 'auto') {
+      const resolved = resolveModelFallback(catalog, value)
+      if (resolved !== value) {
+        onChange(resolved)
+      }
+    }
+  }, [catalog, value, onChange])
 
   const selectable = compareEnabled
     ? catalog.filter((m) => m.id !== 'auto')

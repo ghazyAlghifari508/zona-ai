@@ -10,6 +10,7 @@ import {
   type PendingMessage,
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
+import { useSelectedModel } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
   retryGeneration,
@@ -100,7 +101,7 @@ function ChatThread() {
 
   const [mode, setMode] = useState<'normal' | 'compare'>('normal')
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
-  const [modelId, setModelId] = useState('auto')
+  const [modelId, setModelId] = useSelectedModel()
 
   const compareEnabled = mode === 'compare'
   const setCompareEnabled = (enabled: boolean) =>

@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useSelectedModel } from '@/lib/models/preference'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
@@ -78,10 +79,11 @@ export function Composer({
   onModelChange,
 }: Props) {
   const [content, setContent] = useState(initialContent)
-  const [internalModelId, setInternalModelId] = useState(initialModel)
-  const modelId = modelValue ?? internalModelId
+  const [globalModelId, setGlobalModelId] = useSelectedModel()
+  const modelId =
+    modelValue ?? (initialModel !== 'auto' ? initialModel : globalModelId)
   const changeModel = (id: string) => {
-    setInternalModelId(id)
+    setGlobalModelId(id)
     onModelChange?.(id)
   }
   const [skillId, setSkillId] = useState(initialSkill)

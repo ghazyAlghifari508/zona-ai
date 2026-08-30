@@ -17,6 +17,7 @@ import {
   savePendingMessage,
   takeGuestDraft,
 } from '@/lib/chat/guest-draft'
+import { useSelectedModel } from '@/lib/models/preference'
 import { createConversation } from '@/server/functions/conversations'
 import {
   getCreditBalanceFn,
@@ -126,6 +127,7 @@ function ChatHome() {
   const [signingIn, setSigningIn] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [composerKey, setComposerKey] = useState(0)
+  const [selectedModel, setSelectedModel] = useSelectedModel()
   const [compareEnabled, setCompareEnabled] = useState(false)
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
   const [credits, setCredits] = useState(serverCredits)
@@ -332,6 +334,8 @@ function ChatHome() {
                   isStreaming={submitting}
                   autoFocusInput
                   credits={credits}
+                  modelValue={selectedModel}
+                  onModelChange={setSelectedModel}
                   compareEnabled={compareEnabled}
                   onCompareEnabledChange={setCompareEnabled}
                   compareModelIds={compareModelIds}
