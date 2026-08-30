@@ -12,8 +12,13 @@ export interface PricingPlan {
   highlight: {
     card: string
     button: string
+    icon: string
   }
-  features: Array<{ text: string; included: boolean }>
+  features: Array<{
+    text: string
+    included: boolean
+    icon: 'credits' | 'models' | 'compare' | 'search' | 'speed' | 'support'
+  }>
 }
 
 export const PRICING_CURRENCY = 'IDR'
@@ -31,15 +36,17 @@ export const pricingPlans: PricingPlan[] = [
     current: true,
     highlight: {
       card: 'bg-pure-white',
-      button: 'bg-ink text-pure-white hover:bg-ink/90',
+      button:
+        'border border-hairline-strong bg-pure-white text-ink hover:bg-ink/5',
+      icon: 'bg-sky-tint text-notion-blue',
     },
     features: [
-      { text: '100 kredit per bulan', included: true },
-      { text: 'Akses semua model AI', included: true },
-      { text: 'Compare Mode hingga 2 model', included: true },
-      { text: 'Pencarian web (Tavily)', included: true },
-      { text: 'Prioritas kecepatan', included: false },
-      { text: 'Dukungan prioritas', included: false },
+      { text: '100 kredit per bulan', included: true, icon: 'credits' },
+      { text: 'Akses semua model AI', included: true, icon: 'models' },
+      { text: 'Compare Mode hingga 2 model', included: true, icon: 'compare' },
+      { text: 'Pencarian web (Tavily)', included: true, icon: 'search' },
+      { text: 'Prioritas kecepatan', included: false, icon: 'speed' },
+      { text: 'Dukungan prioritas', included: false, icon: 'support' },
     ],
   },
   {
@@ -51,16 +58,17 @@ export const pricingPlans: PricingPlan[] = [
     credits: 2000,
     popular: true,
     highlight: {
-      card: 'bg-sky-tint',
+      card: 'bg-pure-white ring-2 ring-notion-blue',
       button: 'bg-notion-blue text-pure-white hover:bg-blue-hover',
+      icon: 'bg-sky-tint text-notion-blue',
     },
     features: [
-      { text: '2.000 kredit per bulan', included: true },
-      { text: 'Akses semua model AI', included: true },
-      { text: 'Compare Mode hingga 4 model', included: true },
-      { text: 'Pencarian web (Tavily)', included: true },
-      { text: 'Prioritas kecepatan', included: true },
-      { text: 'Dukungan prioritas', included: false },
+      { text: '2.000 kredit per bulan', included: true, icon: 'credits' },
+      { text: 'Akses semua model AI', included: true, icon: 'models' },
+      { text: 'Compare Mode hingga 4 model', included: true, icon: 'compare' },
+      { text: 'Pencarian web (Tavily)', included: true, icon: 'search' },
+      { text: 'Prioritas kecepatan', included: true, icon: 'speed' },
+      { text: 'Dukungan prioritas', included: false, icon: 'support' },
     ],
   },
   {
@@ -73,14 +81,15 @@ export const pricingPlans: PricingPlan[] = [
     highlight: {
       card: 'bg-midnight text-pure-white',
       button: 'bg-pure-white text-ink hover:bg-pure-white/90',
+      icon: 'bg-pure-white/15 text-pure-white',
     },
     features: [
-      { text: '10.000 kredit per bulan', included: true },
-      { text: 'Akses semua model AI', included: true },
-      { text: 'Compare Mode hingga 4 model', included: true },
-      { text: 'Pencarian web (Tavily)', included: true },
-      { text: 'Prioritas kecepatan', included: true },
-      { text: 'Dukungan prioritas', included: true },
+      { text: '10.000 kredit per bulan', included: true, icon: 'credits' },
+      { text: 'Akses semua model AI', included: true, icon: 'models' },
+      { text: 'Compare Mode hingga 4 model', included: true, icon: 'compare' },
+      { text: 'Pencarian web (Tavily)', included: true, icon: 'search' },
+      { text: 'Prioritas kecepatan', included: true, icon: 'speed' },
+      { text: 'Dukungan prioritas', included: true, icon: 'support' },
     ],
   },
 ]
