@@ -47,7 +47,11 @@ const mockStreamTextGlobal = vi.fn((opts: Record<string, unknown>) => {
 
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai')
-  return { ...actual, streamText: mockStreamTextGlobal }
+  return {
+    ...actual,
+    generateText: vi.fn(async () => ({ text: '' })),
+    streamText: mockStreamTextGlobal,
+  }
 })
 
 // Mock R2 and embedding fetch for integration

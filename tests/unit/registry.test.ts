@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { getAvailableModels, getModelById } from '../../src/lib/models/registry'
 
 describe('registry', () => {
-  it('returns 3 enabled models, auto isDefault', () => {
+  it('returns 5 enabled models, auto isDefault', () => {
     const models = getAvailableModels()
-    expect(models.length).toBe(3)
+    expect(models.length).toBe(5)
     expect(models.find((m) => m.id === 'auto')?.isDefault).toBe(true)
   })
   it('getModelById throws ERR-003 for missing', () => {
@@ -14,5 +14,7 @@ describe('registry', () => {
     expect(getModelById('auto').creditCost).toEqual({ min: 1, max: 4 })
     expect(getModelById('gemini-3.7-flash-high').creditCost).toBe(4)
     expect(getModelById('gpt-5.6-sol').creditCost).toBe(15)
+    expect(getModelById('deepseek-v4-flash-vision-exp').creditCost).toBe(4)
+    expect(getModelById('qwen3.8-flash').creditCost).toBe(3)
   })
 })

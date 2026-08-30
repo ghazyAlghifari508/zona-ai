@@ -17,7 +17,11 @@ import {
   takeGuestDraft,
 } from '@/lib/chat/guest-draft'
 import { createConversation } from '@/server/functions/conversations'
-import { resetDevCreditsFn } from '@/server/functions/credits'
+import {
+  getCreditBalanceFn,
+  resetDevCreditsFn,
+} from '@/server/functions/credits'
+import { getOptionalSession } from '@/server/functions/session'
 
 const STARTERS = [
   {
@@ -82,12 +86,40 @@ Tolong review ide ini dari perspektif Product & VC:
 ] as const
 
 export const Route = createFileRoute('/')({
+  loader: async () => {
+    const session = await getOptionalSession()
+    const creditBalance = session?.user
+      ? (await getCreditBalanceFn()).balance
+      : 0
+    return { session, creditBalance }
+  },
   component: ChatHome,
 })
 
 function ChatHome() {
   const navigate = Route.useNavigate()
-  const { data: session } = authClient.useSession()
+  const loaderData = Route.useLoaderData()
+  const serverSession = loaderData?.session
+  const serverCredits = loaderData?.creditBalance ?? 0
+  const { data: clientSession, isPending } = authClient.useSession()
+
+  // Hydrate Better Auth client store immediately on mount if server provided session
+  if (typeof window !== 'undefined' && serverSession && !clientSession) {
+    authClient.hydrateSession(serverSession)
+  }
+
+  // Active session: clientSession has priority if resolved, otherwise fallback to serverSession
+  const activeSession = clientSession ?? serverSession ?? null
+
+  type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
+  let authStatus: AuthStatus
+  if (activeSession?.user) {
+    authStatus = 'authenticated'
+  } else if (serverSession === null || (!isPending && !clientSession?.user)) {
+    authStatus = 'unauthenticated'
+  } else {
+    authStatus = 'loading'
+  }
   const [draft, setDraft] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [signingIn, setSigningIn] = useState(false)
@@ -95,7 +127,7 @@ function ChatHome() {
   const [composerKey, setComposerKey] = useState(0)
   const [compareEnabled, setCompareEnabled] = useState(false)
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
-  const [credits, setCredits] = useState(85)
+  const [credits, setCredits] = useState(serverCredits)
   const [resettingCredits, setResettingCredits] = useState(false)
 
   const handleResetCredits = async () => {
@@ -138,7 +170,7 @@ function ChatHome() {
     _attachmentIds?: string[],
     enableWebSearch = false,
   ) => {
-    if (!session?.user) {
+    if (!activeSession?.user) {
       await signIn(content)
       return
     }
@@ -170,14 +202,14 @@ function ChatHome() {
     _attachmentIds?: string[],
     enableWebSearch = false,
   ) => {
-    if (!session?.user) {
+    if (!activeSession?.user) {
       await signIn(content)
       return
     }
     setSubmitting(true)
     try {
       const conversation = await createConversation({
-        data: { mode: 'compare' },
+        data: { mode: 'normal' },
       })
       savePendingMessage({
         conversationId: conversation.id,
@@ -199,7 +231,8 @@ function ChatHome() {
   return (
     <WorkspaceShell
       credits={credits}
-      guest={!session?.user}
+      authState={authStatus}
+      user={activeSession?.user}
       signingIn={signingIn}
       onSignIn={() => void signIn()}
       onNewChat={() => {
@@ -214,109 +247,119 @@ function ChatHome() {
         })
       }}
     >
-      <div className="flex h-full min-h-full flex-col justify-between">
-        <header className="flex h-10 shrink-0 items-center justify-end gap-2.5">
-          {process.env.NODE_ENV !== 'production' && session?.user && (
-            <button
-              type="button"
-              data-testid="reset-credits-btn"
-              onClick={handleResetCredits}
-              disabled={resettingCredits}
-              className="flex min-h-9 items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
-              title="Reset ke 100 kredit (mode dev)"
-            >
-              <HugeiconsIcon
-                icon={ZapIcon}
-                size={14}
-                strokeWidth={1.75}
-                className="text-amber-500"
-              />
-              {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
-            </button>
-          )}
-          {!session?.user && (
-            <button
-              type="button"
-              data-testid="home-sign-in"
-              onClick={() => void signIn()}
-              disabled={signingIn}
-              className="flex min-h-9 items-center rounded-md bg-notion-blue px-4 text-[14px] font-medium text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
-            >
-              {signingIn ? 'Menghubungkan...' : 'Masuk'}
-            </button>
-          )}
-        </header>
-        <div className="flex flex-1 items-center justify-center py-2 sm:px-4">
-          <div className="w-full max-w-[820px] px-1 sm:px-4">
-            <div className="flex flex-col items-center text-center">
-              <h1 className="text-[clamp(26px,3.6vw,36px)] leading-[1.2] font-bold tracking-[-0.03em] text-ink">
-                Ada yang bisa dibantu?
-              </h1>
-              <p className="mt-2.5 max-w-[620px] font-editorial text-[16px] leading-[1.5] text-graphite">
-                Tanya apa saja, bandingkan ide, riset teknologi, bantu coding,
-                atau ubah gagasan mentah jadi sesuatu yang siap dibangun.
-              </p>
-            </div>
-            <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {STARTERS.map((starter) => (
+      <div className="flex h-full min-h-full flex-col justify-between p-4 lg:p-6">
+        <div className="mx-auto flex h-full w-full max-w-[920px] flex-col justify-between pt-12 lg:pt-0">
+          <header className="flex h-10 shrink-0 items-center justify-end gap-2.5">
+            {authStatus === 'authenticated' &&
+              process.env.NODE_ENV !== 'production' && (
                 <button
-                  key={starter.id}
                   type="button"
-                  data-testid={`starter-${starter.id}`}
-                  onClick={() => {
-                    setDraft(starter.prompt)
-                    setComposerKey((current) => current + 1)
-                  }}
-                  className="flex min-h-[104px] flex-col items-start justify-between rounded-lg border border-hairline bg-pure-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
+                  data-testid="reset-credits-btn"
+                  onClick={handleResetCredits}
+                  disabled={resettingCredits}
+                  className="flex min-h-9 items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+                  title="Reset ke 100 kredit (mode dev)"
                 >
-                  <span
-                    className={`flex h-[30px] w-[30px] items-center justify-center rounded-full ${starter.iconClass}`}
-                  >
-                    <HugeiconsIcon
-                      icon={starter.icon}
-                      size={15}
-                      strokeWidth={1.75}
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span className="mt-3 block">
-                    <span className="block text-[14px] font-semibold leading-[1.35] text-ink">
-                      {starter.title}
-                    </span>
-                    <span className="mt-1 block text-[12px] leading-[1.4] text-stone">
-                      {starter.sub}
-                    </span>
-                  </span>
+                  <HugeiconsIcon
+                    icon={ZapIcon}
+                    size={14}
+                    strokeWidth={1.75}
+                    className="text-amber-500"
+                  />
+                  {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
                 </button>
-              ))}
-            </div>
-            <div className="mt-5">
-              <Composer
-                key={composerKey}
-                placement="inline"
-                guest={!session?.user}
-                onSignIn={() => void signIn()}
-                initialContent={draft}
-                isStreaming={submitting}
-                autoFocusInput
-                compareEnabled={compareEnabled}
-                onCompareEnabledChange={setCompareEnabled}
-                compareModelIds={compareModelIds}
-                onCompareModelIdsChange={setCompareModelIds}
-                onSend={handleSend}
-                onSendCompare={handleSendCompare}
-              />
-            </div>
-            {authError && (
-              <p role="alert" className="mt-3 text-center text-[13px] text-ink">
-                {authError}
-              </p>
+              )}
+            {authStatus === 'unauthenticated' && (
+              <button
+                type="button"
+                data-testid="home-sign-in"
+                onClick={() => void signIn()}
+                disabled={signingIn}
+                className="flex min-h-9 items-center rounded-md bg-notion-blue px-4 text-[14px] font-medium text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
+              >
+                {signingIn ? 'Menghubungkan...' : 'Masuk'}
+              </button>
             )}
-            {!session?.user && (
-              <p className="mt-3 text-center text-[13px] text-graphite">
-                Pesanmu tetap tersimpan saat kamu masuk.
-              </p>
+            {authStatus === 'loading' && (
+              <div className="h-9 w-20 rounded-md bg-sandstone/30 animate-pulse" />
             )}
+          </header>
+          <div className="flex flex-1 items-center justify-center py-2 sm:px-4">
+            <div className="w-full max-w-[820px] px-1 sm:px-4">
+              <div className="flex flex-col items-center text-center">
+                <h1 className="text-[clamp(26px,3.6vw,36px)] leading-[1.2] font-bold tracking-[-0.03em] text-ink">
+                  Ada yang bisa dibantu?
+                </h1>
+                <p className="mt-2.5 max-w-[620px] font-editorial text-[16px] leading-[1.5] text-graphite">
+                  Tanya apa saja, bandingkan ide, riset teknologi, bantu coding,
+                  atau ubah gagasan mentah jadi sesuatu yang siap dibangun.
+                </p>
+              </div>
+              <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {STARTERS.map((starter) => (
+                  <button
+                    key={starter.id}
+                    type="button"
+                    data-testid={`starter-${starter.id}`}
+                    onClick={() => {
+                      setDraft(starter.prompt)
+                      setComposerKey((current) => current + 1)
+                    }}
+                    className="flex min-h-[104px] flex-col items-start justify-between rounded-lg border border-hairline bg-pure-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
+                  >
+                    <span
+                      className={`flex h-[30px] w-[30px] items-center justify-center rounded-full ${starter.iconClass}`}
+                    >
+                      <HugeiconsIcon
+                        icon={starter.icon}
+                        size={15}
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <span className="mt-3 block">
+                      <span className="block text-[14px] font-semibold leading-[1.35] text-ink">
+                        {starter.title}
+                      </span>
+                      <span className="mt-1 block text-[12px] leading-[1.4] text-stone">
+                        {starter.sub}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-5">
+                <Composer
+                  key={composerKey}
+                  placement="inline"
+                  guest={authStatus === 'unauthenticated'}
+                  onSignIn={() => void signIn()}
+                  initialContent={draft}
+                  isStreaming={submitting}
+                  autoFocusInput
+                  credits={credits}
+                  compareEnabled={compareEnabled}
+                  onCompareEnabledChange={setCompareEnabled}
+                  compareModelIds={compareModelIds}
+                  onCompareModelIdsChange={setCompareModelIds}
+                  onSend={handleSend}
+                  onSendCompare={handleSendCompare}
+                />
+              </div>
+              {authError && (
+                <p
+                  role="alert"
+                  className="mt-3 text-center text-[13px] text-ink"
+                >
+                  {authError}
+                </p>
+              )}
+              {authStatus === 'unauthenticated' && (
+                <p className="mt-3 text-center text-[13px] text-graphite">
+                  Pesanmu tetap tersimpan saat kamu masuk.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 ﻿/**
  * @vitest-environment node
  */
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db'
 import {
@@ -62,14 +62,13 @@ describe('conversation persistence', () => {
     ])
 
     const first = await getConversationsCore({
-      data: { limit: 1, includeArchived: false },
+      data: { limit: 1 },
       request: requestFor(ownerId),
     })
     const second = await getConversationsCore({
       data: {
         cursor: first.nextCursor,
         limit: 1,
-        includeArchived: false,
       },
       request: requestFor(ownerId),
     })
@@ -83,9 +82,8 @@ describe('conversation persistence', () => {
     ).toBe(2)
   })
 
-  it('supports create, server search, archive, and rename validation', async () => {
+  it('supports create, server search, and rename validation', async () => {
     const {
-      archiveConversationCore,
       createConversationCore,
       getConversationsCore,
       updateConversationCore,
@@ -102,7 +100,7 @@ describe('conversation persistence', () => {
       request: requestFor(ownerId),
     })
     const found = await getConversationsCore({
-      data: { limit: 20, includeArchived: false, search: 'renamed' },
+      data: { limit: 20, search: 'renamed' },
       request: requestFor(ownerId),
     })
 
@@ -111,16 +109,6 @@ describe('conversation persistence', () => {
     expect(() =>
       updateConversationSchema.parse({ id: created.id, title: ' ' }),
     ).toThrow()
-
-    await archiveConversationCore({
-      data: { id: created.id },
-      request: requestFor(ownerId),
-    })
-    const [archived] = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.id, created.id))
-    expect(archived.isArchived).toBe(true)
   })
 
   it('returns 403 for another owner and distinguishes missing resources', async () => {
@@ -146,40 +134,35 @@ describe('conversation persistence', () => {
     ).rejects.toMatchObject({ status: 404 })
   })
 
-  it('soft deletes by default and hard deletes explicitly', async () => {
+  it('deletes a conversation with its messages', async () => {
     const { createConversationCore, deleteConversationCore } = await import(
       '../../src/server/core/conversations'
     )
-    const soft = await createConversationCore({
-      data: { title: 'Soft', mode: 'normal' },
+    const conversation = await createConversationCore({
+      data: { title: 'Doomed', mode: 'normal' },
       request: requestFor(ownerId),
     })
-    const hard = await createConversationCore({
-      data: { title: 'Hard', mode: 'normal' },
-      request: requestFor(ownerId),
+    await db.insert(messages).values({
+      conversationId: conversation.id,
+      role: 'user',
+      content: 'kept while conversation exists',
     })
 
     await deleteConversationCore({
-      data: { id: soft.id, hard: false },
-      request: requestFor(ownerId),
-    })
-    await deleteConversationCore({
-      data: { id: hard.id, hard: true },
+      data: { id: conversation.id },
       request: requestFor(ownerId),
     })
 
-    const [softRow] = await db
+    const [row] = await db
       .select()
       .from(conversations)
-      .where(
-        and(eq(conversations.id, soft.id), eq(conversations.isArchived, true)),
-      )
-    const [hardRow] = await db
+      .where(eq(conversations.id, conversation.id))
+    const remaining = await db
       .select()
-      .from(conversations)
-      .where(eq(conversations.id, hard.id))
-    expect(softRow.id).toBe(soft.id)
-    expect(hardRow).toBeUndefined()
+      .from(messages)
+      .where(eq(messages.conversationId, conversation.id))
+    expect(row).toBeUndefined()
+    expect(remaining).toEqual([])
   })
 
   it('loads messages ascending with generation runs and enforces ownership', async () => {

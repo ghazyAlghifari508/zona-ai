@@ -1,9 +1,8 @@
-﻿import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useState } from 'react'
-import { CompareGrid } from '@/components/chat/CompareGrid'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
-import { MobileCompareTabs } from '@/components/chat/MobileCompareTabs'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
 import {
@@ -12,13 +11,13 @@ import {
 } from '@/lib/chat/guest-draft'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
-  regenerateMessage,
   retryGeneration,
   sendCompareMessage,
   sendMessage,
   stopGeneration,
 } from '@/server/functions/chat'
 import { getConversation } from '@/server/functions/conversations'
+import { getCreditBalanceFn } from '@/server/functions/credits'
 import { getMessages } from '@/server/functions/messages'
 import { getCurrentSession } from '@/server/functions/session'
 
@@ -31,15 +30,21 @@ export const Route = createFileRoute('/chat/$conversationId')({
     }
   },
   loader: async ({ params }) => {
-    const [conversation, persistedMessages] = await Promise.all([
+    const [conversation, persistedMessages, credit] = await Promise.all([
       getConversation({ data: { id: params.conversationId } }),
       getMessages({ data: { conversationId: params.conversationId } }),
+      getCreditBalanceFn(),
     ])
-    return { conversation, persistedMessages }
+    return { conversation, persistedMessages, creditBalance: credit.balance }
   },
   errorComponent: ConversationError,
-  component: ChatThread,
+  component: ConversationRoute,
 })
+
+function ConversationRoute() {
+  const { conversationId } = Route.useParams()
+  return <ChatThread key={conversationId} />
+}
 
 function ConversationError() {
   return (
@@ -64,93 +69,31 @@ function ConversationError() {
   )
 }
 
-type CompareGeneration = {
-  id: string
-  modelId: string
-  status: string
-  content: string
-  reasoningContent?: string | null
-  promptTokens?: number | null
-  completionTokens?: number | null
-  totalTokens?: number | null
-  latencyMs?: number | null
-  timeToFirstTokenMs?: number | null
-  comparisonRunId?: string | null
-  messageId?: string
-  webSources?: Array<{
-    url: string
-    title: string | null
-    snippet: string | null
-    position: number
-    score?: number | null
-  }>
-}
-
 function ChatThread() {
   const { conversationId } = Route.useParams()
-  const { conversation, persistedMessages } = Route.useLoaderData()
+  const { persistedMessages, creditBalance } = Route.useLoaderData()
   const navigate = Route.useNavigate()
+  const queryClient = useQueryClient()
+  const refreshConversationList = () => {
+    void queryClient.invalidateQueries({ queryKey: ['conversations'] })
+  }
+  const refreshCredits = async () => {
+    const res = await getCreditBalanceFn()
+    setCredits(res.balance)
+  }
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    // cast boundary: loader data type mismatch with hydrateMessages expected shape
     const typed = persistedMessages as Parameters<typeof hydrateMessages>[0]
     return hydrateMessages(typed)
   })
   const [isStreaming, setIsStreaming] = useState(false)
   const [generationId, setGenerationId] = useState<string | null>(null)
   const [webSearchToast, setWebSearchToast] = useState(false)
-  const credits = 85
+  const [credits, setCredits] = useState(creditBalance)
 
-  const [mode, setMode] = useState<'normal' | 'compare'>(
-    (conversation.mode as 'normal' | 'compare') ?? 'normal',
-  )
+  const [mode, setMode] = useState<'normal' | 'compare'>('normal')
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
   const [modelId, setModelId] = useState('auto')
-  const [compareGenerations, setCompareGenerations] = useState<
-    CompareGeneration[]
-  >(() => {
-    const allGens = (
-      persistedMessages as Array<{ generationRuns: CompareGeneration[] }>
-    ).flatMap((m) => m.generationRuns ?? [])
-    const compareGens = allGens.filter((g) => g.comparisonRunId)
-    if (compareGens.length === 0) return []
-    // group by comparisonRunId, take latest group
-    const byComp = new Map<string, CompareGeneration[]>()
-    for (const g of compareGens) {
-      if (!g.comparisonRunId) continue
-      const key = g.comparisonRunId
-      const arr = byComp.get(key) ?? []
-      arr.push(g)
-      byComp.set(key, arr)
-    }
-    const groups = Array.from(byComp.values())
-    const latest = groups[groups.length - 1]
-    // Map to expected shape, ensure content fallback
-    return latest.map((g) => ({
-      id: g.id,
-      modelId: g.modelId,
-      status: g.status,
-      content: g.content ?? '',
-      reasoningContent: g.reasoningContent,
-      promptTokens: g.promptTokens,
-      completionTokens: g.completionTokens,
-      totalTokens: g.totalTokens,
-      latencyMs: g.latencyMs,
-      timeToFirstTokenMs: g.timeToFirstTokenMs,
-      comparisonRunId: g.comparisonRunId,
-      messageId: g.messageId,
-      webSources: g.webSources,
-    }))
-  })
-  const [userPrompt, setUserPrompt] = useState<string>(() => {
-    // try to find last user message content
-    const lastUser = [...persistedMessages]
-      .reverse()
-      .find((m) => m.role === 'user')
-    return (lastUser as { content: string } | undefined)?.content ?? ''
-  })
-  const [compareIsStreaming, setCompareIsStreaming] = useState(false)
 
-  // Keep mode sync if conversation mode changes externally? Not needed
   const compareEnabled = mode === 'compare'
   const setCompareEnabled = (enabled: boolean) =>
     setMode(enabled ? 'compare' : 'normal')
@@ -191,6 +134,8 @@ function ChatThread() {
       const routerModelId = response.headers.get('X-Router-Model-Id')
       const routingReason = response.headers.get('X-Routing-Reason')
       const webSearchStatus = response.headers.get('X-Web-Search-Status')
+      refreshConversationList()
+      setTimeout(refreshConversationList, 3000)
       if (webSearchStatus === 'unavailable') {
         setWebSearchToast(true)
         setTimeout(() => setWebSearchToast(false), 3000)
@@ -221,6 +166,7 @@ function ChatThread() {
         )
         setIsStreaming(false)
         setGenerationId(null)
+        void refreshCredits()
         return
       }
       const decoder = new TextDecoder()
@@ -274,6 +220,8 @@ function ChatThread() {
       setMessages(
         hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
       )
+      refreshConversationList()
+      void refreshCredits()
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
       if (err.status === 402 || err.code === 'ERR-019') {
@@ -310,18 +258,42 @@ function ChatThread() {
     attachmentIds?: string[],
     enableWebSearch?: boolean,
   ) => {
-    setUserPrompt(content)
-    const initialGens: CompareGeneration[] = modelIds.map((mid) => ({
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+    }
+    const compareAssistantId = crypto.randomUUID()
+    const initialGens = modelIds.map((mid) => ({
       id: crypto.randomUUID(),
       modelId: mid,
       status: 'streaming',
       content: '',
     }))
-    // We will replace ids with real generationIds from server after response? But spec says generationId is server-generated; we use placeholder and then map via modelId? Better to trust server ids after demux
-    // For optimistic, show placeholders, then when stream starts we will replace/insert real ids via generation-start events
-    setCompareGenerations(initialGens.map((g) => ({ ...g, content: '' })))
-    setCompareIsStreaming(true)
+    const compareMsg: ChatMessage = {
+      id: compareAssistantId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      compareGenerations: initialGens,
+    }
+    setMessages((prev) => [...prev, userMsg, compareMsg])
     setIsStreaming(true)
+
+    const updateCompareGen = (
+      updater: (
+        gens: NonNullable<ChatMessage['compareGenerations']>,
+      ) => NonNullable<ChatMessage['compareGenerations']>,
+    ) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === compareAssistantId && m.compareGenerations
+            ? { ...m, compareGenerations: updater(m.compareGenerations) }
+            : m,
+        ),
+      )
+    }
+
     try {
       const response = (await sendCompareMessage({
         data: {
@@ -333,24 +305,31 @@ function ChatThread() {
           enableWebSearch: enableWebSearch ?? false,
         },
       })) as Response
+
       if (response.headers.get('X-Web-Search-Status') === 'unavailable') {
         setWebSearchToast(true)
         setTimeout(() => setWebSearchToast(false), 3000)
       }
+      refreshConversationList()
+      setTimeout(refreshConversationList, 3000)
+
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
-        // fallback treat as plain
-        setCompareGenerations((prev) =>
-          prev.map((g) => ({ ...g, content: text, status: 'completed' })),
+        updateCompareGen((gens) =>
+          gens.map((g) => ({ ...g, content: text, status: 'completed' })),
         )
-        setCompareIsStreaming(false)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === compareAssistantId ? { ...m, streaming: false } : m,
+          ),
+        )
         setIsStreaming(false)
         return
       }
+
       const decoder = new TextDecoder()
       let buffer = ''
-      // Map generationId -> modelId for demux
       const genIdToIndex = new Map<string, number>()
 
       while (true) {
@@ -368,152 +347,134 @@ function ChatThread() {
             try {
               const raw = JSON.parse(jsonStr)
               const event = parseStreamEvent(raw)
-              // first time we see generationId, map to index via modelId
+
               if (event.type === 'generation-start') {
-                // Find placeholder by modelId that hasn't yet been mapped
-                const _idx = initialGens.findIndex(
-                  (g) => g.modelId === event.modelId && !genIdToIndex.has(g.id),
-                )
-                // But we have real generationId from server; we need to map event.generationId to our placeholder's index
-                // Find placeholder index by modelId
-                const _placeholderIdx = compareGenerations.findIndex(
-                  (_, i) => modelIds[i] === event.modelId,
-                ) // not reliable after state updates
-                // Instead, map generationId to modelId index
                 const modelIdx = modelIds.indexOf(event.modelId)
                 if (modelIdx !== -1) {
                   genIdToIndex.set(event.generationId, modelIdx)
-                  // update generation id to real one
-                  setCompareGenerations((prev) => {
-                    const next = [...prev]
-                    if (next[modelIdx])
-                      next[modelIdx] = {
-                        ...next[modelIdx],
-                        id: event.generationId,
-                      }
-                    return next
-                  })
+                  updateCompareGen((gens) =>
+                    gens.map((g, i) =>
+                      i === modelIdx ? { ...g, id: event.generationId } : g,
+                    ),
+                  )
                 }
               } else if (event.type === 'text-delta') {
-                const idx = genIdToIndex.get(event.generationId)
-                if (idx !== undefined) {
-                  setCompareGenerations((prev) => {
-                    const next = [...prev]
-                    const cur = next[idx]
-                    if (cur)
-                      next[idx] = {
-                        ...cur,
-                        content: (cur.content ?? '') + event.text,
-                      }
-                    return next
-                  })
-                } else {
-                  // fallback by modelId
-                  const modelIdx = modelIds.indexOf(event.modelId)
-                  if (modelIdx !== -1) {
-                    setCompareGenerations((prev) => {
-                      const next = [...prev]
-                      const cur = next[modelIdx]
-                      if (cur)
-                        next[modelIdx] = {
-                          ...cur,
-                          content: (cur.content ?? '') + event.text,
-                        }
-                      return next
-                    })
-                  }
+                const idx =
+                  genIdToIndex.get(event.generationId) ??
+                  modelIds.indexOf(event.modelId)
+                if (idx !== -1) {
+                  updateCompareGen((gens) =>
+                    gens.map((g, i) =>
+                      i === idx
+                        ? { ...g, content: (g.content ?? '') + event.text }
+                        : g,
+                    ),
+                  )
                 }
               } else if (event.type === 'generation-finish') {
                 const idx =
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
-                  setCompareGenerations((prev) => {
-                    const next = [...prev]
-                    if (next[idx])
-                      next[idx] = { ...next[idx], status: 'completed' }
-                    return next
-                  })
+                  updateCompareGen((gens) =>
+                    gens.map((g, i) =>
+                      i === idx ? { ...g, status: 'completed' } : g,
+                    ),
+                  )
                 }
               } else if (event.type === 'generation-error') {
                 const idx =
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
-                  setCompareGenerations((prev) => {
-                    const next = [...prev]
-                    if (next[idx])
-                      next[idx] = {
-                        ...next[idx],
-                        status: 'failed',
-                        content: next[idx].content,
-                      }
-                    return next
-                  })
+                  updateCompareGen((gens) =>
+                    gens.map((g, i) =>
+                      i === idx
+                        ? {
+                            ...g,
+                            status: 'failed',
+                            error: { message: event.error, code: event.code },
+                            content: event.error,
+                          }
+                        : g,
+                    ),
+                  )
                 }
               } else if (event.type === 'usage') {
                 const idx =
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
-                  setCompareGenerations((prev) => {
-                    const next = [...prev]
-                    if (next[idx])
-                      next[idx] = {
-                        ...next[idx],
-                        promptTokens: event.promptTokens,
-                        completionTokens: event.completionTokens,
-                        totalTokens: event.totalTokens,
-                      }
-                    return next
-                  })
+                  updateCompareGen((gens) =>
+                    gens.map((g, i) =>
+                      i === idx
+                        ? {
+                            ...g,
+                            promptTokens: event.promptTokens,
+                            completionTokens: event.completionTokens,
+                            totalTokens: event.totalTokens,
+                          }
+                        : g,
+                    ),
+                  )
                 }
               }
             } catch {}
           }
         }
       }
-      // after done, mark any still streaming as completed (fallback)
-      setCompareGenerations((prev) =>
-        prev.map((g) =>
-          g.status === 'streaming' ? { ...g, status: 'completed' } : g,
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === compareAssistantId
+            ? {
+                ...m,
+                streaming: false,
+                compareGenerations: m.compareGenerations?.map((g) =>
+                  g.status === 'streaming' ? { ...g, status: 'completed' } : g,
+                ),
+              }
+            : m,
         ),
       )
+
       const persisted = await getMessages({ data: { conversationId } })
-      const persistedGenerations = (
-        persisted as Array<{ generationRuns: CompareGeneration[] }>
-      ).flatMap((message) => message.generationRuns ?? [])
-      setCompareGenerations((prev) =>
-        prev.map((generation) => {
-          const saved = persistedGenerations.find(
-            (candidate) => candidate.id === generation.id,
-          )
-          return saved
-            ? { ...generation, webSources: saved.webSources }
-            : generation
-        }),
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
       )
+      refreshConversationList()
+      void refreshCredits()
     } catch (e) {
+      console.error('[CLIENT handleSendCompare CAUGHT ERROR]:', e)
       const err = e as Error & { status?: number; code?: string }
-      if (err.status === 402 || err.code === 'ERR-019') {
-        setCompareGenerations((prev) =>
-          prev.map((g) => ({
-            ...g,
-            status: 'failed',
-            content: 'Kredit tidak mencukupi',
-          })),
-        )
-      } else {
-        setCompareGenerations((prev) =>
-          prev.map((g) =>
-            g.status === 'streaming'
-              ? { ...g, status: 'failed', content: `Error: ${err.message}` }
-              : g,
-          ),
-        )
-      }
+      const errorContent =
+        err.status === 402 || err.code === 'ERR-019'
+          ? 'Kredit tidak mencukupi'
+          : `Error: ${err.message}`
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === compareAssistantId
+            ? {
+                ...m,
+                streaming: false,
+                compareGenerations: m.compareGenerations?.map((g) =>
+                  g.status === 'streaming'
+                    ? {
+                        ...g,
+                        status: 'failed',
+                        content: errorContent,
+                        error: {
+                          message: errorContent,
+                          code: err.code ?? 'ERR-001',
+                        },
+                      }
+                    : g,
+                ),
+              }
+            : m,
+        ),
+      )
     } finally {
-      setCompareIsStreaming(false)
       setIsStreaming(false)
     }
   }
@@ -547,48 +508,74 @@ function ChatThread() {
   }, [conversationId])
 
   const handleStop = async () => {
-    if (mode === 'compare') {
-      // stop all compare generations
-      for (const g of compareGenerations) {
+    const streamingCompareMsg = messages.find(
+      (m) =>
+        m.streaming && m.compareGenerations && m.compareGenerations.length > 0,
+    )
+    if (streamingCompareMsg?.compareGenerations) {
+      for (const g of streamingCompareMsg.compareGenerations) {
         if (g.status === 'streaming') {
           try {
             await stopGeneration({ data: { generationId: g.id } })
           } catch {}
         }
       }
-      setCompareGenerations((prev) =>
-        prev.map((g) =>
-          g.status === 'streaming' ? { ...g, status: 'cancelled' } : g,
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === streamingCompareMsg.id
+            ? {
+                ...m,
+                streaming: false,
+                compareGenerations: m.compareGenerations?.map((g) =>
+                  g.status === 'streaming' ? { ...g, status: 'cancelled' } : g,
+                ),
+              }
+            : m,
         ),
       )
-      setCompareIsStreaming(false)
-      setIsStreaming(false)
-    } else {
-      if (generationId) {
-        try {
-          await stopGeneration({ data: { generationId } })
-        } catch {}
-      }
-      setIsStreaming(false)
-      setMessages((prev) =>
-        prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
-      )
     }
+
+    if (generationId) {
+      try {
+        await stopGeneration({ data: { generationId } })
+      } catch {}
+    }
+
+    setIsStreaming(false)
+    setMessages((prev) =>
+      prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)),
+    )
   }
 
   const handleStopPerModel = async (genId: string) => {
     try {
       await stopGeneration({ data: { generationId: genId } })
     } catch {}
-    setCompareGenerations((prev) =>
-      prev.map((g) => (g.id === genId ? { ...g, status: 'cancelled' } : g)),
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.compareGenerations
+          ? {
+              ...m,
+              compareGenerations: m.compareGenerations.map((g) =>
+                g.id === genId ? { ...g, status: 'cancelled' } : g,
+              ),
+            }
+          : m,
+      ),
     )
   }
 
   const handleRetry = async (genId: string) => {
-    setCompareGenerations((prev) =>
-      prev.map((g) =>
-        g.id === genId ? { ...g, status: 'streaming', content: '' } : g,
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.compareGenerations
+          ? {
+              ...m,
+              compareGenerations: m.compareGenerations.map((g) =>
+                g.id === genId ? { ...g, status: 'streaming', content: '' } : g,
+              ),
+            }
+          : m,
       ),
     )
     try {
@@ -598,9 +585,18 @@ function ChatThread() {
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
-        setCompareGenerations((prev) =>
-          prev.map((g) =>
-            g.id === genId ? { ...g, content: text, status: 'completed' } : g,
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.compareGenerations
+              ? {
+                  ...m,
+                  compareGenerations: m.compareGenerations.map((g) =>
+                    g.id === genId
+                      ? { ...g, content: text, status: 'completed' }
+                      : g,
+                  ),
+                }
+              : m,
           ),
         )
         return
@@ -610,81 +606,56 @@ function ChatThread() {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        full += chunk
-        setCompareGenerations((prev) =>
-          prev.map((g) => (g.id === genId ? { ...g, content: full } : g)),
-        )
-      }
-      setCompareGenerations((prev) =>
-        prev.map((g) =>
-          g.id === genId ? { ...g, content: full, status: 'completed' } : g,
-        ),
-      )
-    } catch (_e) {
-      setCompareGenerations((prev) =>
-        prev.map((g) => (g.id === genId ? { ...g, status: 'failed' } : g)),
-      )
-    }
-  }
-
-  const handleRegenerate = async (messageId: string) => {
-    const msg = messages.find((m) => m.id === messageId)
-    if (!msg) return
-    setIsStreaming(true)
-    try {
-      const response = (await regenerateMessage({
-        data: { messageId, modelId: msg.modelId },
-      })) as Response
-      const reader = response.body?.getReader()
-      if (!reader) {
-        const text = await response.text()
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: text,
-            modelId: msg.modelId,
-            routerModelId: msg.routerModelId,
-          } satisfies ChatMessage,
-        ])
-        return
-      }
-      const decoder = new TextDecoder()
-      let fullText = ''
-      const newId = crypto.randomUUID()
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: newId,
-          role: 'assistant',
-          content: '',
-          modelId: msg.modelId,
-          routerModelId: msg.routerModelId,
-          streaming: true,
-        } satisfies ChatMessage,
-      ])
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        fullText += chunk
+        full += decoder.decode(value, { stream: true })
         setMessages((prev) =>
-          prev.map((m) => (m.id === newId ? { ...m, content: fullText } : m)),
+          prev.map((m) =>
+            m.compareGenerations
+              ? {
+                  ...m,
+                  compareGenerations: m.compareGenerations.map((g) =>
+                    g.id === genId ? { ...g, content: full } : g,
+                  ),
+                }
+              : m,
+          ),
         )
       }
       setMessages((prev) =>
-        prev.map((m) => (m.id === newId ? { ...m, streaming: false } : m)),
-      )
-      const persisted = await getMessages({ data: { conversationId } })
-      setMessages(
-        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+        prev.map((m) =>
+          m.compareGenerations
+            ? {
+                ...m,
+                compareGenerations: m.compareGenerations.map((g) =>
+                  g.id === genId
+                    ? { ...g, content: full, status: 'completed' }
+                    : g,
+                ),
+              }
+            : m,
+        ),
       )
     } catch (e) {
-      console.error(e)
-    } finally {
-      setIsStreaming(false)
+      const err = e as Error
+      const msg = err.message || 'Coba lagi gagal'
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.compareGenerations
+            ? {
+                ...m,
+                compareGenerations: m.compareGenerations.map((g) =>
+                  g.id === genId
+                    ? {
+                        ...g,
+                        status: 'failed',
+                        error: { message: msg, code: 'ERR-001' },
+                        content: msg,
+                      }
+                    : g,
+                ),
+              }
+            : m,
+        ),
+      )
     }
   }
 
@@ -702,21 +673,21 @@ function ChatThread() {
         })
       }}
     >
-      <div className="flex h-[calc(100dvh-2rem)] min-h-0 flex-col lg:h-[calc(100dvh-3rem)]">
+      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         {webSearchToast && (
           <div
             role="status"
             data-testid="web-search-toast"
-            className="fixed right-6 top-6 z-50 rounded-md border border-hairline bg-pure-white px-4 py-3 text-[13px] text-ink"
+            className="fixed right-6 top-6 z-50 rounded-md border border-hairline bg-pure-white px-4 py-3 text-[13px] text-ink shadow-sm"
           >
             Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        <header className="flex h-12 shrink-0 items-center gap-3 px-1 lg:px-2">
-          {compareEnabled && (
+        <header className="flex h-12 shrink-0 items-center justify-between px-4 lg:px-6">
+          {compareEnabled && compareModelIds.length >= 2 && (
             <span
               data-testid="topbar-compare-label"
-              className="text-[14px] font-bold text-ink"
+              className="text-[14px] font-medium text-stone"
             >
               Mode banding · {compareModelIds.length} model
             </span>
@@ -724,59 +695,31 @@ function ChatThread() {
           <span className="flex-1" />
         </header>
 
-        {mode === 'compare' ? (
-          <>
-            {compareGenerations.length > 0 ? (
-              <>
-                <CompareGrid
-                  comparisonRun={null}
-                  generations={compareGenerations}
-                  onRetry={handleRetry}
-                  onStop={handleStopPerModel}
-                  userPrompt={userPrompt}
-                />
-                <MobileCompareTabs
-                  generations={compareGenerations}
-                  onRetry={handleRetry}
-                  onStop={handleStopPerModel}
-                />
-              </>
-            ) : (
-              <div className="flex flex-1 items-center justify-center py-10 text-center">
-                <div>
-                  <h2 className="text-[20px] font-medium text-ink">
-                    Compare Mode
-                  </h2>
-                  <p className="mt-1 text-[15px] text-stone">
-                    Pilih 2-4 model dan kirim prompt yang sama.
-                  </p>
-                </div>
-              </div>
-            )}
-            {/* Also show normal messages history below compare grid? For persistence we also show normal list hidden on mobile? */}
-            <div className="hidden">
-              <MessageList messages={messages} />
-            </div>
-          </>
-        ) : (
-          <MessageList messages={messages} onRegenerate={handleRegenerate} />
-        )}
-
-        <Composer
-          onSend={handleSend}
-          onSendCompare={handleSendCompare}
-          onStop={handleStop}
-          isStreaming={isStreaming || compareIsStreaming}
-          credits={credits}
-          modelValue={modelId}
-          onModelChange={setModelId}
-          compareEnabled={compareEnabled}
-          onCompareEnabledChange={setCompareEnabled}
-          compareModelIds={compareModelIds}
-          onCompareModelIdsChange={setCompareModelIds}
-          conversationId={conversationId}
-          placement="inline"
+        <MessageList
+          messages={messages}
+          onRetryGeneration={handleRetry}
+          onStopGeneration={handleStopPerModel}
         />
+
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] px-4 lg:px-6">
+          <div className="pointer-events-auto mx-auto max-w-[860px]">
+            <Composer
+              onSend={handleSend}
+              onSendCompare={handleSendCompare}
+              onStop={handleStop}
+              isStreaming={isStreaming}
+              credits={credits}
+              modelValue={modelId}
+              onModelChange={setModelId}
+              compareEnabled={compareEnabled}
+              onCompareEnabledChange={setCompareEnabled}
+              compareModelIds={compareModelIds}
+              onCompareModelIdsChange={setCompareModelIds}
+              conversationId={conversationId}
+              placement="inline"
+            />
+          </div>
+        </div>
       </div>
     </WorkspaceShell>
   )

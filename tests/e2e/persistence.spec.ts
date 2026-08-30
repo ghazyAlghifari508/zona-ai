@@ -86,9 +86,7 @@ test('empty state creates a persistent conversation', async ({ page }) => {
   await expect(page.locator('[data-testid="message-list"]')).toBeVisible()
 })
 
-test('searches, renames, archives, and deletes conversations', async ({
-  page,
-}) => {
+test('searches, renames, and deletes conversations', async ({ page }) => {
   const userId = scopedUserId()
   await db.insert(conversations).values([
     { userId, title: 'Alpha project' },
@@ -110,10 +108,6 @@ test('searches, renames, archives, and deletes conversations', async ({
   // Clear the search filter so the renamed item is no longer filtered out
   await page.getByRole('searchbox', { name: 'Cari percakapan' }).fill('')
   await expect(page.getByText('Renamed project')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Menu Renamed project' }).click()
-  await page.getByRole('menuitem', { name: 'Archive' }).click()
-  await expect(page.getByText('Renamed project')).not.toBeVisible()
 
   await page.getByRole('searchbox', { name: 'Cari percakapan' }).fill('Beta')
   await page.getByRole('button', { name: 'Menu Beta project' }).click()
@@ -151,4 +145,37 @@ test('reload restores messages and virtualizes a long thread', async ({
   // After reload sidebar may be hidden again on mobile
   await ensureSidebarVisible(page)
   await expect(page.locator('[data-index]').first()).toBeVisible()
+})
+
+test('switching sidebar conversations hydrates the selected thread', async ({
+  page,
+}) => {
+  const userId = scopedUserId()
+  const [first, second] = await db
+    .insert(conversations)
+    .values([
+      { userId, title: 'First thread' },
+      { userId, title: 'Second thread' },
+    ])
+    .returning()
+  await db.insert(messages).values([
+    { conversationId: first.id, role: 'user', content: 'First prompt' },
+    { conversationId: second.id, role: 'user', content: 'Second prompt' },
+    { conversationId: second.id, role: 'assistant', content: 'Second answer' },
+  ])
+
+  await page.goto(`/chat/${first.id}`)
+  await ensureSidebarVisible(page)
+  await expect(page.getByTestId('message-list')).toHaveAttribute(
+    'data-message-count',
+    '1',
+  )
+
+  await page.getByRole('button', { name: /^Second thread / }).click()
+
+  await expect(page).toHaveURL(`/chat/${second.id}`)
+  await expect(page.getByTestId('message-list')).toHaveAttribute(
+    'data-message-count',
+    '2',
+  )
 })

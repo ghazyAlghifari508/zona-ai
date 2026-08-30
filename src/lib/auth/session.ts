@@ -15,4 +15,15 @@ export async function getAuthSession(request: Request) {
   return session
 }
 
+export async function getOptionalAuthSession(
+  request: Request,
+): Promise<AuthSession | null> {
+  try {
+    const session = await auth.api.getSession({ headers: request.headers })
+    return session ?? null
+  } catch {
+    return null
+  }
+}
+
 export type AuthSession = Awaited<ReturnType<typeof getAuthSession>>

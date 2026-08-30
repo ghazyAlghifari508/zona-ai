@@ -1,4 +1,4 @@
-﻿import { Copy01Icon, ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
+import { Copy01Icon, ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -50,7 +50,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   return (
     <div
       data-testid="model-column"
-      className="flex min-h-[400px] flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white"
+      className="flex min-w-0 min-h-[400px] flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white"
     >
       <div className="sticky top-0 flex items-center justify-between rounded-t-lg border-b border-hairline bg-pure-white p-3">
         <div className="flex items-center gap-2">
@@ -121,7 +121,16 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                     )
                   : 'ERR-001'
               }
-              message="Model gagal merespons. Respons model lain tetap tersimpan."
+              message={
+                (typeof generation.error === 'object' &&
+                  generation.error !== null &&
+                  'message' in generation.error &&
+                  typeof (generation.error as { message?: unknown }).message ===
+                    'string' &&
+                  (generation.error as { message: string }).message) ||
+                generation.content?.trim() ||
+                'Model gagal merespons.'
+              }
             />
             {onRetry && (
               <button

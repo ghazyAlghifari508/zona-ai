@@ -10,11 +10,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from '../../src/components/layout/Sidebar'
 
 const serverMocks = vi.hoisted(() => ({
-  archiveConversation: vi.fn(),
   createConversation: vi.fn(),
   deleteConversation: vi.fn(),
   getConversations: vi.fn(),
   updateConversation: vi.fn(),
+}))
+
+const routerMocks = vi.hoisted(() => ({
+  navigate: vi.fn(),
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => routerMocks.navigate,
 }))
 
 vi.mock('../../src/server/functions/conversations', () => ({
@@ -22,7 +29,6 @@ vi.mock('../../src/server/functions/conversations', () => ({
   getConversations: serverMocks.getConversations,
   updateConversation: serverMocks.updateConversation,
   deleteConversation: serverMocks.deleteConversation,
-  archiveConversation: serverMocks.archiveConversation,
 }))
 
 vi.mock('../../src/lib/auth/auth-client', () => ({
@@ -67,7 +73,6 @@ describe('Sidebar persistence', () => {
         expect(serverMocks.getConversations).toHaveBeenLastCalledWith({
           data: {
             cursor: undefined,
-            includeArchived: false,
             limit: 20,
             search: 'Alpha',
           },
@@ -130,7 +135,7 @@ describe('Sidebar persistence', () => {
     )
   })
 
-  it('archives immediately and confirms before soft delete', async () => {
+  it('confirms before deleting a conversation', async () => {
     const id = '10000000-0000-4000-8000-000000000012'
     serverMocks.getConversations.mockResolvedValue({
       conversations: [
@@ -142,32 +147,9 @@ describe('Sidebar persistence', () => {
       ],
       nextCursor: undefined,
     })
-    serverMocks.archiveConversation.mockResolvedValue({ success: true })
     serverMocks.deleteConversation.mockResolvedValue({ success: true })
     renderSidebar()
 
-    fireEvent.pointerDown(
-      await screen.findByRole('button', { name: 'Menu Disposable' }),
-      { button: 0, ctrlKey: false },
-    )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }))
-    await waitFor(() =>
-      expect(serverMocks.archiveConversation).toHaveBeenCalledWith({
-        data: { id },
-      }),
-    )
-
-    serverMocks.getConversations.mockResolvedValue({
-      conversations: [
-        {
-          id,
-          title: 'Disposable',
-          updatedAt: new Date('2026-08-29T00:00:00Z'),
-        },
-      ],
-      nextCursor: undefined,
-    })
-    renderSidebar()
     fireEvent.pointerDown(
       await screen.findByRole('button', { name: 'Menu Disposable' }),
       { button: 0, ctrlKey: false },
@@ -178,8 +160,72 @@ describe('Sidebar persistence', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
     await waitFor(() =>
       expect(serverMocks.deleteConversation).toHaveBeenCalledWith({
-        data: { id, hard: false },
+        data: { id },
       }),
     )
+  })
+
+  it('navigates to home when the active conversation is deleted', async () => {
+    const id = '10000000-0000-4000-8000-000000000013'
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id,
+          title: 'Active thread',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+    serverMocks.deleteConversation.mockResolvedValue({ success: true })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Sidebar activeConversationId={id} />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.pointerDown(
+      await screen.findByRole('button', { name: 'Menu Active thread' }),
+      { button: 0, ctrlKey: false },
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
+
+    await waitFor(() =>
+      expect(routerMocks.navigate).toHaveBeenCalledWith({ to: '/' }),
+    )
+  })
+
+  it('stays on the conversation when a different one is deleted', async () => {
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: '10000000-0000-4000-8000-000000000014',
+          title: 'Other thread',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+    serverMocks.deleteConversation.mockResolvedValue({ success: true })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Sidebar activeConversationId="10000000-0000-4000-8000-000000000099" />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.pointerDown(
+      await screen.findByRole('button', { name: 'Menu Other thread' }),
+      { button: 0, ctrlKey: false },
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
+
+    await waitFor(() =>
+      expect(serverMocks.deleteConversation).toHaveBeenCalledWith({
+        data: { id: '10000000-0000-4000-8000-000000000014' },
+      }),
+    )
+    expect(routerMocks.navigate).not.toHaveBeenCalled()
   })
 })

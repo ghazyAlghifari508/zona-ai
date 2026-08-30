@@ -68,6 +68,7 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai')
   return {
     ...actual,
+    generateText: vi.fn(async () => ({ text: '' })),
     streamText: mockStreamText,
   }
 })
@@ -325,7 +326,6 @@ describe('files API', () => {
   it('sendMessage with image + vision injects file parts', async () => {
     const { uploadFileCore } = await import('../../src/server/functions/files')
     const { sendMessageCore } = await import('../../src/server/core/chat')
-    const { modelRegistry } = await import('../../src/lib/models/registry')
     // ensure we have a vision-capable model (auto is vision true)
     const [conv] = await db
       .insert(conversations)

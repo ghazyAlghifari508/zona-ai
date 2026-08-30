@@ -35,6 +35,28 @@ export function ProviderIcon({
       />
     )
   }
+  if (provider === 'deepseek') {
+    return (
+      <img
+        src="/assets/deepseek.svg"
+        alt="DeepSeek"
+        width={size}
+        height={size}
+        className="pointer-events-none block object-contain"
+      />
+    )
+  }
+  if (provider === 'qwen') {
+    return (
+      <img
+        src="/assets/qwen.svg"
+        alt="Qwen"
+        width={size}
+        height={size}
+        className="pointer-events-none block object-contain"
+      />
+    )
+  }
   return (
     <span
       aria-hidden="true"

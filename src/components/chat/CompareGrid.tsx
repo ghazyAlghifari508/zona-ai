@@ -1,4 +1,4 @@
-﻿import { ModelColumn } from './ModelColumn'
+import { ModelColumn } from './ModelColumn'
 
 type Generation = {
   id: string
@@ -35,22 +35,12 @@ export function CompareGrid({
   onStop,
   userPrompt,
 }: Props) {
-  const N = generations.length
   const prompt =
     userPrompt ??
     comparisonRun?.userMessage?.content ??
     comparisonRun?.userMessageContent ??
     comparisonRun?.content ??
     ''
-
-  const gridClass =
-    N === 2
-      ? 'grid-cols-2'
-      : N === 3
-        ? 'grid-cols-3'
-        : N === 4
-          ? 'grid-cols-4'
-          : 'grid-cols-2'
 
   return (
     <div className="space-y-4">
@@ -63,7 +53,7 @@ export function CompareGrid({
       )}
       <div
         data-testid="compare-grid"
-        className={`grid gap-4 overflow-x-auto max-[1024px]:grid-cols-2 max-[768px]:hidden ${gridClass}`}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         {generations.map((g) => (
           <ModelColumn

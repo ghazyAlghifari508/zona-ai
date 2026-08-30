@@ -1,13 +1,14 @@
-﻿import { Copy01Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { Copy01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { useEffect, useRef } from 'react'
+import { type ReactNode, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
+import { CompareGrid } from './CompareGrid'
 import { InlineError } from './InlineError'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
@@ -24,14 +25,38 @@ export type ChatMessage = {
   errorCode?: string
   errorMessage?: string
   onRetry?: () => void
+  compareGenerations?: Array<{
+    id: string
+    modelId: string
+    status: string
+    content: string
+    reasoningContent?: string | null
+    promptTokens?: number | null
+    completionTokens?: number | null
+    totalTokens?: number | null
+    latencyMs?: number | null
+    timeToFirstTokenMs?: number | null
+    comparisonRunId?: string | null
+    messageId?: string
+    error?: { message?: string; code?: string } | unknown
+    webSources?: Array<{
+      url: string
+      title: string | null
+      snippet: string | null
+      position: number
+      score?: number | null
+    }>
+  }>
 }
 
 export function MessageList({
   messages,
-  onRegenerate,
+  onRetryGeneration,
+  onStopGeneration,
 }: {
   messages: ChatMessage[]
-  onRegenerate?: (messageId: string) => void
+  onRetryGeneration?: (generationId: string) => void
+  onStopGeneration?: (generationId: string) => void
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const catalog = useModelCatalog()
@@ -59,88 +84,122 @@ export function MessageList({
       aria-live="polite"
       aria-label="Chat messages"
       data-testid="message-list"
-      className={`min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 ${shouldVirtualize ? '' : 'flex flex-col'}`}
+      data-message-count={messages.length}
+      className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto w-full"
     >
-      {shouldVirtualize ? (
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            position: 'relative',
-            width: '100%',
-          }}
-        >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = messages[virtualItem.index]
-            return (
-              <div
-                key={virtualItem.key}
-                ref={virtualizer.measureElement}
-                data-index={virtualItem.index}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                <MessageItem
-                  message={message}
-                  catalog={catalog}
-                  onRegenerate={onRegenerate}
-                />
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        messages.map((message) => (
-          <MessageItem
-            key={message.id}
-            message={message}
-            catalog={catalog}
-            onRegenerate={onRegenerate}
-          />
-        ))
-      )}
-      {messages.length === 0 && (
-        <div className="flex flex-1 items-center justify-center py-20 text-center">
-          <div className="space-y-2">
-            <h2 className="text-[22px] font-bold tracking-[-0.242px] text-ink">
-              Mulai percakapan
-            </h2>
-            <p className="text-[14px] text-stone">
-              Tanyakan apa saja ke Zona.ai
-            </p>
+      <div className="mx-auto w-full max-w-[860px] px-4 pt-2 pb-44 lg:px-6">
+        {shouldVirtualize ? (
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: 'relative',
+              width: '100%',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const message = messages[virtualItem.index]
+              return (
+                <div
+                  key={virtualItem.key}
+                  ref={virtualizer.measureElement}
+                  data-index={virtualItem.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  <MessageItem
+                    message={message}
+                    catalog={catalog}
+                    onRetryGeneration={onRetryGeneration}
+                    onStopGeneration={onStopGeneration}
+                  />
+                </div>
+              )
+            })}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col">
+            {messages.map((message) => (
+              <MessageItem
+                key={message.id}
+                message={message}
+                catalog={catalog}
+                onRetryGeneration={onRetryGeneration}
+                onStopGeneration={onStopGeneration}
+              />
+            ))}
+          </div>
+        )}
+        {messages.length === 0 && (
+          <div className="flex flex-1 items-center justify-center py-20 text-center">
+            <div className="space-y-2">
+              <h2 className="text-[22px] font-bold tracking-[-0.242px] text-ink">
+                Mulai percakapan
+              </h2>
+              <p className="text-[14px] text-stone">
+                Tanyakan apa saja ke Zona.ai
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
+}
+
+function flattenReactNodes(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(flattenReactNodes).join('')
+  if (typeof node === 'object' && 'props' in node) {
+    return flattenReactNodes(
+      (node as { props: { children: ReactNode } }).props.children,
+    )
+  }
+  return ''
 }
 
 function MessageItem({
   message,
   catalog,
-  onRegenerate,
+  onRetryGeneration,
+  onStopGeneration,
 }: {
   message: ChatMessage
   catalog: ReturnType<typeof useModelCatalog>
-  onRegenerate?: (messageId: string) => void
+  onRetryGeneration?: (generationId: string) => void
+  onStopGeneration?: (generationId: string) => void
 }) {
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end py-4">
-        <div className="max-w-[min(78%,680px)] rounded-xl bg-ink px-4 py-2.5 text-[15px] leading-[1.6] text-pure-white [overflow-wrap:anywhere]">
+      <div className="flex justify-end py-3">
+        <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-notion-blue px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-pure-white shadow-sm shadow-notion-blue/20 whitespace-pre-wrap [overflow-wrap:anywhere]">
           {message.content}
         </div>
       </div>
     )
   }
 
+  if (message.compareGenerations && message.compareGenerations.length > 0) {
+    return (
+      <div className="w-full py-5">
+        <CompareGrid
+          comparisonRun={null}
+          generations={message.compareGenerations}
+          onRetry={onRetryGeneration}
+          onStop={onStopGeneration}
+        />
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto w-full max-w-[860px] py-6">
+    <div className="w-full py-5">
       <div className="min-w-0">
         <div className="mb-1.5 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
@@ -159,10 +218,9 @@ function MessageItem({
               rehypePlugins={[rehypeSanitize, rehypeHighlight]}
               components={{
                 code: ({ children, className }) => {
-                  const isBlock =
-                    String(children).includes('\n') || Boolean(className)
+                  const isBlock = Boolean(className)
                   if (isBlock) {
-                    return <CodeBlock>{String(children)}</CodeBlock>
+                    return <CodeBlock>{flattenReactNodes(children)}</CodeBlock>
                   }
                   return (
                     <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
@@ -200,21 +258,6 @@ function MessageItem({
                 <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />
                 Salin
               </button>
-              {onRegenerate && (
-                <button
-                  type="button"
-                  aria-label="Jawab ulang"
-                  onClick={() => onRegenerate(message.id)}
-                  className="flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[12px] text-stone transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
-                >
-                  <HugeiconsIcon
-                    icon={Refresh01Icon}
-                    size={14}
-                    strokeWidth={1.75}
-                  />
-                  Jawab ulang
-                </button>
-              )}
             </div>
           )}
         </div>

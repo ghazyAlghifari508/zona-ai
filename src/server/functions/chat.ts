@@ -1,10 +1,9 @@
-﻿import { createServerFn } from '@tanstack/react-start'
+import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 import { chatSchema, compareSchema } from '../../lib/utils/validation'
 import {
   getComparisonRunsCore,
-  regenerateMessageCore,
   retryGenerationCore,
   sendCompareMessageCore,
   sendMessageCore,
@@ -21,13 +20,38 @@ export const sendMessage = createServerFn({ method: 'POST' })
   })
 
 export const sendCompareMessage = createServerFn({ method: 'POST' })
-  .validator((data: unknown) => compareSchema.parse(data))
+  .validator((data: unknown) => {
+    console.log(
+      '[SERVER] sendCompareMessage validator input:',
+      JSON.stringify(data),
+    )
+    try {
+      return compareSchema.parse(data)
+    } catch (err) {
+      console.error('[SERVER] sendCompareMessage validation error:', err)
+      throw err
+    }
+  })
   .handler(async ({ data }) => {
+    console.log(
+      '[SERVER] sendCompareMessage handler invoked with:',
+      JSON.stringify(data),
+    )
     const request = getRequest() as Request
-    return sendCompareMessageCore({
-      data: data as z.infer<typeof compareSchema>,
-      request,
-    })
+    try {
+      const res = await sendCompareMessageCore({
+        data: data as z.infer<typeof compareSchema>,
+        request,
+      })
+      console.log(
+        '[SERVER] sendCompareMessageCore returned successfully status:',
+        res.status,
+      )
+      return res
+    } catch (err) {
+      console.error('[SERVER] sendCompareMessageCore thrown error:', err)
+      throw err
+    }
   })
 
 export const getComparisonRuns = createServerFn({ method: 'GET' })
@@ -65,19 +89,4 @@ export const stopGeneration = createServerFn({ method: 'POST' })
       generationId: (data as { generationId: string }).generationId,
       request,
     })
-  })
-
-export const regenerateMessage = createServerFn({ method: 'POST' })
-  .validator((data: unknown) =>
-    z
-      .object({ messageId: z.string().uuid(), modelId: z.string().optional() })
-      .parse(data),
-  )
-  .handler(async ({ data }) => {
-    const request = getRequest() as Request
-    const { messageId, modelId } = data as {
-      messageId: string
-      modelId?: string
-    }
-    return regenerateMessageCore({ messageId, modelId, request })
   })

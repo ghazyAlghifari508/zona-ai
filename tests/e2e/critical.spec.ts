@@ -8,8 +8,7 @@ import { expect, test } from '@playwright/test'
  *  2. Create conversation (New Chat) .......... tests/e2e/persistence.spec.ts
  *  3. Single streaming message ................ tests/e2e/websearch.spec.ts + rag.spec.ts
  *  4. Stop generation ......................... tests/integration/chat.test.ts (stopGenerationCore)
- *  5. Regenerate response ..................... tests/integration/chat.test.ts (retryGenerationCore)
- *  6. Compare parallel (2+ models) ............ tests/e2e/compare.spec.ts
+ *  5. Compare parallel (2+ models) ............ tests/e2e/compare.spec.ts
  *  7. Compare partial failure + retry ......... tests/e2e/compare.spec.ts
  *  8. Reload persistence ...................... tests/e2e/persistence.spec.ts + websearch.spec.ts
  *  9. Upload file (R2 + validation) ........... tests/e2e/upload.spec.ts

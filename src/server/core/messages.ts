@@ -56,6 +56,7 @@ export async function getMessagesCore({
         timeToFirstTokenMs: generationRuns.timeToFirstTokenMs,
         startedAt: generationRuns.startedAt,
         completedAt: generationRuns.completedAt,
+        error: generationRuns.error,
       })
       .from(generationRuns)
       .where(eq(generationRuns.conversationId, data.conversationId)),

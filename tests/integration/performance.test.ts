@@ -21,6 +21,7 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai')
   return {
     ...actual,
+    generateText: vi.fn(async () => ({ text: '' })),
     streamText: vi.fn((opts: Record<string, unknown>) => {
       const onFinish = opts.onFinish as
         | ((o: unknown) => Promise<void>)

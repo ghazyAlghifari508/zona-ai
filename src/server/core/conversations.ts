@@ -79,7 +79,6 @@ export async function getConversationsCore({
     .where(
       and(
         eq(conversations.userId, userId),
-        data.includeArchived ? undefined : eq(conversations.isArchived, false),
         search ? ilike(conversations.title, `%${search}%`) : undefined,
         cursor
           ? or(
@@ -161,25 +160,8 @@ export async function deleteConversationCore({
 }) {
   const userId = await sessionUserId(request)
   await ownedConversation(data.id, userId)
-  const ownership = and(
-    eq(conversations.id, data.id),
-    eq(conversations.userId, userId),
-  )
-  if (data.hard) await db.delete(conversations).where(ownership)
-  else
-    await db
-      .update(conversations)
-      .set({ isArchived: true, updatedAt: new Date() })
-      .where(ownership)
+  await db
+    .delete(conversations)
+    .where(and(eq(conversations.id, data.id), eq(conversations.userId, userId)))
   return { success: true as const }
-}
-
-export async function archiveConversationCore({
-  data,
-  request,
-}: {
-  data: z.infer<typeof getConversationSchema>
-  request: Request
-}) {
-  return deleteConversationCore({ data: { ...data, hard: false }, request })
 }

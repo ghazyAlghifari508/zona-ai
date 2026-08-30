@@ -1,6 +1,6 @@
-﻿import type { ModelMessage } from 'ai'
+import type { ModelMessage } from 'ai'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { nineRouter } from '../../lib/ai/9router'
 import {
@@ -11,6 +11,7 @@ import {
 import { createMultiplexStream, type StreamEvent } from '../../lib/ai/multiplex'
 import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import { getAuthSession } from '../../lib/auth/session'
+import { generateAiTitle } from '../../lib/chat/title'
 import { db } from '../../lib/db/index'
 import {
   attachments,
@@ -41,6 +42,27 @@ import {
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
 
+async function autoTitleConversation(
+  convId: string,
+  prompt: string,
+): Promise<void> {
+  try {
+    const aiTitle = await generateAiTitle({ prompt })
+    const title = aiTitle ?? generateTitle(prompt)
+    await db
+      .update(conversations)
+      .set({ title })
+      .where(
+        and(
+          eq(conversations.id, convId),
+          or(isNull(conversations.title), eq(conversations.title, 'New Chat')),
+        ),
+      )
+  } catch {
+    // titling is best-effort; placeholder remains
+  }
+}
+
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/chat.ts is server-only')
 }
@@ -63,7 +85,7 @@ export async function sendMessageCore({
   const session = await getAuthSession(request)
   const userId = session.user.id
 
-  // Rate limit before any DB write / credit deduction (SECURITY.md §13)
+  // Rate limit before any DB write / credit deduction (SECURITY.md �13)
   enforceRateLimit({
     key: `chat:${userId}`,
     limit: RATE_LIMIT_CHAT_PER_MINUTE,
@@ -117,28 +139,30 @@ export async function sendMessageCore({
       .insert(conversations)
       .values({
         userId,
-        title: generateTitle(input.content),
+        title: 'New Chat',
         mode: 'normal',
       })
       .returning()
     convId = conv.id
   }
 
+  const shouldAutoTitle =
+    !input.conversationId ||
+    conversationTitle === null ||
+    conversationTitle === 'New Chat'
+  if (shouldAutoTitle) {
+    void autoTitleConversation(convId, input.content)
+  }
+
+  await db
+    .update(conversations)
+    .set({ updatedAt: new Date() })
+    .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
+
   const [_userMsg] = await db
     .insert(messages)
     .values({ conversationId: convId, role: 'user', content: input.content })
     .returning()
-
-  await db
-    .update(conversations)
-    .set({
-      title:
-        conversationTitle === null || conversationTitle === 'New Chat'
-          ? generateTitle(input.content)
-          : undefined,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
 
   const [assistantMsg] = await db
     .insert(messages)
@@ -446,7 +470,7 @@ export async function sendCompareMessageCore({
   const session = await getAuthSession(request)
   const userId = session.user.id
 
-  // Rate limit before any DB write / credit deduction (SECURITY.md §13)
+  // Rate limit before any DB write / credit deduction (SECURITY.md �13)
   enforceRateLimit({
     key: `compare:${userId}`,
     limit: RATE_LIMIT_COMPARE_PER_MINUTE,
@@ -497,12 +521,12 @@ export async function sendCompareMessageCore({
     conversationTitle = conv.title
     await db
       .update(conversations)
-      .set({ mode: 'compare', updatedAt: new Date() })
+      .set({ updatedAt: new Date() })
       .where(eq(conversations.id, convId))
   } else {
     const [conv] = await db
       .insert(conversations)
-      .values({ userId, title: generateTitle(data.content), mode: 'compare' })
+      .values({ userId, title: 'New Chat' })
       .returning()
     convId = conv.id
   }
@@ -512,15 +536,17 @@ export async function sendCompareMessageCore({
     .values({ conversationId: convId, role: 'user', content: data.content })
     .returning()
 
+  const shouldAutoTitle =
+    !data.conversationId ||
+    conversationTitle === null ||
+    conversationTitle === 'New Chat'
+  if (shouldAutoTitle) {
+    void autoTitleConversation(convId, data.content)
+  }
+
   await db
     .update(conversations)
-    .set({
-      title:
-        conversationTitle === null || conversationTitle === 'New Chat'
-          ? generateTitle(data.content)
-          : undefined,
-      updatedAt: new Date(),
-    })
+    .set({ updatedAt: new Date() })
     .where(and(eq(conversations.id, convId), eq(conversations.userId, userId)))
 
   const fileParts: Array<{ type: 'file'; data: string; mediaType: string }> = []
@@ -1221,157 +1247,4 @@ export async function stopGenerationCore({
     .where(eq(generationRuns.id, generationId))
   controllers.delete(generationId)
   return { ok: true as const }
-}
-
-export async function regenerateMessageCore({
-  messageId,
-  modelId,
-  request,
-}: {
-  messageId: string
-  modelId?: string
-  request: Request
-}) {
-  const session = await getAuthSession(request)
-  const [msg] = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.id, messageId))
-  if (!msg) throw new AppError('Message not found', 404, 'ERR-003')
-  const [conv] = await db
-    .select()
-    .from(conversations)
-    .where(eq(conversations.id, msg.conversationId))
-  if (!conv || conv.userId !== session.user.id) {
-    throw new AppError('Forbidden', 403, 'ERR-003')
-  }
-
-  const [originalRun] = await db
-    .select()
-    .from(generationRuns)
-    .where(eq(generationRuns.messageId, messageId))
-  if (!originalRun) {
-    throw new AppError('Generation not found', 404, 'ERR-003')
-  }
-
-  const targetModelId = modelId ?? originalRun.modelId
-  const modelEntry = getModelById(targetModelId)
-
-  let routerModelId = modelEntry.routerModelId
-  let cost: number
-  if (targetModelId === 'auto') {
-    const historyForCost = await db
-      .select()
-      .from(messages)
-      .where(eq(messages.conversationId, conv.id))
-      .orderBy(asc(messages.createdAt))
-    const lastUser = [...historyForCost]
-      .reverse()
-      .find((m) => m.role === 'user')
-    const resolved = resolveAutoModel(lastUser?.content ?? 'hello', {
-      credits: 100,
-    })
-    routerModelId = resolved.routerModelId
-    cost = resolved.cost
-  } else {
-    cost =
-      typeof modelEntry.creditCost === 'number'
-        ? modelEntry.creditCost
-        : modelEntry.creditCost.max
-  }
-
-  const creditRes = await db.execute(
-    sql`SELECT credits FROM users WHERE id=${session.user.id}`,
-  )
-  const creditRows = getRows<{ credits: number }>(creditRes)
-  const currentCredits = creditRows[0]?.credits ?? 0
-  if (currentCredits < cost) {
-    throwZonaError('ERR-019')
-  }
-
-  const [assistantMsg] = await db
-    .insert(messages)
-    .values({ conversationId: conv.id, role: 'assistant', content: '' })
-    .returning()
-
-  const genId = crypto.randomUUID()
-
-  await db.insert(generationRuns).values({
-    id: genId,
-    messageId: assistantMsg.id,
-    conversationId: conv.id,
-    modelId: targetModelId,
-    routerModelId,
-    skillId: 'none',
-    status: 'streaming',
-    startedAt: new Date(),
-  })
-
-  try {
-    await deductCredits({
-      userId: session.user.id,
-      generationRunId: genId,
-      modelId: targetModelId,
-      amount: cost,
-    })
-  } catch (e) {
-    await db.delete(generationRuns).where(eq(generationRuns.id, genId))
-    throw e
-  }
-
-  const history = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, conv.id))
-    .orderBy(asc(messages.createdAt))
-  const targetMessageIndex = history.findIndex(
-    (message) => message.id === msg.id,
-  )
-  const regenerationHistory = history.slice(0, targetMessageIndex)
-
-  const abortController = new AbortController()
-  controllers.set(genId, abortController)
-
-  const result = streamText({
-    model: nineRouter(routerModelId),
-    system: buildSystemPrompt({ skillId: 'none' }),
-    messages: regenerationHistory.map(
-      (m) =>
-        ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-        }) as ModelMessage,
-    ),
-    abortSignal: abortController.signal,
-    onFinish: async ({ text, usage }) => {
-      const u = usage as UsageLike
-      await db
-        .update(generationRuns)
-        .set({
-          content: text,
-          promptTokens: u?.inputTokens ?? null,
-          completionTokens: u?.outputTokens ?? null,
-          totalTokens: u?.totalTokens ?? null,
-          status: 'completed',
-          completedAt: new Date(),
-        })
-        .where(eq(generationRuns.id, genId))
-      await db
-        .update(messages)
-        .set({ content: text })
-        .where(eq(messages.id, assistantMsg.id))
-      controllers.delete(genId)
-    },
-  })
-
-  return createTextStreamResponse({
-    stream: toTextStream({
-      stream: (result as { stream: unknown }).stream as ReadableStream,
-    }),
-    headers: {
-      'X-Generation-Id': genId,
-      'X-Model-Id': targetModelId,
-      'X-Router-Model-Id': routerModelId,
-    },
-  })
 }

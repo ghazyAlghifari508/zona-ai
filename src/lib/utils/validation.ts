@@ -28,7 +28,6 @@ export const getConversationsSchema = z.object({
     .min(1)
     .max(CONVERSATIONS_MAX_PAGE_SIZE)
     .default(CONVERSATIONS_PAGE_SIZE),
-  includeArchived: z.boolean().default(false),
   search: z.string().trim().max(CONVERSATION_TITLE_MAX_LENGTH).optional(),
 })
 
@@ -46,7 +45,6 @@ export const updateConversationSchema = z.object({
 
 export const deleteConversationSchema = z.object({
   id: z.string().uuid(),
-  hard: z.boolean().default(false),
 })
 
 export const compareSchema = z

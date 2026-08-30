@@ -18,22 +18,28 @@ type Props = {
   onSelectConversation?: (id: string) => void
   activeConversationId?: string
   guest?: boolean
+  authState?: 'loading' | 'authenticated' | 'unauthenticated'
+  user?: { name?: string | null; email?: string | null } | null
   onSignIn?: () => void
   signingIn?: boolean
 }
 
 export function WorkspaceShell({
   children,
-  credits = 85,
+  credits = 0,
   onNewChat,
   onSelectConversation,
   activeConversationId,
   guest = false,
+  authState,
+  user,
   onSignIn,
   signingIn = false,
 }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const effectiveAuthState =
+    authState ?? (guest ? 'unauthenticated' : 'authenticated')
   return (
     <div className="flex h-screen overflow-hidden bg-pure-white">
       <button
@@ -51,7 +57,56 @@ export function WorkspaceShell({
           aria-hidden="true"
         />
       </button>
-      {guest ? (
+      {effectiveAuthState === 'loading' ? (
+        <aside
+          data-testid="loading-sidebar"
+          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+            collapsed ? 'w-[76px]' : 'w-[280px]'
+          }`}
+        >
+          <div className="flex h-full flex-col p-3">
+            <div
+              className={`flex items-center ${
+                collapsed ? 'justify-center' : 'gap-2'
+              }`}
+            >
+              {!collapsed ? (
+                <>
+                  <span
+                    data-testid="brand-mark"
+                    className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue"
+                  >
+                    ZA
+                  </span>
+                  <span className="min-w-0 flex-1 flex-col">
+                    <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
+                      ZonaAI
+                    </span>
+                    <span className="block text-[11px] text-graphite">
+                      Your intelligent space
+                    </span>
+                  </span>
+                </>
+              ) : (
+                <span
+                  data-testid="brand-mark"
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue"
+                >
+                  ZA
+                </span>
+              )}
+            </div>
+            {!collapsed && (
+              <div className="mt-6 flex-1 space-y-3 px-1">
+                <div className="h-9 w-full rounded-md bg-ink/5 animate-pulse" />
+                <div className="h-4 w-2/3 rounded bg-ink/5 animate-pulse" />
+                <div className="h-4 w-4/5 rounded bg-ink/5 animate-pulse" />
+                <div className="h-4 w-1/2 rounded bg-ink/5 animate-pulse" />
+              </div>
+            )}
+          </div>
+        </aside>
+      ) : effectiveAuthState === 'unauthenticated' ? (
         <aside
           data-testid="guest-sidebar"
           className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
@@ -196,6 +251,7 @@ export function WorkspaceShell({
       ) : (
         <Sidebar
           credits={credits}
+          user={user}
           onNewChat={onNewChat}
           onSelectConversation={onSelectConversation}
           activeConversationId={activeConversationId}
@@ -205,10 +261,8 @@ export function WorkspaceShell({
           onToggleCollapse={() => setCollapsed((v) => !v)}
         />
       )}
-      <main className="min-w-0 flex-1 overflow-y-auto bg-pure-white p-4 lg:p-6">
-        <div className="mx-auto h-full max-w-[920px] pt-12 lg:pt-0">
-          {children}
-        </div>
+      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-pure-white">
+        {children}
       </main>
     </div>
   )

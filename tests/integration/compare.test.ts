@@ -18,6 +18,7 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai')
   return {
     ...actual,
+    generateText: vi.fn(async () => ({ text: '' })),
     streamText: vi.fn((opts: Record<string, unknown>) => {
       const onFinish = opts.onFinish as
         | ((o: unknown) => Promise<void>)
@@ -85,9 +86,15 @@ describe.sequential('sendCompareMessage integration', () => {
       .where(eq(creditTransactions.userId, compareUserId))
     await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId))
     // Isolate: remove any dangling generations/comparisons for this user before truncating conversations
-    await db.execute(sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
-    await db.execute(sql`DELETE FROM comparison_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
-    await db.execute(sql`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
+    await db.execute(
+      sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`,
+    )
+    await db.execute(
+      sql`DELETE FROM comparison_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`,
+    )
+    await db.execute(
+      sql`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`,
+    )
     const convs = await db
       .select()
       .from(conversations)
@@ -116,9 +123,15 @@ describe.sequential('sendCompareMessage integration', () => {
       .delete(creditTransactions)
       .where(eq(creditTransactions.userId, compareUserId))
     await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId))
-    await db.execute(sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
-    await db.execute(sql`DELETE FROM comparison_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
-    await db.execute(sql`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
+    await db.execute(
+      sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`,
+    )
+    await db.execute(
+      sql`DELETE FROM comparison_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`,
+    )
+    await db.execute(
+      sql`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`,
+    )
     const convs = await db
       .select()
       .from(conversations)
@@ -161,7 +174,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const comps = await db
       .select()
       .from(comparisonRuns)
-      .innerJoin(conversations, eq(comparisonRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(comparisonRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     expect(comps.length).toBeGreaterThan(0)
     const latestComp = comps[comps.length - 1].comparison_runs
@@ -268,7 +284,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const gensJoined = await db
       .select()
       .from(generationRuns)
-      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(generationRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     const gens = gensJoined.map((row) => row.generation_runs)
     const target =
@@ -299,7 +318,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const compsJoined = await db
       .select()
       .from(comparisonRuns)
-      .innerJoin(conversations, eq(comparisonRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(comparisonRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     const comps = compsJoined.map((row) => row.comparison_runs)
     const comp = comps[comps.length - 1]
@@ -332,7 +354,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const gensBeforeJoined = await db
       .select()
       .from(generationRuns)
-      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(generationRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     const gensBefore = gensBeforeJoined
       .map((row) => row.generation_runs)
@@ -363,7 +388,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const allGensJoined = await db
       .select()
       .from(generationRuns)
-      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(generationRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     const allGens = allGensJoined.map((row) => row.generation_runs)
     expect(allGens.length).toBeGreaterThan(gensBefore.length)
@@ -388,7 +416,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const compsJoined2 = await db
       .select()
       .from(comparisonRuns)
-      .innerJoin(conversations, eq(comparisonRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(comparisonRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     const comps2 = compsJoined2.map((row) => row.comparison_runs)
     const comp = comps2[comps2.length - 1]
@@ -421,7 +452,10 @@ describe.sequential('sendCompareMessage integration', () => {
     const gensBeforeJoined = await db
       .select()
       .from(generationRuns)
-      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .innerJoin(
+        conversations,
+        eq(generationRuns.conversationId, conversations.id),
+      )
       .where(eq(conversations.userId, compareUserId))
     const gensBefore = gensBeforeJoined.map((row) => row.generation_runs)
     const streamingGen =

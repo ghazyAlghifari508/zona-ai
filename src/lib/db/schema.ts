@@ -86,7 +86,6 @@ export const conversations = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     title: text('title'),
     mode: text('mode').notNull().default('normal'),
-    isArchived: boolean('is_archived').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

@@ -1,12 +1,30 @@
 import { useEffect, useState } from 'react'
 import type { ModelCatalogEntry } from '@/lib/models/types'
 
+let cachedCatalog: ModelCatalogEntry[] = []
+let catalogRequest: Promise<ModelCatalogEntry[]> | null = null
+
+function loadModelCatalog() {
+  if (!catalogRequest) {
+    catalogRequest = import('@/server/functions/models')
+      .then(({ getModelCatalog }) => getModelCatalog())
+      .then((entries) => {
+        cachedCatalog = entries
+        return entries
+      })
+      .catch((error: unknown) => {
+        catalogRequest = null
+        throw error
+      })
+  }
+  return catalogRequest
+}
+
 export function useModelCatalog(): ModelCatalogEntry[] {
-  const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([])
+  const [catalog, setCatalog] = useState<ModelCatalogEntry[]>(cachedCatalog)
   useEffect(() => {
     let active = true
-    import('@/server/functions/models')
-      .then(({ getModelCatalog }) => getModelCatalog())
+    loadModelCatalog()
       .then((entries) => {
         if (active) setCatalog(entries)
       })

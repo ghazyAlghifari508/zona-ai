@@ -1,5 +1,4 @@
 import {
-  ArchiveIcon,
   Clock01Icon,
   Delete02Icon,
   Loading03Icon,
@@ -18,11 +17,11 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { authClient } from '../../lib/auth/auth-client'
 import { CONVERSATIONS_PAGE_SIZE } from '../../lib/utils/constants'
 import {
-  archiveConversation,
   createConversation,
   deleteConversation,
   getConversations,
@@ -56,6 +55,7 @@ type Props = {
   onMobileClose?: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  user?: { name?: string | null; email?: string | null } | null
 }
 
 type ConversationsCache = {
@@ -86,7 +86,7 @@ function updateCachedConversation(
 }
 
 export function Sidebar({
-  credits = 85,
+  credits = 0,
   onNewChat,
   onSelectConversation,
   activeConversationId,
@@ -94,6 +94,7 @@ export function Sidebar({
   onMobileClose,
   collapsed = false,
   onToggleCollapse,
+  user,
 }: Props) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -125,7 +126,6 @@ export function Sidebar({
       getConversations({
         data: {
           cursor: pageParam,
-          includeArchived: false,
           limit: CONVERSATIONS_PAGE_SIZE,
           search: debouncedSearch || undefined,
         },
@@ -164,30 +164,10 @@ export function Sidebar({
       queryClient.invalidateQueries({ queryKey: ['conversations'] }),
   })
 
-  const archiveMutation = useMutation({
-    mutationFn: (id: string) => archiveConversation({ data: { id } }),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['conversations'] })
-      const snapshots = queryClient.getQueriesData<ConversationsCache>({
-        queryKey: ['conversations'],
-      })
-      queryClient.setQueriesData<ConversationsCache>(
-        { queryKey: ['conversations'] },
-        (cache) => updateCachedConversation(cache, id, 'remove'),
-      )
-      return { snapshots }
-    },
-    onError: (_error, _variables, context) => {
-      for (const [key, cache] of context?.snapshots ?? [])
-        queryClient.setQueryData(key, cache)
-    },
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: ['conversations'] }),
-  })
+  const navigate = useNavigate()
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      deleteConversation({ data: { id, hard: false } }),
+    mutationFn: (id: string) => deleteConversation({ data: { id } }),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['conversations'] })
       const snapshots = queryClient.getQueriesData<ConversationsCache>({
@@ -204,6 +184,9 @@ export function Sidebar({
       for (const [key, cache] of context?.snapshots ?? [])
         queryClient.setQueryData(key, cache)
     },
+    onSuccess: (_data, deletedId) => {
+      if (deletedId === activeConversationId) void navigate({ to: '/' })
+    },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ['conversations'] }),
   })
@@ -219,8 +202,9 @@ export function Sidebar({
 
   const sessionQuery = authClient.useSession?.()
   const session = sessionQuery?.data
-  const userInitials = session?.user?.name
-    ? session.user.name
+  const currentUser = session?.user ?? user
+  const userInitials = currentUser?.name
+    ? currentUser.name
         .split(' ')
         .filter(Boolean)
         .map((n) => n[0])
@@ -484,17 +468,6 @@ export function Sidebar({
                         Rename
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onSelect={() => archiveMutation.mutate(conversation.id)}
-                      >
-                        <HugeiconsIcon
-                          icon={ArchiveIcon}
-                          size={14}
-                          strokeWidth={1.75}
-                          aria-hidden="true"
-                        />
-                        Archive
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
                         onSelect={() =>
                           setDeleteTarget({
                             id: conversation.id,
@@ -564,7 +537,7 @@ export function Sidebar({
               </span>
               <span className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <span className="truncate text-[13px] font-medium leading-[1.2] text-ink">
-                  {session?.user?.name ?? 'Pengguna'}
+                  {currentUser?.name ?? 'Pengguna'}
                 </span>
                 <span className="mt-0.5 inline-flex items-center">
                   <span className="inline-flex h-4 items-center rounded bg-sandstone/50 px-1.5 text-[10.5px] font-medium text-stone">

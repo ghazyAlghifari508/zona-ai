@@ -15,17 +15,14 @@ vi.mock('../../src/components/chat/useModelCatalog', () => ({
       provider: 'antigravity',
     },
   ],
-  findCatalogEntry: (
-    catalog: Array<{ id: string }>,
-    modelId?: string,
-  ) => catalog.find((entry) => entry.id === modelId) ?? null,
+  findCatalogEntry: (catalog: Array<{ id: string }>, modelId?: string) =>
+    catalog.find((entry) => entry.id === modelId) ?? null,
 }))
 
 describe('assistant message actions', () => {
   afterEach(cleanup)
 
-  it('shows the actual routed model and regenerates that response', () => {
-    const onRegenerate = vi.fn()
+  it('shows the actual routed model for the response', () => {
     render(
       <MessageList
         messages={[
@@ -37,14 +34,11 @@ describe('assistant message actions', () => {
             routerModelId: 'ag/gemini-test',
           },
         ]}
-        onRegenerate={onRegenerate}
       />,
     )
 
     expect(screen.getByText('Gemini')).toBeTruthy()
     expect(screen.getByAltText('Google Gemini')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Jawab ulang' }))
-    expect(onRegenerate).toHaveBeenCalledWith('assistant-1')
   })
 
   it('copies the assistant response', () => {

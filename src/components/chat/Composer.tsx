@@ -61,7 +61,7 @@ export function Composer({
   onSendCompare,
   onStop,
   isStreaming = false,
-  credits = 100,
+  credits = 0,
   initialModel = 'auto',
   initialSkill = 'none',
   compareModelIds = [],

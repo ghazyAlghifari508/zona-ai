@@ -14,6 +14,8 @@ import {
   users,
 } from '../../src/lib/db/schema'
 
+const mockState = vi.hoisted(() => ({ titleFailure: false }))
+
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai')
   return {
@@ -23,8 +25,14 @@ vi.mock('ai', async () => {
         | ((o: unknown) => Promise<void>)
         | undefined
       const onChunk = opts.onChunk as (() => void) | undefined
-      const fakeText = 'Hello mocked response'
+      const isTitleCall = String(opts.system ?? '').includes('title')
+      const fakeText = isTitleCall
+        ? 'Judul AI Otomatis'
+        : 'Hello mocked response'
       const fakeUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
+      if (isTitleCall && mockState.titleFailure) {
+        return { text: Promise.reject(new Error('router down')) }
+      }
       if (onChunk) onChunk()
       if (onFinish) {
         setTimeout(() => {
@@ -294,7 +302,7 @@ describe('sendMessage integration', () => {
     ).rejects.toMatchObject({ status: 403 })
   })
 
-  it('auto-titles a new conversation and advances updatedAt', async () => {
+  it('auto-titles a new conversation from the AI answer and advances updatedAt', async () => {
     const previousUpdatedAt = new Date('2026-01-01T00:00:00Z')
     const [conversation] = await db
       .insert(conversations)
@@ -318,61 +326,56 @@ describe('sendMessage integration', () => {
       request,
     })
     await response.text()
-    const [updated] = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.id, conversation.id))
-
-    expect(updated.title).toBe('Judul otomatis')
-    expect(updated.updatedAt?.getTime()).toBeGreaterThan(
-      previousUpdatedAt.getTime(),
-    )
+    await vi.waitFor(async () => {
+      const [updated] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, conversation.id))
+      expect(updated.title).toBe('Judul AI Otomatis')
+      expect(updated.updatedAt?.getTime()).toBeGreaterThan(
+        previousUpdatedAt.getTime(),
+      )
+    })
   })
 
-  it('regenerates with the original response model as a text stream', async () => {
+  it('falls back to the first-line placeholder when AI titling fails', async () => {
+    mockState.titleFailure = true
+    const previousUpdatedAt = new Date('2026-01-01T00:00:00Z')
     const [conversation] = await db
       .insert(conversations)
-      .values({ userId: mockUserId, title: 'Regenerate' })
-      .returning()
-    await db.insert(messages).values({
-      conversationId: conversation.id,
-      role: 'user',
-      content: 'Original prompt',
-    })
-    const [assistant] = await db
-      .insert(messages)
       .values({
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: 'Original answer',
+        userId: mockUserId,
+        title: 'New Chat',
+        updatedAt: previousUpdatedAt,
       })
       .returning()
-    await db.insert(generationRuns).values({
-      messageId: assistant.id,
-      conversationId: conversation.id,
-      modelId: 'gemini-3.7-flash-high',
-      routerModelId: 'ag/gemini-3.7-flash-high',
-      status: 'completed',
+    const { sendMessageCore } = await import('../../src/server/core/chat')
+    const request = new Request('http://localhost:3000', {
+      headers: { 'x-test-user': mockUserId },
     })
-    const { regenerateMessageCore } = await import('../../src/server/core/chat')
-
-    const response = await regenerateMessageCore({
-      messageId: assistant.id,
-      request: new Request('http://localhost:3000', {
-        headers: { 'x-test-user': mockUserId },
-      }),
+    const response = await sendMessageCore({
+      data: {
+        conversationId: conversation.id,
+        modelId: 'auto',
+        content: 'Judul otomatis\nbaris kedua',
+        skillId: 'none',
+      },
+      request,
     })
-
-    expect(response.headers.get('Content-Type')).toContain('text/plain')
     await response.text()
-    const runs = await db
-      .select()
-      .from(generationRuns)
-      .where(eq(generationRuns.conversationId, conversation.id))
-    expect(runs.at(-1)?.modelId).toBe('gemini-3.7-flash-high')
+    await vi.waitFor(async () => {
+      const [updated] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, conversation.id))
+      expect(updated.title).toBe('Judul otomatis')
+      expect(updated.updatedAt?.getTime()).toBeGreaterThan(
+        previousUpdatedAt.getTime(),
+      )
+    })
   })
 
-  it('getModels returns 3', async () => {
+  it('getModels returns 5', async () => {
     const { getModelsCore } = await import('../../src/server/core/models')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
@@ -382,6 +385,6 @@ describe('sendMessage integration', () => {
       user: { id: mockUserId, email: 'test1@example.com' },
     } as never)
     const models = (await getModelsCore({ request })) as unknown as unknown[]
-    expect(models.length).toBe(3)
+    expect(models.length).toBe(5)
   })
 })

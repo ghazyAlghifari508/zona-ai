@@ -39,7 +39,9 @@ test('home renders the public chat workspace instead of a poster', async ({
   const masukBox = await masukButton.boundingBox()
   const viewportWidth = await page.evaluate(() => window.innerWidth)
   expect(masukBox).not.toBeNull()
-  expect(viewportWidth - (masukBox?.x ?? 0) - (masukBox?.width ?? 0)).toBeLessThanOrEqual(80)
+  expect(
+    viewportWidth - (masukBox?.x ?? 0) - (masukBox?.width ?? 0),
+  ).toBeLessThanOrEqual(80)
 
   const sidebarBox = await page.getByTestId('guest-sidebar').boundingBox()
   const newChatBox = await page.getByTestId('guest-new-chat').boundingBox()
@@ -92,13 +94,17 @@ test('home renders the public chat workspace instead of a poster', async ({
   await page.getByRole('heading', { level: 1 }).click()
   await page.waitForTimeout(150)
   // Allow both rgba and oklab computed representations; ensure old tokens are gone and new hairline is applied
-  const beforeBorder = await page.getByTestId('composer').evaluate((el) => getComputedStyle(el).borderColor)
+  const beforeBorder = await page
+    .getByTestId('composer')
+    .evaluate((el) => getComputedStyle(el).borderColor)
   expect(beforeBorder).not.toBe('rgb(213, 213, 212)')
   expect(beforeBorder).not.toBe('rgb(142, 212, 98)')
   // hairline-strong is rgba(0,0,0,0.12) - may appear as oklab; just verify it's not the old fresh-grass and contains expected alpha pattern
   expect(beforeBorder).toMatch(/0\.12|0\.236|0\.08|0\.124/)
   // More strict: check class indicates hairline-strong
-  await expect(page.getByTestId('composer')).toHaveClass(/border-hairline-strong/)
+  await expect(page.getByTestId('composer')).toHaveClass(
+    /border-hairline-strong/,
+  )
 
   await page.getByTestId('composer-input').click()
   await expect(page.getByTestId('composer-input')).toBeFocused()
@@ -107,8 +113,18 @@ test('home renders the public chat workspace instead of a poster', async ({
     'none',
   )
   // Wait for focus-within to apply (transition 200ms)
-  await expect.poll(async () => await page.getByTestId('composer').evaluate((el) => getComputedStyle(el).borderColor), { timeout: 5000 }).toMatch(/0\.3/)
-  await expect(page.getByTestId('composer')).toHaveClass(/focus-within:border-ink\/30/)
+  await expect
+    .poll(
+      async () =>
+        await page
+          .getByTestId('composer')
+          .evaluate((el) => getComputedStyle(el).borderColor),
+      { timeout: 5000 },
+    )
+    .toMatch(/0\.3/)
+  await expect(page.getByTestId('composer')).toHaveClass(
+    /focus-within:border-ink\/30/,
+  )
 
   await page.getByTestId('skill-selector-trigger').click()
   await expect(page.getByText('PILIH SKILL')).toBeVisible()
@@ -130,7 +146,9 @@ test('home renders the public chat workspace instead of a poster', async ({
   // Ensure sidebar closed on mobile before interacting with composer (overlay would intercept)
   if (isMobileViewport) {
     // guest-new-chat auto-closes sidebar, but wait for it to hide
-    await expect(page.getByTestId('guest-sidebar')).toBeHidden({ timeout: 5000 }).catch(() => {})
+    await expect(page.getByTestId('guest-sidebar'))
+      .toBeHidden({ timeout: 5000 })
+      .catch(() => {})
   }
 
   await page.getByTestId('model-selector-trigger').click()
@@ -154,22 +172,44 @@ test('starter cards prefill the composer', async ({ page }) => {
   // Ensure composer is ready
   await expect(page.getByTestId('composer-input')).toBeVisible()
   await page.getByTestId('starter-build').click()
-  await expect(page
-    .getByTestId('composer-input'))
-    .toHaveValue('Bantu saya merancang aplikasi AI dari nol', { timeout: 10000 })
+  await expect(page.getByTestId('composer-input')).toHaveValue(
+    'Bantu saya merancang aplikasi AI dari nol',
+    { timeout: 10000 },
+  )
   await expect(page.getByTestId('composer-input')).toBeFocused()
 })
 
-test('sidebar collapses to icon rail on desktop', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'chromium', 'Desktop only - collapse button is lg:flex')
+test('sidebar collapses to icon rail on desktop', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium',
+    'Desktop only - collapse button is lg:flex',
+  )
   await page.goto('/')
   await page.waitForLoadState('networkidle')
   await expect(page.getByTestId('sidebar-collapse')).toBeVisible()
   // Ensure React hydration complete
   await page.waitForTimeout(300)
   await page.getByTestId('sidebar-collapse').click()
-  await expect.poll(async () => await page.getByTestId('guest-sidebar').evaluate((el) => getComputedStyle(el).width), { timeout: 5000 }).toBe('76px')
+  await expect
+    .poll(
+      async () =>
+        await page
+          .getByTestId('guest-sidebar')
+          .evaluate((el) => getComputedStyle(el).width),
+      { timeout: 5000 },
+    )
+    .toBe('76px')
   await expect(page.getByTestId('brand-mark')).toBeVisible()
   await page.getByTestId('sidebar-collapse').click()
-  await expect.poll(async () => await page.getByTestId('guest-sidebar').evaluate((el) => getComputedStyle(el).width), { timeout: 5000 }).toBe('280px')
+  await expect
+    .poll(
+      async () =>
+        await page
+          .getByTestId('guest-sidebar')
+          .evaluate((el) => getComputedStyle(el).width),
+      { timeout: 5000 },
+    )
+    .toBe('280px')
 })
