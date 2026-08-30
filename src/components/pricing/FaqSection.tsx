@@ -1,3 +1,6 @@
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import {
   Accordion,
@@ -139,6 +142,21 @@ export function FaqSection() {
             </AccordionItem>
           ))}
         </Accordion>
+      </div>
+
+      <div className="mt-8 flex justify-center">
+        <Link
+          to="/pricing"
+          className="inline-flex items-center gap-2 rounded-full bg-notion-blue px-5 py-2.5 text-[13px] font-semibold text-pure-white transition-all duration-200 hover:bg-blue-hover active:scale-95"
+        >
+          Lihat Paket & Harga
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            size={14}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+        </Link>
       </div>
     </div>
   )
