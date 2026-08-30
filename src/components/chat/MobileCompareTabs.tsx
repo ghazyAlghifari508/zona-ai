@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react'
 import { ModelColumn } from './ModelColumn'
+import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 type Generation = {
   id: string
@@ -24,6 +25,7 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
   const [active, setActive] = useState(generations[0]?.id ?? '')
   // touch swipe handling
   const [touchStart, setTouchStart] = useState<number | null>(null)
+  const catalog = useModelCatalog()
 
   const activeIndex = generations.findIndex((g) => g.id === active)
   const safeActive = active || generations[0]?.id
@@ -55,20 +57,20 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="flex rounded-full border border-hairline-mist bg-pure-white p-1 gap-1 overflow-x-auto">
+      <div className="flex gap-1 overflow-x-auto rounded-full border border-hairline bg-pure-white p-1">
         {generations.map((g) => (
           <button
             key={g.id}
             type="button"
             data-testid={`tab-${g.modelId}`}
             onClick={() => setActive(g.id)}
-            className={`flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${
+            className={`flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-xs ${
               safeActive === g.id
-                ? 'bg-sandstone border border-ink-black text-ink-black'
-                : 'text-stone-deep hover:text-ink-black border border-transparent'
+                ? 'bg-sky-tint font-bold text-notion-blue'
+                : 'border border-transparent text-stone hover:text-ink'
             }`}
           >
-            {g.modelId}
+            {findCatalogEntry(catalog, g.modelId)?.displayName ?? g.modelId}
           </button>
         ))}
       </div>
@@ -85,7 +87,7 @@ export function MobileCompareTabs({ generations, onRetry, onStop }: Props) {
         {generations.map((g) => (
           <span
             key={g.id}
-            className={`h-1.5 w-1.5 rounded-full ${safeActive === g.id ? 'bg-ink-black' : 'bg-hairline-mist'}`}
+            className={`h-1.5 w-1.5 rounded-full ${safeActive === g.id ? 'bg-ink' : 'bg-hairline-strong'}`}
           />
         ))}
       </div>

@@ -1,11 +1,15 @@
-﻿import { Bot, Copy, RotateCw, Square, Timer } from 'lucide-react'
+﻿import { Copy01Icon, ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
+import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { InlineError } from './InlineError'
+import { TypingDots } from './TypingDots'
+import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 type Generation = {
   id: string
@@ -31,16 +35,8 @@ type Props = {
 
 export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   const [copied, setCopied] = useState(false)
-  const statusDotClass =
-    generation.status === 'streaming'
-      ? 'bg-fresh-grass'
-      : generation.status === 'completed'
-        ? 'bg-stone-gray'
-        : generation.status === 'failed'
-          ? 'bg-coral-pop'
-          : generation.status === 'cancelled'
-            ? 'bg-hairline-mist'
-            : 'bg-sandstone'
+  const catalog = useModelCatalog()
+  const entry = findCatalogEntry(catalog, generation.modelId)
 
   const handleCopy = async () => {
     if (generation.content) {
@@ -54,30 +50,19 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   return (
     <div
       data-testid="model-column"
-      className="flex min-h-[400px] flex-col rounded-[50px] border border-hairline-mist bg-pure-white"
+      className="flex min-h-[400px] flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white"
     >
-      <div className="sticky top-0 flex items-center justify-between rounded-t-[50px] border-b border-hairline-mist bg-pure-white p-3">
+      <div className="sticky top-0 flex items-center justify-between rounded-t-lg border-b border-hairline bg-pure-white p-3">
         <div className="flex items-center gap-2">
-          <Bot size={16} strokeWidth={1.75} className="text-ink-black" />
-          <span className="text-[15px] font-medium text-ink-black">
-            {generation.modelId}
+          <span className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
+            <ProviderIcon
+              provider={entry?.provider ?? 'zona-router'}
+              size={13}
+            />
           </span>
-          <span
-            className={`h-2 w-2 rounded-full ${statusDotClass}`}
-            data-testid={`status-dot-${generation.status}`}
-          />
-          {generation.status === 'streaming' && (
-            <span className="text-xs text-stone-deep">Streaming</span>
-          )}
-          {generation.status === 'completed' && (
-            <span className="text-xs text-stone-deep">Completed</span>
-          )}
-          {generation.status === 'failed' && (
-            <span className="text-xs text-stone-deep">Failed</span>
-          )}
-          {generation.status === 'cancelled' && (
-            <span className="text-xs text-stone-deep">Cancelled</span>
-          )}
+          <span className="text-[14px] font-semibold text-ink">
+            {entry?.displayName ?? generation.modelId}
+          </span>
         </div>
         <div className="flex items-center gap-1">
           {generation.status === 'failed' && onRetry && (
@@ -85,9 +70,10 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               type="button"
               data-testid={`retry-${generation.id}`}
               onClick={() => onRetry(generation.id)}
-              className="inline-flex items-center gap-1 rounded-full border border-hairline-mist bg-pure-white px-2 py-1 text-xs text-ink-black hover:bg-sandstone"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-notion-blue hover:bg-ink/5"
             >
-              <RotateCw size={14} strokeWidth={1.75} /> Coba lagi
+              <HugeiconsIcon icon={ReloadIcon} size={14} strokeWidth={1.75} />{' '}
+              Coba lagi
             </button>
           )}
           {generation.status === 'streaming' && onStop && (
@@ -95,28 +81,33 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               type="button"
               data-testid={`stop-${generation.id}`}
               onClick={() => onStop(generation.id)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-ink-black hover:bg-sandstone"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-stone hover:bg-ink/5 hover:text-ink"
               aria-label="Stop"
             >
-              <Square size={14} strokeWidth={1.75} fill="currentColor" />
+              <HugeiconsIcon
+                icon={StopIcon}
+                size={14}
+                strokeWidth={1.75}
+                fill="currentColor"
+              />
             </button>
           )}
           {generation.status === 'completed' && generation.content && (
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-stone-deep hover:bg-sandstone hover:text-ink-black"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-stone hover:bg-ink/5 hover:text-ink"
               aria-label="Copy"
               data-testid={`copy-${generation.id}`}
             >
-              <Copy size={14} strokeWidth={1.75} />
+              <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />
             </button>
           )}
-          {copied && <span className="text-xs text-stone-deep">Copied</span>}
+          {copied && <span className="text-xs text-stone">Tersalin</span>}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
         {generation.status === 'failed' ? (
           <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
             <InlineError
@@ -136,27 +127,32 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               <button
                 type="button"
                 onClick={() => onRetry(generation.id)}
-                className="inline-flex items-center gap-1 rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-1.5 text-sm text-ink-black hover:bg-sandstone"
+                className="inline-flex items-center gap-1 rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
               >
-                <RotateCw size={14} strokeWidth={1.75} aria-hidden="true" />{' '}
+                <HugeiconsIcon
+                  icon={ReloadIcon}
+                  size={14}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />{' '}
                 Coba lagi
               </button>
             )}
           </div>
         ) : generation.status === 'queued' ? (
           <div className="space-y-2">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-sandstone motion-reduce:animate-none" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-sandstone motion-reduce:animate-none" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-paper motion-reduce:animate-none" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-paper motion-reduce:animate-none" />
           </div>
         ) : (
           <>
-            <div className="prose prose-sm max-w-none text-[15px] leading-relaxed text-ink-black">
+            <div className="prose prose-sm max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
               {generation.reasoningContent && (
-                <details className="mb-2 rounded-[10px] border border-hairline-mist bg-cream-paper p-2">
-                  <summary className="cursor-pointer text-xs text-stone-deep">
+                <details className="mb-2 rounded-md border border-hairline bg-paper p-2">
+                  <summary className="cursor-pointer text-xs text-stone">
                     Reasoning
                   </summary>
-                  <div className="mt-1 text-sm text-ink-black">
+                  <div className="mt-1 text-sm text-ink">
                     {generation.reasoningContent}
                   </div>
                 </details>
@@ -171,7 +167,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                       if (isBlock)
                         return <CodeBlock>{String(children)}</CodeBlock>
                       return (
-                        <code className="rounded bg-sandstone px-1 py-0.5 text-[14px]">
+                        <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
                           {children}
                         </code>
                       )
@@ -182,9 +178,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                   {generation.content}
                 </ReactMarkdown>
               ) : generation.status === 'streaming' ? (
-                <span className="inline-block animate-pulse text-stone-deep motion-reduce:animate-none">
-                  â–Œ Menunggu model...
-                </span>
+                <TypingDots />
               ) : null}
             </div>
             {generation.webSources && generation.webSources.length > 0 && (
@@ -192,15 +186,6 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
             )}
           </>
         )}
-      </div>
-
-      <div className="flex items-center gap-2 border-t border-hairline-mist p-3 text-xs text-stone-deep">
-        <Timer size={12} strokeWidth={1.75} />
-        <span>{generation.totalTokens ?? '-'} tokens</span>
-        <span>Â·</span>
-        <span>{generation.timeToFirstTokenMs ?? '-'}ms TTFT</span>
-        <span>Â·</span>
-        <span>{generation.latencyMs ?? '-'}ms</span>
       </div>
     </div>
   )

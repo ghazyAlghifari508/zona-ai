@@ -55,8 +55,10 @@ export function CompareGrid({
   return (
     <div className="space-y-4">
       {prompt && (
-        <div className="text-center text-[15px] text-stone-deep">
-          You: {prompt}
+        <div className="flex w-full justify-end">
+          <div className="max-w-[70%] rounded-lg border border-hairline bg-pure-white px-3 py-2 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
+            {prompt}
+          </div>
         </div>
       )}
       <div
