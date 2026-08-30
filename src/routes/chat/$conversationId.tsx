@@ -737,10 +737,10 @@ function ChatThread() {
             ) : (
               <div className="flex flex-1 items-center justify-center py-10 text-center">
                 <div>
-                  <h2 className="text-[20px] font-medium text-ink-black">
+                  <h2 className="text-[20px] font-medium text-ink">
                     Compare Mode
                   </h2>
-                  <p className="mt-1 text-[15px] text-stone-deep">
+                  <p className="mt-1 text-[15px] text-stone">
                     Pilih 2-4 model dan kirim prompt yang sama.
                   </p>
                 </div>

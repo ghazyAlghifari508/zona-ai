@@ -29,19 +29,6 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 18px;
-
-  /* === Legacy MindMarket colors — dihapus di Task 11 === */
-  --color-fresh-grass: #8ed462;
-  --color-cream-paper: #f5f1e4;
-  --color-ink-black: #2c2e2a;
-  --color-sandstone: #e0dbce;
-  --color-stone-gray: #80827f;
-  --color-stone-deep: #6a6c68;
-  --color-hairline-mist: #d5d5d4;
-  --color-pure-ink: #000000;
-  --color-sky-pop: #2ba0ff;
-  --color-coral-pop: #ff705d;
-  --color-sunshine-pop: #f5e211;
 }
 
 body {
