@@ -10,24 +10,26 @@ import {
   users,
 } from '../../src/lib/db/schema'
 
-const userId = 'phase-04-e2e-user'
-const email = 'phase-04-e2e@example.com'
+const scopedUserId = () => `phase-04-e2e-${test.info().project.name}`
+const scopedEmail = (id: string) => `${id}@example.com`
 
 async function clearConversations() {
-  await db.delete(conversations).where(eq(conversations.userId, userId))
+  await db.delete(conversations).where(eq(conversations.userId, scopedUserId()))
 }
 
 test.beforeAll(async () => {
-  await db.delete(users).where(eq(users.id, userId))
+  await db.delete(users).where(eq(users.id, scopedUserId()))
 })
 
 test.afterAll(async () => {
-  await db.delete(users).where(eq(users.id, userId))
+  await db.delete(users).where(eq(users.id, scopedUserId()))
 })
 
 test.beforeEach(async ({ context }) => {
   await clearConversations()
   const authContext = await auth.$context
+  const userId = scopedUserId()
+  const email = scopedEmail(userId)
   await db
     .insert(users)
     .values({ id: userId, email, name: 'Phase 04 E2E' })
@@ -87,6 +89,7 @@ test('empty state creates a persistent conversation', async ({ page }) => {
 test('searches, renames, archives, and deletes conversations', async ({
   page,
 }) => {
+  const userId = scopedUserId()
   await db.insert(conversations).values([
     { userId, title: 'Alpha project' },
     { userId, title: 'Beta project' },
@@ -123,6 +126,7 @@ test('searches, renames, archives, and deletes conversations', async ({
 test('reload restores messages and virtualizes a long thread', async ({
   page,
 }) => {
+  const userId = scopedUserId()
   const [conversation] = await db
     .insert(conversations)
     .values({ userId, title: 'Long thread' })
