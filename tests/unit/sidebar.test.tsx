@@ -1,4 +1,4 @@
-﻿import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
   fireEvent,
@@ -228,4 +228,57 @@ describe('Sidebar persistence', () => {
     )
     expect(routerMocks.navigate).not.toHaveBeenCalled()
   })
+
+  it('renders only toggle, new chat, and logout when collapsed', async () => {
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: '10000000-0000-4000-8000-000000000020',
+          title: 'Hidden Thread in Collapsed',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+
+    const onToggleCollapse = vi.fn()
+    const onNewChat = vi.fn()
+
+    const { rerender } = render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Sidebar
+          collapsed={true}
+          onToggleCollapse={onToggleCollapse}
+          onNewChat={onNewChat}
+        />
+      </QueryClientProvider>,
+    )
+
+    // Essential collapsed items exist
+    expect(screen.getByTestId('sidebar-collapse')).toBeTruthy()
+    expect(screen.getByTestId('new-chat-button')).toBeTruthy()
+    expect(screen.getByTestId('sidebar-logout')).toBeTruthy()
+
+    // Non-collapsed items must NOT exist
+    expect(screen.queryByRole('searchbox')).toBeNull()
+    expect(screen.queryByRole('navigation', { name: 'Riwayat percakapan' })).toBeNull()
+    expect(screen.queryByText('Recent')).toBeNull()
+    expect(screen.queryByText('Hidden Thread in Collapsed')).toBeNull()
+
+    // When expanded back
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <Sidebar
+          collapsed={false}
+          onToggleCollapse={onToggleCollapse}
+          onNewChat={onNewChat}
+        />
+      </QueryClientProvider>,
+    )
+
+    // Items re-appear
+    expect(screen.getByRole('searchbox')).toBeTruthy()
+    expect(await screen.findByText('Hidden Thread in Collapsed')).toBeTruthy()
+  })
 })
+

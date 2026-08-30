@@ -3,7 +3,6 @@ import {
   Delete02Icon,
   Loading03Icon,
   Logout01Icon,
-  Message01Icon,
   MoreHorizontalIcon,
   PencilEdit01Icon,
   PlusSignIcon,
@@ -325,92 +324,76 @@ export function Sidebar({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {!collapsed && (
-          <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
-            Recent
-          </p>
-        )}
-        {conversationsQuery.isPending ? (
-          !collapsed ? (
-            <div className="space-y-2" role="status">
-              <span className="sr-only">Memuat percakapan</span>
-              {[0, 1, 2].map((item) => (
-                <div
-                  key={item}
-                  className="h-14 animate-pulse rounded-md bg-paper motion-reduce:animate-none"
-                />
-              ))}
-            </div>
-          ) : null
-        ) : conversationsQuery.isError ? (
-          !collapsed ? (
-            <p className="rounded-md border border-hairline p-3 text-[13px] text-stone">
-              Gagal memuat percakapan.
+          <>
+            <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
+              Recent
             </p>
-          ) : null
-        ) : conversationItems.length === 0 ? (
-          !collapsed ? (
-            <div className="rounded-md border border-hairline bg-pure-white p-4 text-center">
-              <p className="text-[13px] font-medium text-ink">
-                {debouncedSearch ? 'No results found' : 'Belum ada percakapan'}
-              </p>
-              {!debouncedSearch && (
-                <p className="mt-1 text-[12px] text-stone">
-                  Mulai chat baru untuk melihat riwayat di sini.
-                </p>
-              )}
-            </div>
-          ) : null
-        ) : (
-          <nav aria-label="Riwayat percakapan" className="space-y-0.5">
-            {conversationItems.map((conversation) => (
-              <div
-                key={conversation.id}
-                className={`group flex items-center rounded-md transition-colors duration-200 ${
-                  activeConversationId === conversation.id
-                    ? 'bg-pure-white shadow-[inset_0_0_0_1px_var(--color-hairline)]'
-                    : 'hover:bg-ink/5'
-                }`}
-              >
-                {editingId === conversation.id && !collapsed ? (
-                  <input
-                    ref={editingInputRef}
-                    aria-label={`Rename ${conversation.title ?? 'New Chat'}`}
-                    value={editTitle}
-                    maxLength={100}
-                    onChange={(event) => setEditTitle(event.target.value)}
-                    onBlur={() => submitRename(conversation.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') submitRename(conversation.id)
-                      if (event.key === 'Escape') setEditingId(null)
-                    }}
-                    className="m-1 min-w-0 flex-1 rounded-md border border-hairline bg-pure-white px-2 py-1 text-[13px] text-ink outline-none focus-visible:border-notion-blue"
+            {conversationsQuery.isPending ? (
+              <div className="space-y-2" role="status">
+                <span className="sr-only">Memuat percakapan</span>
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="h-14 animate-pulse rounded-md bg-paper motion-reduce:animate-none"
                   />
-                ) : (
-                  <button
-                    type="button"
-                    title={conversation.title ?? 'New Chat'}
-                    onClick={() => {
-                      onMobileClose?.()
-                      if (onSelectConversation)
-                        onSelectConversation(conversation.id)
-                      else window.location.assign(`/chat/${conversation.id}`)
-                    }}
-                    className={
-                      collapsed
-                        ? 'flex w-full items-center justify-center p-2'
-                        : 'flex min-w-0 flex-1 flex-col items-start px-2.5 py-1.5 text-left'
-                    }
+                ))}
+              </div>
+            ) : conversationsQuery.isError ? (
+              <p className="rounded-md border border-hairline p-3 text-[13px] text-stone">
+                Gagal memuat percakapan.
+              </p>
+            ) : conversationItems.length === 0 ? (
+              <div className="rounded-md border border-hairline bg-pure-white p-4 text-center">
+                <p className="text-[13px] font-medium text-ink">
+                  {debouncedSearch
+                    ? 'No results found'
+                    : 'Belum ada percakapan'}
+                </p>
+                {!debouncedSearch && (
+                  <p className="mt-1 text-[12px] text-stone">
+                    Mulai chat baru untuk melihat riwayat di sini.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <nav aria-label="Riwayat percakapan" className="space-y-0.5">
+                {conversationItems.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`group flex items-center rounded-md transition-colors duration-200 ${
+                      activeConversationId === conversation.id
+                        ? 'bg-pure-white shadow-[inset_0_0_0_1px_var(--color-hairline)]'
+                        : 'hover:bg-ink/5'
+                    }`}
                   >
-                    {collapsed ? (
-                      <HugeiconsIcon
-                        icon={Message01Icon}
-                        size={16}
-                        strokeWidth={1.75}
-                        className="text-ink/60"
-                        aria-hidden="true"
+                    {editingId === conversation.id ? (
+                      <input
+                        ref={editingInputRef}
+                        aria-label={`Rename ${conversation.title ?? 'New Chat'}`}
+                        value={editTitle}
+                        maxLength={100}
+                        onChange={(event) => setEditTitle(event.target.value)}
+                        onBlur={() => submitRename(conversation.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter')
+                            submitRename(conversation.id)
+                          if (event.key === 'Escape') setEditingId(null)
+                        }}
+                        className="m-1 min-w-0 flex-1 rounded-md border border-hairline bg-pure-white px-2 py-1 text-[13px] text-ink outline-none focus-visible:border-notion-blue"
                       />
                     ) : (
-                      <>
+                      <button
+                        type="button"
+                        title={conversation.title ?? 'New Chat'}
+                        onClick={() => {
+                          onMobileClose?.()
+                          if (onSelectConversation)
+                            onSelectConversation(conversation.id)
+                          else
+                            window.location.assign(`/chat/${conversation.id}`)
+                        }}
+                        className="flex min-w-0 flex-1 flex-col items-start px-2.5 py-1.5 text-left"
+                      >
                         <span className="w-full truncate text-[13px] font-medium leading-[1.3] text-ink/80 group-hover:text-ink">
                           {conversation.title ?? 'New Chat'}
                         </span>
@@ -430,90 +413,94 @@ export function Sidebar({
                               : ''}
                           </span>
                         </span>
-                      </>
-                    )}
-                  </button>
-                )}
-                {!collapsed && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
-                        className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100"
-                      >
-                        <HugeiconsIcon
-                          icon={MoreHorizontalIcon}
-                          size={16}
-                          strokeWidth={1.75}
-                          aria-hidden="true"
-                        />
                       </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          window.requestAnimationFrame(() => {
-                            setEditingId(conversation.id)
-                            setEditTitle(conversation.title ?? 'New Chat')
-                          })
-                        }}
-                      >
-                        <HugeiconsIcon
-                          icon={PencilEdit01Icon}
-                          size={14}
-                          strokeWidth={1.75}
-                          aria-hidden="true"
-                        />
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() =>
-                          setDeleteTarget({
-                            id: conversation.id,
-                            title: conversation.title ?? 'New Chat',
-                          })
-                        }
-                      >
-                        <HugeiconsIcon
-                          icon={Delete02Icon}
-                          size={14}
-                          strokeWidth={1.75}
-                          aria-hidden="true"
-                        />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            ))}
-          </nav>
-        )}
-        {!collapsed && conversationsQuery.hasNextPage && (
-          <button
-            type="button"
-            onClick={() => conversationsQuery.fetchNextPage()}
-            disabled={conversationsQuery.isFetchingNextPage}
-            className="mt-3 w-full rounded-md border border-hairline px-3 py-2 text-[12px] text-ink/60 hover:bg-ink/5"
-          >
-            {conversationsQuery.isFetchingNextPage ? 'Memuat...' : 'Load more'}
-          </button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
+                          className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100"
+                        >
+                          <HugeiconsIcon
+                            icon={MoreHorizontalIcon}
+                            size={16}
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            window.requestAnimationFrame(() => {
+                              setEditingId(conversation.id)
+                              setEditTitle(conversation.title ?? 'New Chat')
+                            })
+                          }}
+                        >
+                          <HugeiconsIcon
+                            icon={PencilEdit01Icon}
+                            size={14}
+                            strokeWidth={1.75}
+                            className="mr-2"
+                            aria-hidden="true"
+                          />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            setDeleteTarget({
+                              id: conversation.id,
+                              title: conversation.title ?? 'New Chat',
+                            })
+                          }
+                          className="text-coral focus:text-coral"
+                        >
+                          <HugeiconsIcon
+                            icon={Delete02Icon}
+                            size={14}
+                            strokeWidth={1.75}
+                            className="mr-2"
+                            aria-hidden="true"
+                          />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </nav>
+            )}
+            {conversationsQuery.hasNextPage && (
+              <button
+                type="button"
+                onClick={() => void conversationsQuery.fetchNextPage()}
+                disabled={conversationsQuery.isFetchingNextPage}
+                className="mt-3 w-full rounded-md border border-hairline px-3 py-2 text-[12px] text-ink/60 hover:bg-ink/5"
+              >
+                {conversationsQuery.isFetchingNextPage
+                  ? 'Memuat...'
+                  : 'Load more'}
+              </button>
+            )}
+          </>
         )}
       </div>
 
       <div className="border-t border-hairline bg-sidebar">
         {!collapsed && <CreditWidget credits={credits} />}
         <div
-          className={`border-t border-hairline ${
-            collapsed ? 'p-2' : 'px-3.5 py-2.5'
-          }`}
+          className={
+            collapsed ? 'p-2' : 'border-t border-hairline px-3.5 py-2.5'
+          }
         >
           {collapsed ? (
             <button
               type="button"
               data-testid="sidebar-logout"
               title="Keluar"
+              aria-label="Keluar"
               onClick={() => {
                 void authClient.signOut({
                   fetchOptions: {
@@ -521,11 +508,11 @@ export function Sidebar({
                   },
                 })
               }}
-              className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg text-stone transition-colors duration-200 hover:bg-rose-50 hover:text-coral active:scale-95"
+              className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg text-stone transition-colors duration-200 hover:bg-rose-50 hover:text-coral active:scale-95"
             >
               <HugeiconsIcon
                 icon={Logout01Icon}
-                size={16}
+                size={18}
                 strokeWidth={1.75}
                 aria-hidden="true"
               />
