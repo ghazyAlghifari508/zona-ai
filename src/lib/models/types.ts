@@ -3,6 +3,8 @@ export interface ModelRegistryEntry {
   routerModelId: string
   displayName: string
   provider: string
+  vendor: string
+  intelligenceLevel: 1 | 2 | 3 | 4
   description: string
   enabled: boolean
   isDefault?: boolean
@@ -26,4 +28,17 @@ export interface ModelRegistryEntry {
     speedClass: string
   }
   routingRules?: { lightweight: string; reasoning: string; coding: string }
+}
+
+export interface ModelCatalogEntry {
+  id: string
+  displayName: string
+  provider: string
+  vendor: string
+  intelligenceLevel: ModelRegistryEntry['intelligenceLevel']
+  description: string
+  isDefault: boolean
+  creditTier: ModelRegistryEntry['creditTier']
+  creditCost: ModelRegistryEntry['creditCost']
+  capabilities: ModelRegistryEntry['capabilities']
 }

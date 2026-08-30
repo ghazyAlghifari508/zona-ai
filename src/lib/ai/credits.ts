@@ -113,6 +113,14 @@ export async function deductCompareCredits({
   return balanceAfter
 }
 
+export async function getCreditBalance(userId: string): Promise<number> {
+  const res = await db.execute(
+    sql`SELECT credits FROM users WHERE id=${userId}`,
+  )
+  const rows = getRows<{ credits: number }>(res)
+  return rows[0]?.credits ?? 0
+}
+
 export async function resetDevCredits(userId: string): Promise<number> {
   if (process.env.NODE_ENV === 'production')
     throw new Error('Forbidden in production')

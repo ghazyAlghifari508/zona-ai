@@ -1,11 +1,13 @@
-import type { ModelRegistryEntry } from './types'
+import type { ModelCatalogEntry, ModelRegistryEntry } from './types'
 
 export const modelRegistry: ModelRegistryEntry[] = [
   {
     id: 'auto',
     routerModelId: 'auto',
-    displayName: 'Auto (Smart Router)',
+    displayName: 'Auto',
     provider: 'zona-router',
+    vendor: 'Zona',
+    intelligenceLevel: 3,
     description:
       'Automatically routes prompts to the best model based on complexity and task type',
     enabled: true,
@@ -37,6 +39,8 @@ export const modelRegistry: ModelRegistryEntry[] = [
     routerModelId: 'ag/gemini-3.7-flash-high',
     displayName: 'Gemini 3.7 Flash (High)',
     provider: 'antigravity',
+    vendor: 'Google',
+    intelligenceLevel: 3,
     description: "Google's next-gen hybrid reasoning model",
     enabled: true,
     creditCost: 4,
@@ -61,6 +65,8 @@ export const modelRegistry: ModelRegistryEntry[] = [
     routerModelId: 'cx/gpt-5.6-sol',
     displayName: 'GPT 5.6 (Sol)',
     provider: 'codex',
+    vendor: 'OpenAI',
+    intelligenceLevel: 4,
     description: "OpenAI's high-tier flagship model",
     enabled: true,
     creditCost: 15,
@@ -84,6 +90,21 @@ export const modelRegistry: ModelRegistryEntry[] = [
 
 export function getAvailableModels(): ModelRegistryEntry[] {
   return modelRegistry.filter((m) => m.enabled)
+}
+
+export function getModelCatalog(): ModelCatalogEntry[] {
+  return getAvailableModels().map((m) => ({
+    id: m.id,
+    displayName: m.displayName,
+    provider: m.provider,
+    vendor: m.vendor,
+    intelligenceLevel: m.intelligenceLevel,
+    description: m.description,
+    isDefault: m.isDefault ?? false,
+    creditTier: m.creditTier,
+    creditCost: m.creditCost,
+    capabilities: m.capabilities,
+  }))
 }
 
 export function getModelById(id: string): ModelRegistryEntry {

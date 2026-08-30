@@ -4,9 +4,13 @@
  */
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { getModelsCore } from '../core/models'
+import { getModelCatalogCore, getModelsCore } from '../core/models'
 
 export const getModels = createServerFn({ method: 'GET' }).handler(async () => {
   const request = getRequest() as Request
   return getModelsCore({ request })
 })
+
+export const getModelCatalog = createServerFn({ method: 'GET' }).handler(
+  async () => getModelCatalogCore(),
+)

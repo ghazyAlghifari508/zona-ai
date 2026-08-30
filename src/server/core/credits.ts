@@ -2,8 +2,14 @@
  * Server-only credit helpers.
  * NEVER import from client code.
  */
-import { resetDevCredits } from '../../lib/ai/credits'
+import { getCreditBalance, resetDevCredits } from '../../lib/ai/credits'
 import { getAuthSession } from '../../lib/auth/session'
+
+export async function getCreditBalanceCore({ request }: { request: Request }) {
+  const session = await getAuthSession(request)
+  const balance = await getCreditBalance(session.user.id)
+  return { balance }
+}
 
 export async function resetDevCreditsCore({ request }: { request: Request }) {
   if (process.env.NODE_ENV === 'production') throw new Error('Forbidden')

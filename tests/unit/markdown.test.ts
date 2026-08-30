@@ -6,9 +6,9 @@ import { CodeBlock } from '../../src/components/chat/CodeBlock'
 describe('markdown code block', () => {
   it('renders copy button', () => {
     render(React.createElement(CodeBlock, null, 'const x=1'))
-    const btn = screen.getByText(/copy/i)
+    const btn = screen.getByText(/salin/i)
     expect(btn).toBeTruthy()
-    expect(btn.textContent?.toLowerCase()).toContain('copy')
+    expect(btn.textContent?.toLowerCase()).toContain('salin')
   })
   it('renders code content', () => {
     render(React.createElement(CodeBlock, null, 'const hello = "world"'))

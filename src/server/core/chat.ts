@@ -1,5 +1,4 @@
-﻿import { createServerFn } from '@tanstack/react-start'
-import type { ModelMessage } from 'ai'
+﻿import type { ModelMessage } from 'ai'
 import { createTextStreamResponse, streamText, toTextStream } from 'ai'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import type { z } from 'zod'
