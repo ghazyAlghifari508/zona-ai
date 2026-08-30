@@ -15,13 +15,13 @@ export function SiteHeader({ user, authState, onSignIn, signingIn }: Props) {
     <div className="absolute top-0 right-0 z-40 flex items-center gap-1 px-4 py-3 lg:px-6">
       <Link
         to="/faq"
-        className="flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
+        className="flex h-8 items-center rounded-full px-3 text-[13px] font-medium text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
       >
         FAQ
       </Link>
       <Link
         to="/bantuan"
-        className="flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
+        className="flex h-8 items-center rounded-full px-3 text-[13px] font-medium text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
       >
         Bantuan
       </Link>
@@ -29,11 +29,11 @@ export function SiteHeader({ user, authState, onSignIn, signingIn }: Props) {
       <Link
         to="/"
         data-testid="back-to-chat"
-        className="ml-1 flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-pure-white px-3.5 text-[13px] font-medium text-ink transition-colors duration-200 hover:bg-ink/5"
+        className="ml-1 flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
       >
         <HugeiconsIcon
           icon={ArrowLeft01Icon}
-          size={15}
+          size={14}
           strokeWidth={1.75}
           aria-hidden="true"
         />
@@ -41,7 +41,7 @@ export function SiteHeader({ user, authState, onSignIn, signingIn }: Props) {
       </Link>
 
       {authState === 'loading' ? (
-        <div className="h-9 w-9 rounded-full bg-sandstone/30 animate-pulse" />
+        <div className="h-8 w-9 rounded-full bg-sandstone/30 animate-pulse" />
       ) : authState === 'authenticated' ? (
         <ProfileMenu user={user} />
       ) : (
@@ -50,7 +50,7 @@ export function SiteHeader({ user, authState, onSignIn, signingIn }: Props) {
           data-testid="site-sign-in"
           onClick={onSignIn}
           disabled={signingIn}
-          className="ml-1 flex h-9 items-center gap-1.5 rounded-full bg-notion-blue px-4 text-[13px] font-semibold text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
+          className="ml-1 flex h-8 items-center gap-1.5 rounded-full bg-notion-blue px-4 text-[13px] font-semibold text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
         >
           <HugeiconsIcon
             icon={Login03Icon}

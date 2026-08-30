@@ -9,7 +9,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
-import { TopNav } from '@/components/layout/TopNav'
+import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { authClient } from '@/lib/auth/auth-client'
 import {
@@ -250,15 +250,21 @@ function ChatHome() {
     >
       <div className="flex h-full min-h-full flex-col justify-between p-4 lg:p-6">
         <div className="mx-auto flex h-full w-full max-w-[920px] flex-col justify-between pt-12 lg:pt-0">
-          <header className="flex h-10 shrink-0 items-center justify-end gap-2.5">
-            {authStatus === 'authenticated' &&
-              process.env.NODE_ENV !== 'production' && (
+          <GlobalNav
+            user={activeSession?.user}
+            authState={authStatus}
+            onSignIn={() => void signIn()}
+            signingIn={signingIn}
+            mode="app"
+            leading={
+              authStatus === 'authenticated' &&
+              process.env.NODE_ENV !== 'production' ? (
                 <button
                   type="button"
                   data-testid="reset-credits-btn"
                   onClick={handleResetCredits}
                   disabled={resettingCredits}
-                  className="flex min-h-9 items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+                  className="mr-1 flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
                   title="Reset ke 100 kredit (mode dev)"
                 >
                   <HugeiconsIcon
@@ -269,14 +275,9 @@ function ChatHome() {
                   />
                   {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
                 </button>
-              )}
-            <TopNav
-              user={activeSession?.user}
-              authState={authStatus}
-              onSignIn={() => void signIn()}
-              signingIn={signingIn}
-            />
-          </header>
+              ) : undefined
+            }
+          />
           <div className="flex flex-1 items-center justify-center py-2 sm:px-4">
             <div className="w-full max-w-[820px] px-1 sm:px-4">
               <div className="flex flex-col items-center text-center">

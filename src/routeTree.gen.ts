@@ -10,7 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BantuanRouteImport } from './routes/bantuan'
 import { Route as ErrorRouteImport } from './routes/error'
+import { Route as FaqRouteImport } from './routes/faq'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
@@ -27,9 +30,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BantuanRoute = BantuanRouteImport.update({
+  id: '/bantuan',
+  path: '/bantuan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ErrorRoute = ErrorRouteImport.update({
   id: '/error',
   path: '/error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -86,7 +104,10 @@ const ApiFilesUploadRoute = ApiFilesUploadRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
+  '/faq': typeof FaqRoute
+  '/pricing': typeof PricingRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
@@ -100,7 +121,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
+  '/faq': typeof FaqRoute
+  '/pricing': typeof PricingRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
@@ -115,7 +139,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
+  '/faq': typeof FaqRoute
+  '/pricing': typeof PricingRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
@@ -131,7 +158,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/bantuan'
     | '/error'
+    | '/faq'
+    | '/pricing'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
@@ -145,7 +175,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/bantuan'
     | '/error'
+    | '/faq'
+    | '/pricing'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
@@ -159,7 +192,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/bantuan'
     | '/error'
+    | '/faq'
+    | '/pricing'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
@@ -174,7 +210,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BantuanRoute: typeof BantuanRoute
   ErrorRoute: typeof ErrorRoute
+  FaqRoute: typeof FaqRoute
+  PricingRoute: typeof PricingRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
   ChatConversationIdRoute: typeof ChatConversationIdRoute
@@ -196,11 +235,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bantuan': {
+      id: '/bantuan'
+      path: '/bantuan'
+      fullPath: '/bantuan'
+      preLoaderRoute: typeof BantuanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/error': {
       id: '/error'
       path: '/error'
       fullPath: '/error'
       preLoaderRoute: typeof ErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/sign-in': {
@@ -278,7 +338,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BantuanRoute: BantuanRoute,
   ErrorRoute: ErrorRoute,
+  FaqRoute: FaqRoute,
+  PricingRoute: PricingRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
   ChatConversationIdRoute: ChatConversationIdRoute,
