@@ -149,7 +149,7 @@ function PricingSwitch({
         onClick={() => setYearly(false)}
         className={cn(
           'h-9 rounded-full px-5 text-[13px] font-medium transition-colors duration-200',
-          !yearly ? 'bg-paper text-ink' : 'text-ink/60 hover:text-ink',
+          !yearly ? 'bg-ink text-pure-white' : 'text-ink/60 hover:text-ink',
         )}
       >
         Bulanan
@@ -159,7 +159,7 @@ function PricingSwitch({
         onClick={() => setYearly(true)}
         className={cn(
           'flex h-9 items-center gap-2 rounded-full px-5 text-[13px] font-medium transition-colors duration-200',
-          yearly ? 'bg-paper text-ink' : 'text-ink/60 hover:text-ink',
+          yearly ? 'bg-ink text-pure-white' : 'text-ink/60 hover:text-ink',
         )}
       >
         Tahunan
@@ -181,7 +181,7 @@ export function PricingSection() {
   const currentPlan = getPlanById('free')
 
   return (
-    <div className="min-h-screen bg-paper pb-16">
+    <div className="min-h-screen bg-pure-white pb-16">
       <div className="mx-auto w-full max-w-[1200px] px-4 lg:px-6">
         <div className="mx-auto max-w-2xl pt-20 text-center">
           <h1 className="text-[clamp(32px,4.5vw,48px)] font-semibold leading-[1.04] tracking-[-0.035em] text-ink">

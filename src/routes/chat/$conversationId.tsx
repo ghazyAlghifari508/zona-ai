@@ -3,7 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
-import { TopNav } from '@/components/layout/TopNav'
+import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
 import {
@@ -681,6 +681,7 @@ function ChatThread() {
         })
       }}
     >
+      <GlobalNav user={user} authState="authenticated" mode="app" />
       <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         {webSearchToast && (
           <div
@@ -701,7 +702,6 @@ function ChatThread() {
             </span>
           )}
           <span className="flex-1" />
-          <TopNav user={user} authState="authenticated" />
         </header>
 
         <MessageList

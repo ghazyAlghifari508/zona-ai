@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SiteHeader } from '@/components/layout/SiteHeader'
+import { GlobalNav } from '@/components/layout/GlobalNav'
 import { PricingSection } from '@/components/pricing/PricingSection'
 import { authClient } from '@/lib/auth/auth-client'
 import { getOptionalSession } from '@/server/functions/session'
@@ -30,10 +30,11 @@ function PricingPage() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <SiteHeader
+      <GlobalNav
         user={activeSession?.user}
         authState={authState}
         onSignIn={() => undefined}
+        mode="marketing"
       />
       <main>
         <PricingSection />

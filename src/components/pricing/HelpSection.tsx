@@ -103,7 +103,7 @@ export function HelpSection() {
         })}
       </div>
 
-      <div className="mx-auto mt-10 max-w-[760px] rounded-2xl border border-hairline bg-paper px-6 py-6 text-center">
+      <div className="mx-auto mt-10 max-w-[760px] rounded-2xl border border-hairline bg-pure-white px-6 py-6 text-center">
         <p className="text-[14px] text-graphite">
           Jawaban belum kamu temukan? Coba cek{' '}
           <Link
