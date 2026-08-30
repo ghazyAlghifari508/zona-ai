@@ -93,19 +93,6 @@ export function HelpSection() {
           )
         })}
       </div>
-
-      <div className="mx-auto mt-10 max-w-[760px] rounded-2xl border border-hairline bg-pure-white px-6 py-6 text-center">
-        <p className="text-[14px] text-graphite">
-          Jawaban belum kamu temukan? Coba cek{' '}
-          <Link
-            to="/faq"
-            className="font-medium text-notion-blue hover:underline"
-          >
-            halaman FAQ
-          </Link>{' '}
-          untuk lebih banyak informasi.
-        </p>
-      </div>
     </div>
   )
 }
