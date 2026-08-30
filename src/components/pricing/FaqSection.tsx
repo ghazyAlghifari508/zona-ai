@@ -15,96 +15,82 @@ export interface FaqItem {
 
 export const FAQ_CATEGORIES = [
   { id: 'all', label: 'Semua' },
-  { id: 'umum', label: 'Umum' },
+  { id: 'kredit', label: 'Kredit & Kuota' },
   { id: 'compare', label: 'Bandingkan Model' },
-  { id: 'fitur', label: 'Fitur & Dokumen' },
-  { id: 'kredit', label: 'Kredit & Upgrade' },
+  { id: 'file', label: 'File & Dokumen' },
+  { id: 'umum', label: 'Umum & Keamanan' },
 ]
 
 export const FAQ_ITEMS: FaqItem[] = [
   {
     id: '1',
-    category: 'umum',
-    title: 'Apa itu Zona.ai?',
+    category: 'kredit',
+    title: 'Berapa kredit yang saya dapatkan, dan kapan di-reset?',
     content:
-      'Zona.ai adalah ruang kerja AI multi-model berkinerja tinggi. Kamu bisa berinteraksi dengan berbagai model terkemuka, membandingkan kualitas jawabannya secara berdampingan, melakukan penelusuran web terpadu, dan menganalisis dokumen secara mendalam.',
+      'Akun gratis mendapatkan 100 kredit setiap awal bulan. Saldo kredit bulanan diperbarui otomatis setiap tanggal 1 dan tidak diakumulasikan ke bulan berikutnya.',
   },
   {
     id: '2',
-    category: 'umum',
-    title: 'Bagaimana Zona.ai berbeda dari platform AI lainnya?',
+    category: 'kredit',
+    title: 'Bagaimana perhitungan kredit saat mengirim pesan?',
     content:
-      'Zona.ai dirancang dengan prinsip synchronous comparison dan dynamic model registry tanpa model hardcoded. Kamu mendapatkan perbandingan yang adil di satu kanvas tanpa perlu berpindah-pindah tab browser.',
+      'Kredit dipotong per model yang dipilih. Model standar memotong 1 kredit, sedangkan model penalaran berat membutuhkan kredit lebih banyak sesuai indikator biaya yang tertera pada pemilih model.',
   },
   {
     id: '3',
-    category: 'umum',
-    title: 'Apakah saya perlu API key sendiri untuk menggunakan model?',
+    category: 'kredit',
+    title: 'Apa yang terjadi jika kredit saya habis?',
     content:
-      'Tidak. Seluruh perutean model dikelola secara otomatis melalui proxy router kami. Cukup login ke akun Zona.ai dan kamu langsung bisa memilih model apa saja yang tersedia.',
+      'Jika kuota kredit bulanan habis, kamu dapat menunggu pembaruan kuota di awal bulan berikutnya atau melakukan upgrade ke paket Pro maupun Ultra untuk menambah kapasitas kredit.',
   },
   {
     id: '4',
     category: 'compare',
-    title: 'Apa itu Compare Mode?',
+    title: 'Berapa kredit yang terpotong saat membandingkan beberapa model?',
     content:
-      'Compare Mode memungkinkan kamu mengirimkan satu pertanyaan yang sama ke 2 hingga 4 model AI sekaligus. Respons dari tiap model akan ditampilkan berdampingan dalam grid 2 kolom yang mudah dibaca.',
+      'Kredit yang terpotong adalah akumulasi dari masing-masing model yang aktif. Contohnya, jika kamu membandingkan model berbiaya 1 kredit dan 4 kredit, total saldo yang terpotong adalah 5 kredit.',
   },
   {
     id: '5',
     category: 'compare',
-    title: 'Berapa banyak model yang bisa dibandingkan secara bersamaan?',
+    title: 'Bagaimana jika salah satu model gagal merespons saat dibandingkan?',
     content:
-      'Kamu bisa memilih 2, 3, atau hingga 4 model secara bersamaan. Layout respons secara responsif menyesuaikan ukuran agar tetap proporsional dan nyaman dibaca.',
+      'Kredit untuk model yang gagal otomatis dikembalikan seketika ke saldomu, sementara jawaban dari model lain yang berhasil tetap tersimpan utuh di riwayat percakapan.',
   },
   {
     id: '6',
-    category: 'compare',
-    title: 'Bagaimana jika salah satu model gagal saat Compare Mode?',
+    category: 'file',
+    title: 'Apa format dan batas ukuran file yang bisa diunggah?',
     content:
-      'Zona.ai menerapkan mekanisme fair failure: respons model yang berhasil akan tetap utuh tersimpan di timeline, biaya kredit untuk model yang gagal akan dikembalikan otomatis, dan kamu dapat mencoba ulang model yang gagal kapan saja.',
+      'Zona.ai mendukung dokumen PDF, Word (.docx), teks (.txt), CSV, dan gambar (PNG, JPG, WebP) dengan batas ukuran maksimal 10 MB per file.',
   },
   {
     id: '7',
-    category: 'fitur',
-    title: 'Apakah Zona.ai mendukung pencarian web secara langsung?',
+    category: 'file',
+    title: 'Bagaimana cara kerja analisis dokumen?',
     content:
-      'Ya. Kamu bisa mengaktifkan pencarian web (Tavily) langsung dari komposer. Sistem akan melakukan satu kali pengambilan sumber terpercaya (single-fetch) dan membagikannya ke seluruh model yang kamu bandingkan.',
+      'Dokumen yang kamu unggah diekstraksi teksnya dan dicocokkan dengan pertanyaanmu, sehingga model AI dapat memberikan rujukan dan jawaban yang relevan berdasarkan isi dokumen.',
   },
   {
     id: '8',
-    category: 'fitur',
-    title: 'Format dokumen apa saja yang bisa diunggah?',
+    category: 'umum',
+    title: 'Model AI apa saja yang tersedia di Zona.ai?',
     content:
-      'Zona.ai mendukung file PDF, Microsoft Word (.docx), file teks (.txt), CSV, dan gambar (PNG, JPEG, WebP). Dokumen akan diekstraksi dan diindeks secara aman menggunakan pgvector.',
+      'Zona.ai menyediakan beragam model terkemuka seperti OpenAI (GPT-4o), Anthropic (Claude), Google (Gemini), DeepSeek, dan model open-source lainnya. Daftar model diperbarui secara dinamis.',
   },
   {
     id: '9',
-    category: 'fitur',
-    title: 'Bagaimana cara kerja analisis dokumen (RAG)?',
+    category: 'umum',
+    title: 'Apakah riwayat percakapan saya tersimpan otomatis?',
     content:
-      'Dokumen yang kamu lampirkan akan dibagi menjadi potongan teks (chunks) dan dicocokkan dengan pertanyaanmu menggunakan pencarian kemiripan kosinus, sehingga model AI dapat menjawab berdasarkan isi dokumen tersebut.',
+      'Ya, seluruh riwayat obrolan dan perbandingan model tersimpan otomatis di akunmu dan dapat diakses kembali kapan saja melalui menu riwayat di sidebar.',
   },
   {
     id: '10',
-    category: 'kredit',
-    title: 'Bagaimana sistem kredit bekerja?',
+    category: 'umum',
+    title: 'Apakah dokumen dan data percakapan saya aman?',
     content:
-      'Setiap pesan yang kamu kirim menggunakan sejumlah kredit tergantung bobot model yang dipilih. Saldo kredit ditampilkan secara transparan di sidebar dan langsung diperbarui.',
-  },
-  {
-    id: '11',
-    category: 'kredit',
-    title: 'Apakah ada kredit gratis untuk pengguna baru?',
-    content:
-      'Ya. Setiap akun baru secara otomatis mendapatkan saldo kredit awal untuk mencoba fitur chat dan compare mode dengan berbagai model AI yang tersedia.',
-  },
-  {
-    id: '12',
-    category: 'kredit',
-    title: 'Bagaimana cara upgrade paket atau menambah kredit?',
-    content:
-      'Klik tombol Upgrade di pojok kanan atas atau navigasikan ke halaman Pricing untuk memilih paket Pro atau Ultra dengan kuota kredit yang lebih besar.',
+      'Seluruh percakapan dan dokumen kamu bersifat privat dan hanya dapat diakses melalui akunmu sendiri. Data tidak dibagikan atau dipublikasikan ke pengguna lain.',
   },
 ]
 
@@ -123,7 +109,7 @@ export function FaqSection() {
           Pertanyaan yang Sering Diajukan
         </h1>
         <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-graphite">
-          Jawaban seputar fitur, model AI, dan cara kerja Zona.ai.
+          Jawaban seputar fitur, model AI, kredit, dan cara kerja Zona.ai.
         </p>
       </div>
 

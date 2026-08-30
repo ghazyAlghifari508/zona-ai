@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SiteHeader } from '@/components/layout/SiteHeader'
+import { GlobalNav } from '@/components/layout/GlobalNav'
 import { FaqSection } from '@/components/pricing/FaqSection'
 import { authClient } from '@/lib/auth/auth-client'
 import { getOptionalSession } from '@/server/functions/session'
@@ -29,11 +29,12 @@ function FaqPage() {
       : 'unauthenticated'
 
   return (
-    <div className="min-h-screen bg-pure-white">
-      <SiteHeader
+    <div className="min-h-screen bg-paper">
+      <GlobalNav
         user={activeSession?.user}
         authState={authState}
         onSignIn={() => undefined}
+        mode="marketing"
       />
       <main className="mx-auto max-w-5xl px-4 py-8 md:py-12">
         <FaqSection />

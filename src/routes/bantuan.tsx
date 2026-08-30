@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SiteHeader } from '@/components/layout/SiteHeader'
+import { GlobalNav } from '@/components/layout/GlobalNav'
 import { HelpSection } from '@/components/pricing/HelpSection'
 import { authClient } from '@/lib/auth/auth-client'
 import { getOptionalSession } from '@/server/functions/session'
@@ -29,11 +29,12 @@ function BantuanPage() {
       : 'unauthenticated'
 
   return (
-    <div className="min-h-screen bg-pure-white">
-      <SiteHeader
+    <div className="min-h-screen bg-paper">
+      <GlobalNav
         user={activeSession?.user}
         authState={authState}
         onSignIn={() => undefined}
+        mode="marketing"
       />
       <main>
         <HelpSection />

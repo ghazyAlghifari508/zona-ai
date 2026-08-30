@@ -1,6 +1,5 @@
 import {
   BoltIcon,
-  CheckmarkCircle02Icon,
   Clock01Icon,
   CpuIcon,
   GitCompareIcon,
@@ -9,11 +8,9 @@ import {
   Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import {
   formatPrice,
-  getPlanById,
   type PricingPlan,
   pricingPlans,
 } from '@/lib/pricing/plans'
@@ -178,7 +175,6 @@ function PricingSwitch({
 
 export function PricingSection() {
   const [yearly, setYearly] = useState(false)
-  const currentPlan = getPlanById('free')
 
   return (
     <div className="min-h-screen bg-pure-white pb-16">
@@ -205,38 +201,6 @@ export function PricingSection() {
           {pricingPlans.map((plan) => (
             <PlanCard key={plan.id} plan={plan} yearly={yearly} />
           ))}
-        </div>
-
-        <div className="mx-auto mt-12 flex max-w-xl flex-col items-center gap-2 rounded-xl border border-hairline bg-pure-white px-6 py-5 text-center">
-          <span className="flex items-center gap-2 text-[13px] font-medium text-ink">
-            <HugeiconsIcon
-              icon={CheckmarkCircle02Icon}
-              size={16}
-              strokeWidth={1.75}
-              className="text-notion-blue"
-              aria-hidden="true"
-            />
-            Paket saat ini: {currentPlan.name}
-          </span>
-          <p className="text-[13px] leading-relaxed text-graphite">
-            Kamu memakai paket{' '}
-            <span className="font-medium text-ink">{currentPlan.name}</span>{' '}
-            dengan {currentPlan.credits.toLocaleString('id-ID')} kredit.
-            Pembayaran otomatis belum aktif.
-          </p>
-          <Link
-            to="/"
-            data-testid="pricing-back-to-chat"
-            className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium text-notion-blue hover:bg-sky-tint/50"
-          >
-            <HugeiconsIcon
-              icon={Tick01Icon}
-              size={14}
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-            Kembali ke chat
-          </Link>
         </div>
       </div>
     </div>
