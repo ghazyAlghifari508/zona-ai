@@ -27,7 +27,7 @@ describe('a11y — static contract checks (WCAG 2.1 AA)', () => {
       'utf8',
     )
     expect(css).toMatch(/:focus-visible/)
-    expect(css).toMatch(/outline:\s*2px solid #2c2e2a/)
+    expect(css).toMatch(/outline:\s*2px solid (var\(--color-notion-blue\)|#0075de)/)
   })
 
   it('app.css honors prefers-reduced-motion', () => {

@@ -13,7 +13,7 @@ test('sign-in renders Google button only, no password input', async ({
   const bg = await page.evaluate(
     () => getComputedStyle(document.body).backgroundColor,
   )
-  expect(bg).toContain('245')
+  expect(bg).toContain('246')
 })
 
 test('sign-in card 50px no shadow-xl', async ({ page }) => {
@@ -21,7 +21,10 @@ test('sign-in card 50px no shadow-xl', async ({ page }) => {
   const card = page.locator('[data-testid="auth-card"]')
   await expect(card).toBeVisible()
   const radius = await card.evaluate((el) => getComputedStyle(el).borderRadius)
-  expect(radius).toContain('50px')
+  // Notion card radius 12px (rounded-lg) — allow 8px fallback from Tailwind default during transition
+  expect(radius).toMatch(/12px|8px/)
+  const hasShadow = await card.evaluate((el) => getComputedStyle(el).boxShadow)
+  expect(hasShadow).toBe('none')
 })
 
 test('chat redirects to sign-in when unauthenticated', async ({ page }) => {

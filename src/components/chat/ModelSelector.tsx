@@ -102,7 +102,7 @@ export function ModelSelector({
             </span>
           )}
           {selected && !compareEnabled && (
-            <span className="rounded-full bg-sky-tint px-2 py-0.5 text-[10px] font-bold text-notion-blue">
+            <span className="rounded-full bg-sky-tint px-2 py-0.5 text-[10px] font-bold text-midnight">
               {costLabel(selected)}
             </span>
           )}
@@ -213,7 +213,7 @@ export function ModelSelector({
                       {m.vendor}
                     </span>
                     {m.creditTier === 'premium' && (
-                      <span className="shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-notion-blue">
+                      <span className="shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-midnight">
                         Premium
                       </span>
                     )}

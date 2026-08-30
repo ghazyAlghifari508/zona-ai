@@ -87,7 +87,7 @@ describe('Sidebar persistence', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'New Chat' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Chat baru' }))
     await waitFor(() =>
       expect(onSelectConversation).toHaveBeenCalledWith(
         '10000000-0000-4000-8000-000000000010',

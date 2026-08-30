@@ -217,7 +217,7 @@ function ChatHome() {
                     <span className="block text-[14px] font-semibold leading-[1.35] text-ink">
                       {starter.title}
                     </span>
-                    <span className="mt-1 block text-[12px] leading-[1.4] text-ink/45">
+                    <span className="mt-1 block text-[12px] leading-[1.4] text-stone">
                       {starter.sub}
                     </span>
                   </span>
@@ -247,7 +247,7 @@ function ChatHome() {
               </p>
             )}
             {!session?.user && (
-              <p className="mt-3 text-center text-[13px] text-stone">
+              <p className="mt-3 text-center text-[13px] text-graphite">
                 Pesanmu tetap tersimpan saat kamu masuk.
               </p>
             )}

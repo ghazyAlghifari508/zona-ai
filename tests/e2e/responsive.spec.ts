@@ -87,9 +87,13 @@ test.describe('responsive â€” 3 viewports (Desktop / Tablet / Mobile)', () 
     // Composer lives on the conversation route; open sidebar then create one
     await page.getByTestId('hamburger').click()
     await expect(page.locator('aside')).toBeVisible()
-    await page.getByRole('button', { name: 'New Chat' }).click()
-    await page.waitForURL(/\/chat\/[a-f0-9-]+/)
+    await page.getByRole('button', { name: 'Chat baru' }).click()
+    // Chat baru routes to the unified home composer (draft flow)
+    await page.waitForURL('/')
     await expect(page.getByTestId('composer')).toBeVisible({ timeout: 15000 })
+    await page.getByTestId('composer-input').fill('tes mobile draft')
+    await page.getByTestId('send-button').click()
+    await expect(page).toHaveURL(/\/chat\/[a-f0-9-]+/, { timeout: 15000 })
     // Composer must use safe-area-inset-bottom padding
     const pb = await page.evaluate(() => {
       const el = document.querySelector('[data-testid="composer"]')

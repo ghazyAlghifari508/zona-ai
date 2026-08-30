@@ -3,12 +3,12 @@ import { expect, test } from '@playwright/test'
 test('attachment shows Indexing then Indexed', async ({ page }) => {
   await page.setContent(`
     <div data-testid="attachment-preview" class="flex flex-wrap gap-2 p-2">
-      <div data-testid="attachment-item" class="flex items-center gap-2 rounded-[10px] border border-hairline-mist bg-sandstone px-2 py-1 text-xs">
+      <div data-testid="attachment-item" class="flex items-center gap-2 rounded-md border border-hairline bg-pure-white px-2 py-1 text-xs">
         <svg data-testid="loader-icon"></svg>
         <span>sample.pdf</span>
-        <span data-testid="attachment-status-processing" class="flex items-center gap-1 text-stone-gray"><svg class="animate-spin"></svg>Indexing...</span>
+        <span data-testid="attachment-status-processing" class="flex items-center gap-1 text-stone"><svg class="animate-spin"></svg>Indexing...</span>
       </div>
-      <div data-testid="attachment-item" class="flex items-center gap-2 rounded-[10px] border border-hairline-mist bg-sandstone px-2 py-1 text-xs">
+      <div data-testid="attachment-item" class="flex items-center gap-2 rounded-md border border-hairline bg-pure-white px-2 py-1 text-xs">
         <svg data-testid="check-icon"></svg>
         <span>sample.pdf</span>
         <span data-testid="attachment-status-completed" class="flex items-center gap-1"><svg></svg>Indexed</span>
@@ -24,7 +24,7 @@ test('attachment shows Indexing then Indexed', async ({ page }) => {
 test('failed shows Could not process and Retry', async ({ page }) => {
   await page.setContent(`
     <div data-testid="attachment-preview">
-      <div data-testid="attachment-item" class="flex items-center gap-2 rounded-[10px] border border-hairline-mist bg-sandstone">
+      <div data-testid="attachment-item" class="flex items-center gap-2 rounded-md border border-hairline bg-pure-white">
         <span>corrupted.pdf</span>
         <span data-testid="attachment-status-failed" class="flex items-center gap-1"><svg></svg>Could not process</span>
         <button data-testid="attachment-retry">Retry</button>
@@ -41,12 +41,12 @@ test('upload pdf Indexed then query with context', async ({ page }) => {
   // Simulate compare same context: two columns share same RAG context
   await page.setContent(`
     <div data-testid="compare-grid" class="grid grid-cols-2 gap-4">
-      <div data-testid="generation-1" class="rounded-[10px] border border-hairline-mist bg-pure-white p-4">
+      <div data-testid="generation-1" class="rounded-lg border border-hairline bg-pure-white p-4">
         <span>Context from documents:</span>
         <span>[1] Unique RAG content for injection</span>
         <p>Answer referencing document</p>
       </div>
-      <div data-testid="generation-2" class="rounded-[10px] border border-hairline-mist bg-pure-white p-4">
+      <div data-testid="generation-2" class="rounded-lg border border-hairline bg-pure-white p-4">
         <span>Context from documents:</span>
         <span>[1] Unique RAG content for injection</span>
         <p>Same answer</p>
@@ -72,11 +72,11 @@ test('chat without context still works after failed retrieve', async ({
   page,
 }) => {
   await page.setContent(`
-    <div data-testid="chat-container" class="bg-cream-paper">
+    <div data-testid="chat-container" class="bg-paper">
       <div data-testid="message-list">
         <div data-testid="assistant-message">Hello without RAG</div>
       </div>
-      <div data-testid="composer" class="rounded-[50px] border border-hairline-mist bg-pure-white">
+      <div data-testid="composer" class="rounded-xl border border-hairline bg-pure-white">
         <textarea data-testid="composer-input"></textarea>
         <button data-testid="send-button">Send</button>
       </div>
@@ -99,8 +99,8 @@ test('chat without context still works after failed retrieve', async ({
 test('no shadow-xl in rag preview', async ({ page }) => {
   await page.setContent(`
     <div data-testid="attachment-preview" class="flex flex-wrap gap-2">
-      <div class="rounded-[10px] border border-hairline-mist bg-sandstone">Indexed</div>
-      <div class="rounded-[10px] border border-hairline-mist bg-pure-white">Could not process</div>
+      <div class="rounded-md border border-hairline bg-paper">Indexed</div>
+      <div class="rounded-md border border-hairline bg-pure-white">Could not process</div>
     </div>
   `)
   const hasShadow = await page.evaluate(() => {

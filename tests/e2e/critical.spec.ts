@@ -58,7 +58,13 @@ test.describe('critical path 12 — logout', () => {
 
     await page.goto('/chat')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('aside')).toBeVisible()
+    const vp = page.viewportSize()
+    if (vp && vp.width < 1024) {
+      await page.getByTestId('hamburger').click()
+      await expect(page.locator('aside')).toBeVisible()
+    } else {
+      await expect(page.locator('aside')).toBeVisible()
+    }
 
     // Act: sign out from sidebar
     await page.getByRole('button', { name: 'Keluar' }).click()

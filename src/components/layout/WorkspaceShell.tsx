@@ -70,7 +70,7 @@ export function WorkspaceShell({
                   <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
                     ZonaAI
                   </span>
-                  <span className="block text-[11px] text-ink/40">
+                  <span className="block text-[11px] text-graphite">
                     Your intelligent space
                   </span>
                 </span>
@@ -112,7 +112,7 @@ export function WorkspaceShell({
             {!collapsed && (
               <>
                 <div className="mt-5 flex-1">
-                  <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
+                  <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-graphite uppercase">
                     Jelajahi
                   </p>
                   <div className="space-y-0.5">

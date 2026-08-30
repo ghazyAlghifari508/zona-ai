@@ -78,12 +78,16 @@ describe('comparison_runs schema', () => {
 })
 
 const compareUserId = 'compare-user'
-describe('sendCompareMessage integration', () => {
+describe.sequential('sendCompareMessage integration', () => {
   beforeEach(async () => {
     await db
       .delete(creditTransactions)
       .where(eq(creditTransactions.userId, compareUserId))
     await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId))
+    // Isolate: remove any dangling generations/comparisons for this user before truncating conversations
+    await db.execute(sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
+    await db.execute(sql`DELETE FROM comparison_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
+    await db.execute(sql`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
     const convs = await db
       .select()
       .from(conversations)
@@ -112,6 +116,9 @@ describe('sendCompareMessage integration', () => {
       .delete(creditTransactions)
       .where(eq(creditTransactions.userId, compareUserId))
     await db.delete(usageRecords).where(eq(usageRecords.userId, compareUserId))
+    await db.execute(sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
+    await db.execute(sql`DELETE FROM comparison_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
+    await db.execute(sql`DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${compareUserId})`)
     const convs = await db
       .select()
       .from(conversations)
@@ -151,12 +158,17 @@ describe('sendCompareMessage integration', () => {
       .from(users)
       .where(eq(users.id, compareUserId))
     expect(user.credits).toBe(81)
-    const comps = await db.select().from(comparisonRuns)
+    const comps = await db
+      .select()
+      .from(comparisonRuns)
+      .innerJoin(conversations, eq(comparisonRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
     expect(comps.length).toBeGreaterThan(0)
+    const latestComp = comps[comps.length - 1].comparison_runs
     const gens = await db
       .select()
       .from(generationRuns)
-      .where(eq(generationRuns.conversationId, comps[0].conversationId))
+      .where(eq(generationRuns.comparisonRunId, latestComp.id))
     expect(gens.length).toBe(2)
     const txs = await db
       .select()
@@ -253,7 +265,12 @@ describe('sendCompareMessage integration', () => {
     })) as unknown as Response
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 800))
-    const gens = await db.select().from(generationRuns)
+    const gensJoined = await db
+      .select()
+      .from(generationRuns)
+      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
+    const gens = gensJoined.map((row) => row.generation_runs)
     const target =
       gens.find((g) => g.modelId === 'gpt-5.6-sol') ?? gens[gens.length - 1]
     // simulate failure: update status failed and refund
@@ -279,7 +296,12 @@ describe('sendCompareMessage integration', () => {
     expect(
       txs.find((t) => t.type === 'refund' && t.amount === 15),
     ).toBeDefined()
-    const comps = await db.select().from(comparisonRuns)
+    const compsJoined = await db
+      .select()
+      .from(comparisonRuns)
+      .innerJoin(conversations, eq(comparisonRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
+    const comps = compsJoined.map((row) => row.comparison_runs)
     const comp = comps[comps.length - 1]
     await db
       .update(comparisonRuns)
@@ -307,10 +329,14 @@ describe('sendCompareMessage integration', () => {
     })) as unknown as Response
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 500))
-    const gensBefore = await db
+    const gensBeforeJoined = await db
       .select()
       .from(generationRuns)
-      .where(eq(generationRuns.modelId, 'gpt-5.6-sol'))
+      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
+    const gensBefore = gensBeforeJoined
+      .map((row) => row.generation_runs)
+      .filter((g) => g.modelId === 'gpt-5.6-sol')
     const target = gensBefore[gensBefore.length - 1]
     // force failed status
     await db
@@ -334,7 +360,12 @@ describe('sendCompareMessage integration', () => {
       .from(users)
       .where(eq(users.id, compareUserId))
     expect(userAfter.credits).toBe(beforeCredits - 15)
-    const allGens = await db.select().from(generationRuns)
+    const allGensJoined = await db
+      .select()
+      .from(generationRuns)
+      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
+    const allGens = allGensJoined.map((row) => row.generation_runs)
     expect(allGens.length).toBeGreaterThan(gensBefore.length)
   })
 
@@ -354,8 +385,13 @@ describe('sendCompareMessage integration', () => {
     })) as unknown as Response
     await response.text().catch(() => {})
     await new Promise((r) => setTimeout(r, 800))
-    const comps = await db.select().from(comparisonRuns)
-    const comp = comps[comps.length - 1]
+    const compsJoined2 = await db
+      .select()
+      .from(comparisonRuns)
+      .innerJoin(conversations, eq(comparisonRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
+    const comps2 = compsJoined2.map((row) => row.comparison_runs)
+    const comp = comps2[comps2.length - 1]
     const persisted = await getMessagesCore({
       data: { conversationId: comp.conversationId },
       request,
@@ -382,7 +418,12 @@ describe('sendCompareMessage integration', () => {
       },
       request,
     })) as unknown as Response
-    const gensBefore = await db.select().from(generationRuns)
+    const gensBeforeJoined = await db
+      .select()
+      .from(generationRuns)
+      .innerJoin(conversations, eq(generationRuns.conversationId, conversations.id))
+      .where(eq(conversations.userId, compareUserId))
+    const gensBefore = gensBeforeJoined.map((row) => row.generation_runs)
     const streamingGen =
       gensBefore.find((g) => g.status === 'streaming') ??
       gensBefore[gensBefore.length - 1]

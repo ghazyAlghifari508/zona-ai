@@ -123,7 +123,7 @@ test('cancel per-model preserves other', async ({ page }) => {
 
 test('no shadow-xl in compare', async ({ page }) => {
   await page.setContent(`
-    <div class="bg-pure-white rounded-[50px] border border-hairline-mist">compare card</div>
+    <div class="bg-pure-white rounded-lg border border-hairline">compare card</div>
   `)
   const hasShadow = await page.evaluate(() => {
     const all = document.querySelectorAll('*')

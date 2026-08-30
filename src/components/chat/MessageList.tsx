@@ -124,7 +124,7 @@ function MessageItem({
             message.routingReason && (
               <span
                 data-testid="routed-badge"
-                className="rounded-full bg-sky-tint px-2 py-0.5 text-[10px] font-bold text-notion-blue"
+                className="rounded-full bg-sky-tint px-2 py-0.5 text-[10px] font-bold text-midnight"
               >
                 Routed to {message.routerModelId}
               </span>

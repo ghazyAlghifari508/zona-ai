@@ -222,7 +222,7 @@ export function Sidebar({
         collapsed ? 'w-[76px]' : 'w-[280px]'
       }`}
     >
-      <div className="flex h-full flex-col p-3">
+      <div className="flex shrink-0 flex-col p-3">
         <div className="flex items-center gap-2">
           <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue">
             ZA

@@ -11,8 +11,8 @@ test('home page has cream background', async ({ page }) => {
   const bg = await page.evaluate(
     () => getComputedStyle(document.body).backgroundColor,
   )
-  // cream #f5f1e4 = rgb(245, 241, 228)
-  expect(bg).toContain('245')
+  // paper #f6f5f4 = rgb(246, 245, 244)
+  expect(bg).toContain('246')
 })
 
 test('chat route exists and renders without server error', async ({ page }) => {

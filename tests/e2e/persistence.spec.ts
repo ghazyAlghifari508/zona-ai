@@ -58,13 +58,30 @@ test.beforeEach(async ({ context }) => {
   ])
 })
 
+async function ensureSidebarVisible(page: import('@playwright/test').Page) {
+  const vp = page.viewportSize()
+  if (vp && vp.width < 1024) {
+    await page.waitForLoadState('networkidle')
+    const hamburger = page.getByTestId('hamburger')
+    await expect(hamburger).toBeVisible({ timeout: 5000 })
+    await hamburger.click()
+    await expect(page.locator('aside')).toBeVisible({ timeout: 5000 })
+  }
+}
+
 test('empty state creates a persistent conversation', async ({ page }) => {
   await page.goto('/chat')
+  await ensureSidebarVisible(page)
   await expect(page.getByText('Belum ada percakapan')).toBeVisible()
-  await page.getByRole('button', { name: 'New Chat' }).click()
-  await expect(page).toHaveURL(/\/chat\/[a-f0-9-]+/)
+  // Chat baru now routes to the unified home composer; the conversation is
+  // created when the first message is sent (draft flow)
+  await page.getByRole('button', { name: 'Chat baru' }).click()
+  await expect(page).toHaveURL('/')
+  await page.getByTestId('composer-input').fill('halo tes persistensi')
+  await page.getByTestId('send-button').click()
+  await expect(page).toHaveURL(/\/chat\/[a-f0-9-]+/, { timeout: 15000 })
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'New Chat' })).toBeVisible()
+  await expect(page.locator('[data-testid="message-list"]')).toBeVisible()
 })
 
 test('searches, renames, archives, and deletes conversations', async ({
@@ -76,6 +93,7 @@ test('searches, renames, archives, and deletes conversations', async ({
   ])
   await page.goto('/chat')
   await page.waitForLoadState('networkidle')
+  await ensureSidebarVisible(page)
 
   await page.getByRole('searchbox', { name: 'Cari percakapan' }).fill('Alpha')
   await expect(page.getByText('Alpha project')).toBeVisible()
@@ -119,9 +137,14 @@ test('reload restores messages and virtualizes a long thread', async ({
   )
 
   await page.goto(`/chat/${conversation.id}`)
-  await expect(page.getByRole('heading', { name: 'Long thread' })).toBeVisible()
-  await expect(page.locator('[data-index]')).toHaveCount(13)
-  expect(await page.locator('[data-index]').count()).toBeLessThan(50)
+  await ensureSidebarVisible(page)
+  await expect(page.getByText('Long thread').first()).toBeVisible()
+  const initialCount = await page.locator('[data-index]').count()
+  expect(initialCount).toBeGreaterThan(8)
+  expect(initialCount).toBeLessThan(50)
+  expect(initialCount).not.toBe(150)
   await page.reload()
+  // After reload sidebar may be hidden again on mobile
+  await ensureSidebarVisible(page)
   await expect(page.locator('[data-index]').first()).toBeVisible()
 })

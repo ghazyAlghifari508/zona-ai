@@ -11,7 +11,7 @@ import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { ModelSelector } from './ModelSelector'
-import { SkillSelector } from './SkillSelector'
+import { SKILLS, SkillSelector } from './SkillSelector'
 
 type Props = {
   onSend: (
@@ -437,7 +437,10 @@ export function Composer({
               value={content}
               onChange={handleInput}
               onKeyDown={handleKeyDown}
-              placeholder="Tanyakan apa saja ke Zona.ai..."
+              placeholder={
+                SKILLS.find((s) => s.id === skillId)?.example ??
+                'Tanyakan apa saja ke Zona.ai...'
+              }
               rows={1}
               data-testid="composer-input"
               className="min-h-[24px] max-h-[160px] flex-1 resize-none bg-transparent text-[15px] leading-[1.5] text-ink placeholder:text-ink/35 focus:outline-none"
