@@ -1,19 +1,21 @@
 ﻿import {
+  ArchiveIcon,
+  Clock01Icon,
+  Delete02Icon,
+  Loading03Icon,
+  Logout03Icon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  PlusSignIcon,
+  Search01Icon,
+  SidebarLeft01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
   useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query'
-import {
-  Archive,
-  Bot,
-  LoaderCircle,
-  LogOut,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Search,
-  Trash,
-} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { authClient } from '../../lib/auth/auth-client'
 import { CONVERSATIONS_PAGE_SIZE } from '../../lib/utils/constants'
@@ -50,6 +52,8 @@ type Props = {
   /** Mobile: visibility toggled by hamburger. On desktop (>=lg), always visible. */
   mobileOpen?: boolean
   onMobileClose?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 type ConversationsCache = {
@@ -86,6 +90,8 @@ export function Sidebar({
   activeConversationId,
   mobileOpen = false,
   onMobileClose,
+  collapsed = false,
+  onToggleCollapse,
 }: Props) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
@@ -212,10 +218,40 @@ export function Sidebar({
   return (
     <aside
       data-testid="sidebar"
-      className={`${mobileOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen w-[280px] flex-col border-r border-hairline-mist bg-pure-white lg:sticky lg:flex`}
+      className={`${mobileOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+        collapsed ? 'w-[76px]' : 'w-[280px]'
+      }`}
     >
-      <div className="p-4">
-        <div className="text-[15px] font-medium text-ink-black">Zona.ai</div>
+      <div className="flex h-full flex-col p-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue">
+            ZA
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 flex-1 flex-col">
+              <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
+                ZonaAI
+              </span>
+              <span className="block text-[11px] text-ink/40">
+                Your intelligent space
+              </span>
+            </span>
+          )}
+          <button
+            type="button"
+            data-testid="sidebar-collapse"
+            aria-label={collapsed ? 'Perbesar sidebar' : 'Perkecil sidebar'}
+            onClick={onToggleCollapse}
+            className="ml-auto hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink lg:flex"
+          >
+            <HugeiconsIcon
+              icon={SidebarLeft01Icon}
+              size={18}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -225,73 +261,91 @@ export function Sidebar({
           }}
           disabled={createMutation.isPending}
           data-testid="new-chat-button"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone disabled:cursor-wait disabled:text-stone-deep"
+          className={`mt-4 flex min-h-[42px] w-full items-center gap-2.5 rounded-md bg-notion-blue text-[13px] font-semibold text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:cursor-wait disabled:opacity-60 ${
+            collapsed ? 'justify-center px-0' : 'px-3'
+          }`}
         >
           {createMutation.isPending ? (
-            <LoaderCircle
+            <HugeiconsIcon
+              icon={Loading03Icon}
               size={16}
               strokeWidth={1.75}
               className="animate-spin motion-reduce:animate-none"
               aria-hidden="true"
             />
           ) : (
-            <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+            <HugeiconsIcon
+              icon={PlusSignIcon}
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
           )}
-          New Chat
+          {!collapsed && 'Chat baru'}
         </button>
-        <label className="relative mt-4 block">
-          <span className="sr-only">Cari percakapan</span>
-          <Search
-            size={14}
-            strokeWidth={1.75}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-deep"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari percakapan..."
-            className="w-full rounded-[10px] border border-hairline-mist bg-cream-paper py-2 pl-9 pr-3 text-[15px] text-ink-black outline-none placeholder:text-stone-deep focus-visible:border-ink-black"
-          />
-        </label>
+        {!collapsed && (
+          <label className="relative mt-4 block">
+            <span className="sr-only">Cari percakapan</span>
+            <HugeiconsIcon
+              icon={Search01Icon}
+              size={14}
+              strokeWidth={1.75}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Cari percakapan..."
+              className="w-full rounded-md border border-hairline bg-pure-white py-2 pl-9 pr-3 text-[13px] text-ink outline-none placeholder:text-stone focus-visible:border-notion-blue"
+            />
+          </label>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <p
+          className={`px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase ${
+            collapsed ? 'text-center' : ''
+          }`}
+        >
+          Recent
+        </p>
         {conversationsQuery.isPending ? (
           <div className="space-y-2" role="status">
             <span className="sr-only">Memuat percakapan</span>
             {[0, 1, 2].map((item) => (
               <div
                 key={item}
-                className="h-14 animate-pulse rounded-[10px] bg-sandstone motion-reduce:animate-none"
+                className="h-14 animate-pulse rounded-md bg-paper motion-reduce:animate-none"
               />
             ))}
           </div>
         ) : conversationsQuery.isError ? (
-          <p className="rounded-[10px] border border-hairline-mist p-3 text-[13px] text-stone-deep">
+          <p className="rounded-md border border-hairline p-3 text-[13px] text-stone">
             Gagal memuat percakapan.
           </p>
         ) : conversationItems.length === 0 ? (
-          <div className="rounded-[10px] border border-hairline-mist bg-pure-white p-4 text-center">
-            <p className="text-[15px] font-medium text-ink-black">
+          <div className="rounded-md border border-hairline bg-pure-white p-4 text-center">
+            <p className="text-[13px] font-medium text-ink">
               {debouncedSearch ? 'No results found' : 'Belum ada percakapan'}
             </p>
             {!debouncedSearch && (
-              <p className="mt-1 text-[13px] text-stone-deep">
+              <p className="mt-1 text-[12px] text-stone">
                 Mulai chat baru untuk melihat riwayat di sini.
               </p>
             )}
           </div>
         ) : (
-          <nav aria-label="Riwayat percakapan" className="space-y-1">
+          <nav aria-label="Riwayat percakapan" className="space-y-0.5">
             {conversationItems.map((conversation) => (
               <div
                 key={conversation.id}
-                className={`group flex items-center rounded-[10px] hover:bg-sandstone ${
+                className={`group flex items-center rounded-md transition-colors duration-200 ${
                   activeConversationId === conversation.id
-                    ? 'border border-hairline-mist bg-sandstone'
-                    : ''
+                    ? 'bg-pure-white shadow-[inset_0_0_0_1px_var(--color-hairline)]'
+                    : 'hover:bg-ink/5'
                 }`}
               >
                 {editingId === conversation.id ? (
@@ -306,7 +360,7 @@ export function Sidebar({
                       if (event.key === 'Enter') submitRename(conversation.id)
                       if (event.key === 'Escape') setEditingId(null)
                     }}
-                    className="m-1 min-w-0 flex-1 rounded-[10px] border border-ink-black bg-pure-white px-2 py-1 text-[15px] text-ink-black outline-none"
+                    className="m-1 min-w-0 flex-1 rounded-md border border-hairline bg-pure-white px-2 py-1 text-[13px] text-ink outline-none focus-visible:border-notion-blue"
                   />
                 ) : (
                   <button
@@ -317,13 +371,18 @@ export function Sidebar({
                         onSelectConversation(conversation.id)
                       else window.location.assign(`/chat/${conversation.id}`)
                     }}
-                    className="min-w-0 flex-1 px-3 py-2 text-left focus-visible:outline-2 focus-visible:outline-ink-black"
+                    className="min-w-0 flex-1 px-2.5 py-2 text-left"
                   >
-                    <span className="block truncate text-[15px] font-medium text-ink-black">
+                    <span className="block truncate text-[13px] text-ink/80 group-hover:text-ink">
                       {conversation.title ?? 'New Chat'}
                     </span>
-                    <span className="mt-1 flex items-center gap-1 text-[13px] text-stone-deep">
-                      <Bot size={12} strokeWidth={1.75} aria-hidden="true" />
+                    <span className="mt-1 flex items-center gap-1 text-[11px] text-ink/35">
+                      <HugeiconsIcon
+                        icon={Clock01Icon}
+                        size={12}
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
                       {conversation.updatedAt
                         ? new Date(conversation.updatedAt).toLocaleDateString(
                             'id-ID',
@@ -337,9 +396,10 @@ export function Sidebar({
                     <button
                       type="button"
                       aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
-                      className="mr-1 rounded-[10px] p-2 text-stone-deep opacity-0 hover:text-ink-black focus:opacity-100 group-hover:opacity-100"
+                      className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100"
                     >
-                      <MoreHorizontal
+                      <HugeiconsIcon
+                        icon={MoreHorizontalIcon}
                         size={16}
                         strokeWidth={1.75}
                         aria-hidden="true"
@@ -355,13 +415,19 @@ export function Sidebar({
                         })
                       }}
                     >
-                      <Pencil size={14} strokeWidth={1.75} aria-hidden="true" />
+                      <HugeiconsIcon
+                        icon={PencilEdit01Icon}
+                        size={14}
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
                       Rename
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() => archiveMutation.mutate(conversation.id)}
                     >
-                      <Archive
+                      <HugeiconsIcon
+                        icon={ArchiveIcon}
                         size={14}
                         strokeWidth={1.75}
                         aria-hidden="true"
@@ -376,7 +442,12 @@ export function Sidebar({
                         })
                       }
                     >
-                      <Trash size={14} strokeWidth={1.75} aria-hidden="true" />
+                      <HugeiconsIcon
+                        icon={Delete02Icon}
+                        size={14}
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
                       Delete
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -390,29 +461,38 @@ export function Sidebar({
             type="button"
             onClick={() => conversationsQuery.fetchNextPage()}
             disabled={conversationsQuery.isFetchingNextPage}
-            className="mt-3 w-full rounded-full border border-hairline-mist px-3 py-2 text-[13px] text-ink-black hover:bg-sandstone disabled:text-stone-deep"
+            className="mt-3 w-full rounded-md border border-hairline px-3 py-2 text-[12px] text-ink/60 hover:bg-ink/5"
           >
             {conversationsQuery.isFetchingNextPage ? 'Memuat...' : 'Load more'}
           </button>
         )}
       </div>
 
-      <CreditWidget credits={credits} />
-      <div className="border-t border-hairline-mist p-4">
-        <button
-          type="button"
-          onClick={() => {
-            void authClient.signOut({
-              fetchOptions: {
-                onSuccess: () => window.location.assign('/auth/sign-in'),
-              },
-            })
-          }}
-          className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-[14px] text-stone-deep hover:bg-sandstone hover:text-ink-black"
-        >
-          <LogOut size={16} strokeWidth={1.75} aria-hidden="true" />
-          Keluar
-        </button>
+      <div className="border-t border-hairline">
+        {!collapsed && <CreditWidget credits={credits} />}
+        <div className="p-3">
+          <button
+            type="button"
+            onClick={() => {
+              void authClient.signOut({
+                fetchOptions: {
+                  onSuccess: () => window.location.assign('/auth/sign-in'),
+                },
+              })
+            }}
+            className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[13px] text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink ${
+              collapsed ? 'justify-center' : ''
+            }`}
+          >
+            <HugeiconsIcon
+              icon={Logout03Icon}
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            {!collapsed && 'Keluar'}
+          </button>
+        </div>
       </div>
       <Dialog
         open={deleteTarget !== null}
@@ -420,7 +500,7 @@ export function Sidebar({
           if (!open) setDeleteTarget(null)
         }}
       >
-        <DialogContent className="rounded-[50px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Hapus percakapan?</DialogTitle>
             <DialogDescription>
