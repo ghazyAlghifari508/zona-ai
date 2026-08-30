@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { GlobalNav } from '@/components/layout/GlobalNav'
+import { MarketingLayout } from '@/components/layout/MarketingLayout'
 import { PricingSection } from '@/components/pricing/PricingSection'
 import { authClient } from '@/lib/auth/auth-client'
 import { getOptionalSession } from '@/server/functions/session'
@@ -29,16 +29,22 @@ function PricingPage() {
       : 'unauthenticated'
 
   return (
-    <div className="min-h-screen bg-pure-white">
-      <GlobalNav
-        user={activeSession?.user}
-        authState={authState}
-        onSignIn={() => undefined}
-        mode="marketing"
-      />
-      <main>
-        <PricingSection />
-      </main>
-    </div>
+    <MarketingLayout
+      user={activeSession?.user}
+      authState={authState}
+      title={
+        <>
+          Pilih paket yang paling{' '}
+          <span className="inline-block rounded-xl border border-dashed border-notion-blue bg-sky-tint px-2 py-0.5 capitalize">
+            tepat
+          </span>{' '}
+          untukmu
+        </>
+      }
+      subtitle="Mulai gratis, lalu naikkan kapasitas kredit dan fitur saat kamu butuh lebih banyak."
+      maxWidth="wide"
+    >
+      <PricingSection />
+    </MarketingLayout>
   )
 }

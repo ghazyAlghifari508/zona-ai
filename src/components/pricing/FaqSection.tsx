@@ -106,16 +106,7 @@ export function FaqSection() {
       : FAQ_ITEMS.filter((item) => item.category === selectedCategory)
 
   return (
-    <div className="mx-auto w-full max-w-[760px] py-8 md:py-12">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-ink md:text-4xl">
-          Pertanyaan yang Sering Diajukan
-        </h1>
-        <p className="mx-auto mt-2 max-w-md text-[15px] leading-relaxed text-graphite">
-          Jawaban seputar fitur, model AI, kredit, dan cara kerja Zona.ai.
-        </p>
-      </div>
-
+    <div>
       <div className="mb-8 flex flex-wrap items-center justify-center gap-2">
         {FAQ_CATEGORIES.map((cat) => (
           <button

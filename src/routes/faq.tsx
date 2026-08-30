@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { GlobalNav } from '@/components/layout/GlobalNav'
+import { MarketingLayout } from '@/components/layout/MarketingLayout'
 import { FaqSection } from '@/components/pricing/FaqSection'
 import { authClient } from '@/lib/auth/auth-client'
 import { getOptionalSession } from '@/server/functions/session'
@@ -29,16 +29,13 @@ function FaqPage() {
       : 'unauthenticated'
 
   return (
-    <div className="min-h-screen bg-pure-white">
-      <GlobalNav
-        user={activeSession?.user}
-        authState={authState}
-        onSignIn={() => undefined}
-        mode="marketing"
-      />
-      <main className="mx-auto max-w-5xl px-4 py-8 md:py-12">
-        <FaqSection />
-      </main>
-    </div>
+    <MarketingLayout
+      user={activeSession?.user}
+      authState={authState}
+      title="Pertanyaan yang Sering Diajukan"
+      subtitle="Jawaban seputar fitur, model AI, kredit, dan cara kerja Zona.ai."
+    >
+      <FaqSection />
+    </MarketingLayout>
   )
 }

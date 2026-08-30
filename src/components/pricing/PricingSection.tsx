@@ -177,31 +177,15 @@ export function PricingSection() {
   const [yearly, setYearly] = useState(false)
 
   return (
-    <div className="min-h-screen bg-pure-white pb-16">
-      <div className="mx-auto w-full max-w-[1200px] px-4 lg:px-6">
-        <div className="mx-auto max-w-2xl pt-20 text-center">
-          <h1 className="text-[clamp(32px,4.5vw,48px)] font-semibold leading-[1.04] tracking-[-0.035em] text-ink">
-            Pilih paket yang paling{' '}
-            <span className="inline-block rounded-xl border border-dashed border-notion-blue bg-sky-tint px-2 py-0.5 capitalize">
-              tepat
-            </span>{' '}
-            untukmu
-          </h1>
-          <p className="mx-auto mt-4 max-w-md text-[15px] leading-[1.5] text-graphite">
-            Mulai gratis, lalu naikkan kapasitas kredit dan fitur saat kamu
-            butuh lebih banyak.
-          </p>
-        </div>
+    <div>
+      <div className="mb-8 flex justify-center">
+        <PricingSwitch yearly={yearly} setYearly={setYearly} />
+      </div>
 
-        <div className="mt-8 flex justify-center">
-          <PricingSwitch yearly={yearly} setYearly={setYearly} />
-        </div>
-
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {pricingPlans.map((plan) => (
-            <PlanCard key={plan.id} plan={plan} yearly={yearly} />
-          ))}
-        </div>
+      <div className="grid gap-5 md:grid-cols-3">
+        {pricingPlans.map((plan) => (
+          <PlanCard key={plan.id} plan={plan} yearly={yearly} />
+        ))}
       </div>
     </div>
   )
