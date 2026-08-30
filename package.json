@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",
+    "@base-ui-components/react": "^1.0.0-rc.0",
     "@hugeicons/core-free-icons": "^4.3.0",
     "@hugeicons/react": "^1.1.10",
     "@radix-ui/react-dialog": "1.1.23",
@@ -25,6 +26,8 @@
     "clsx": "2.1.1",
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
+    "framer-motion": "^13.1.1",
+    "lucide-react": "^1.37.0",
     "mammoth": "^1.12.2",
     "nitro": "3.0.260610-beta",
     "postgres": "^3.4.9",
