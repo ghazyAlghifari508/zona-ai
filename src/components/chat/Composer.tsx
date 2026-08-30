@@ -381,19 +381,19 @@ export function Composer({
     <div
       className={
         placement === 'fixed'
-          ? 'fixed bottom-0 left-0 right-0 z-30 bg-cream-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]'
+          ? 'fixed bottom-0 left-0 right-0 z-30 bg-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]'
           : 'w-full'
       }
     >
-      <div className="mx-auto max-w-[800px] space-y-2">
+      <div className="mx-auto max-w-[860px] space-y-2">
         {compareEnabled && compareModelIds.length >= 2 && (
-          <div className="flex items-center justify-between rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-2 text-sm">
+          <div className="flex items-center justify-between rounded-md border border-hairline bg-sky-tint px-3 py-2 text-[13px] text-ink">
             <span data-testid="composer-compare-banner">
               Compare mode: {compareModelIds.length} model • Total:{' '}
               {compareTotal} Kredit
             </span>
             {compareInsufficient && (
-              <span className="text-xs text-stone-deep">
+              <span className="text-xs text-stone">
                 Butuh {compareTotal} (Sisa {credits})
               </span>
             )}
@@ -406,12 +406,12 @@ export function Composer({
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="relative flex flex-col gap-2 rounded-[50px] border border-hairline-mist bg-pure-white p-2"
+          className="relative flex flex-col gap-2 rounded-xl border border-hairline-strong bg-pure-white p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.07)] transition-colors duration-200 focus-within:border-ink/30"
         >
           {dragOver && (
             <div
               data-testid="drag-overlay"
-              className="absolute inset-0 z-10 flex items-center justify-center rounded-[50px] border-2 border-dashed border-ink-black bg-sandstone text-[15px] font-medium text-stone-deep"
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-ink/40 bg-paper text-[15px] font-medium text-stone"
             >
               Drop files here
             </div>
@@ -426,7 +426,7 @@ export function Composer({
           {error && (
             <div
               data-testid="composer-error"
-              className="mx-2 rounded-[10px] border border-hairline-mist bg-cream-paper px-3 py-2 text-[13px] text-ink-black"
+              className="rounded-md border border-hairline bg-paper px-3 py-2 text-[13px] text-ink"
             >
               {error}
             </div>
@@ -440,14 +440,14 @@ export function Composer({
               placeholder="Tanyakan apa saja ke Zona.ai..."
               rows={1}
               data-testid="composer-input"
-              className="min-h-[24px] max-h-[160px] flex-1 resize-none bg-transparent text-[15px] text-ink-black placeholder:text-stone-deep focus:outline-none"
+              className="min-h-[24px] max-h-[160px] flex-1 resize-none bg-transparent text-[15px] leading-[1.5] text-ink placeholder:text-ink/35 focus:outline-none"
             />
             {isStreaming ? (
               <button
                 type="button"
                 data-testid="stop-button"
                 onClick={onStop}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink-black text-pure-white hover:bg-stone-gray"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink text-pure-white hover:bg-ink/80"
                 aria-label="Stop generation"
               >
                 <HugeiconsIcon
@@ -467,7 +467,7 @@ export function Composer({
                     ? !canSendCompare
                     : !canSendNormal
                 }
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fresh-grass text-ink-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-notion-blue text-pure-white hover:bg-blue-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Send message"
               >
                 <HugeiconsIcon
@@ -517,7 +517,7 @@ export function Composer({
                   }
                   fileRef.current?.click()
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-ink-black hover:bg-sandstone"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink hover:bg-ink/5"
                 title={guest ? 'Masuk untuk melampirkan file' : 'Attachment'}
                 aria-label="Attach file"
               >
@@ -541,10 +541,10 @@ export function Composer({
                 data-testid="web-toggle"
                 aria-pressed={enableWebSearch}
                 onClick={() => setEnableWebSearch((v) => !v)}
-                className={`flex h-8 items-center gap-1 rounded-[10px] border px-2 py-1 text-[13px] ${
+                className={`flex h-8 items-center gap-1 rounded-md border px-2 py-1 text-[13px] ${
                   enableWebSearch
-                    ? 'bg-sandstone border-ink-black text-ink-black'
-                    : 'border-hairline-mist bg-pure-white text-ink-black'
+                    ? 'border-notion-blue bg-sky-tint text-notion-blue'
+                    : 'border-hairline bg-pure-white text-ink hover:bg-ink/5'
                 }`}
                 title="Real-time web search via Tavily"
               >
@@ -555,7 +555,7 @@ export function Composer({
                 />
                 Web
                 {enableWebSearch && (
-                  <span className="h-2 w-2 rounded-full bg-fresh-grass" />
+                  <span className="h-2 w-2 rounded-full bg-notion-blue" />
                 )}
               </button>
             </div>
@@ -563,13 +563,13 @@ export function Composer({
         </div>
         {compareEnabled && compareModelIds.length >= 2 ? (
           compareInsufficient ? (
-            <p className="px-2 text-[13px] text-stone-deep">
+            <p className="px-2 text-[13px] text-stone">
               Kredit tidak cukup untuk compare ini.
             </p>
           ) : null
         ) : (
           isPremium && (
-            <p className="px-2 text-[13px] text-stone-deep">
+            <p className="px-2 text-[13px] text-stone">
               GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
             </p>
           )

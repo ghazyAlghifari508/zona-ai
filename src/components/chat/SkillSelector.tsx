@@ -1,11 +1,12 @@
 ﻿import {
-  Bot,
-  Check,
-  ClipboardList,
-  FileText,
-  Sparkles,
-  Wrench,
-} from 'lucide-react'
+  ArrowDown01Icon,
+  CheckListIcon,
+  File01Icon,
+  Message01Icon,
+  SourceCodeIcon,
+  Tick01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import {
   Popover,
@@ -13,25 +14,34 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 
-const SKILLS = [
-  { id: 'none', label: 'Tanpa skill', icon: Sparkles, desc: 'Jawaban natural' },
+export const SKILLS = [
+  {
+    id: 'none',
+    label: 'Tanpa skill',
+    icon: Message01Icon,
+    desc: 'Jawaban natural',
+    example: 'Tanyakan apa saja ke Zona.ai...',
+  },
   {
     id: 'checklist',
     label: 'Checklist',
-    icon: ClipboardList,
+    icon: CheckListIcon,
     desc: 'Checklist terstruktur',
+    example: 'Buatkan checklist untuk ',
   },
   {
     id: 'prd-plan',
     label: 'PRD Plan',
-    icon: FileText,
-    desc: 'Objective â†’ DoD',
+    icon: File01Icon,
+    desc: 'Objective → DoD',
+    example: 'Buatkan PRD untuk ',
   },
   {
     id: 'agent-skill',
     label: 'Agent Skill',
-    icon: Bot,
+    icon: SourceCodeIcon,
     desc: 'SKILL.md modular',
+    example: 'Buatkan SKILL.md untuk ',
   },
 ] as const
 
@@ -50,22 +60,36 @@ export function SkillSelector({ value, onChange }: Props) {
         <button
           type="button"
           data-testid="skill-selector-trigger"
-          className="flex items-center gap-1.5 rounded-full border border-hairline-mist bg-pure-white px-3 py-1.5 text-[13px] text-ink-black hover:bg-sandstone"
+          className="flex min-h-[38px] items-center gap-1.5 rounded-md px-2.5 text-ink transition-colors duration-200 hover:bg-ink/5"
         >
-          <Wrench size={14} strokeWidth={1.75} className="text-stone-deep" />
-          <span>{selected.label}</span>
+          <HugeiconsIcon
+            icon={selected.icon}
+            size={15}
+            strokeWidth={1.75}
+            className="text-ink"
+          />
+          <span className="text-[14px] font-bold tracking-[-0.015em]">
+            {selected.label}
+          </span>
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            size={14}
+            strokeWidth={1.75}
+            className="text-ink/40"
+          />
         </button>
       </PopoverTrigger>
       <PopoverContent
+        side="top"
         align="start"
-        className="w-[280px] rounded-[10px] border border-hairline-mist bg-pure-white p-2"
+        sideOffset={8}
+        className="w-[280px] rounded-lg border border-hairline bg-pure-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
       >
-        <div className="mb-2 px-2 py-1 text-xs font-medium tracking-wide text-stone-deep">
+        <div className="mb-2 px-2 py-1 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
           PILIH SKILL
         </div>
         <div className="space-y-1">
           {SKILLS.map((s) => {
-            const Icon = s.icon
             const isActive = value === s.id
             return (
               <button
@@ -76,20 +100,26 @@ export function SkillSelector({ value, onChange }: Props) {
                   onChange(s.id)
                   setOpen(false)
                 }}
-                className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left hover:bg-sandstone ${isActive ? 'bg-cream-paper' : ''}`}
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-200 ${isActive ? 'bg-paper' : 'hover:bg-ink/5'}`}
               >
-                <Icon size={16} strokeWidth={1.75} className="text-ink-black" />
+                <HugeiconsIcon
+                  icon={s.icon}
+                  size={16}
+                  strokeWidth={1.75}
+                  className="text-ink"
+                />
                 <div className="flex-1">
-                  <div className="text-[14px] font-medium text-ink-black">
+                  <div className="text-[14px] font-bold tracking-[-0.015em] text-ink">
                     {s.label}
                   </div>
-                  <div className="text-xs text-stone-deep">{s.desc}</div>
+                  <div className="text-xs text-stone">{s.desc}</div>
                 </div>
                 {isActive && (
-                  <Check
+                  <HugeiconsIcon
+                    icon={Tick01Icon}
                     size={16}
                     strokeWidth={1.75}
-                    className="text-fresh-grass"
+                    className="text-notion-blue"
                   />
                 )}
               </button>
