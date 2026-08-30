@@ -1,9 +1,15 @@
-﻿import { ArrowUp, Globe, Loader2, Paperclip, Square } from 'lucide-react'
+﻿import {
+  ArrowUp02Icon,
+  Attachment01Icon,
+  GlobalSearchIcon,
+  Loading03Icon,
+  StopIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useRef, useState } from 'react'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
-import { CompareSelector } from './CompareSelector'
 import { ModelSelector } from './ModelSelector'
 import { SkillSelector } from './SkillSelector'
 
@@ -27,10 +33,18 @@ type Props = {
   credits?: number
   initialModel?: string
   initialSkill?: string
-  mode?: 'normal' | 'compare'
   compareModelIds?: string[]
   onCompareModelIdsChange?: (ids: string[]) => void
+  compareEnabled?: boolean
+  onCompareEnabledChange?: (enabled: boolean) => void
   conversationId?: string
+  guest?: boolean
+  onSignIn?: () => void
+  initialContent?: string
+  placement?: 'fixed' | 'inline'
+  autoFocusInput?: boolean
+  modelValue?: string
+  onModelChange?: (id: string) => void
 }
 
 export function Composer({
@@ -41,13 +55,26 @@ export function Composer({
   credits = 100,
   initialModel = 'auto',
   initialSkill = 'none',
-  mode = 'normal',
   compareModelIds = [],
   onCompareModelIdsChange,
+  compareEnabled = false,
+  onCompareEnabledChange,
   conversationId,
+  guest = false,
+  onSignIn,
+  initialContent = '',
+  placement = 'fixed',
+  autoFocusInput = false,
+  modelValue,
+  onModelChange,
 }: Props) {
-  const [content, setContent] = useState('')
-  const [modelId, setModelId] = useState(initialModel)
+  const [content, setContent] = useState(initialContent)
+  const [internalModelId, setInternalModelId] = useState(initialModel)
+  const modelId = modelValue ?? internalModelId
+  const changeModel = (id: string) => {
+    setInternalModelId(id)
+    onModelChange?.(id)
+  }
   const [skillId, setSkillId] = useState(initialSkill)
   const [registry, setRegistry] = useState<ModelRegistryEntry[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -59,6 +86,12 @@ export function Composer({
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [enableWebSearch, setEnableWebSearch] = useState(false)
+
+  useEffect(() => setContent(initialContent), [initialContent])
+
+  useEffect(() => {
+    if (autoFocusInput) textareaRef.current?.focus()
+  }, [autoFocusInput])
 
   useEffect(() => {
     getModels()
@@ -277,7 +310,8 @@ export function Composer({
   const handleSend = () => {
     const trimmed = content.trim()
     if ((!trimmed && attachmentIds.length === 0) || isStreaming) return
-    if (mode === 'compare') {
+    const isCompare = compareEnabled && compareModelIds.length >= 2
+    if (isCompare) {
       if (!canSendCompare) return
       if (onSendCompare)
         onSendCompare(
@@ -344,12 +378,18 @@ export function Composer({
   const isPremium = modelId === 'gpt-5.6-sol'
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 bg-cream-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]">
+    <div
+      className={
+        placement === 'fixed'
+          ? 'fixed bottom-0 left-0 right-0 z-30 bg-cream-paper p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:left-[280px]'
+          : 'w-full'
+      }
+    >
       <div className="mx-auto max-w-[800px] space-y-2">
-        {mode === 'compare' && (
+        {compareEnabled && compareModelIds.length >= 2 && (
           <div className="flex items-center justify-between rounded-[10px] border border-hairline-mist bg-pure-white px-3 py-2 text-sm">
             <span data-testid="composer-compare-banner">
-              Compare mode: {compareModelIds.length} model â€¢ Total:{' '}
+              Compare mode: {compareModelIds.length} model • Total:{' '}
               {compareTotal} Kredit
             </span>
             {compareInsufficient && (
@@ -410,34 +450,49 @@ export function Composer({
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink-black text-pure-white hover:bg-stone-gray"
                 aria-label="Stop generation"
               >
-                <Square size={16} strokeWidth={1.75} fill="currentColor" />
+                <HugeiconsIcon
+                  icon={StopIcon}
+                  size={16}
+                  strokeWidth={1.75}
+                  fill="currentColor"
+                />
               </button>
             ) : (
               <button
                 type="button"
                 data-testid="send-button"
                 onClick={handleSend}
-                disabled={mode === 'compare' ? !canSendCompare : !canSendNormal}
+                disabled={
+                  compareEnabled && compareModelIds.length >= 2
+                    ? !canSendCompare
+                    : !canSendNormal
+                }
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fresh-grass text-ink-black hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Send message"
               >
-                <ArrowUp size={18} strokeWidth={1.75} />
+                <HugeiconsIcon
+                  icon={ArrowUp02Icon}
+                  size={18}
+                  strokeWidth={1.75}
+                />
               </button>
             )}
           </div>
           <div className="flex items-center justify-between px-2 pb-1">
             <div className="flex items-center gap-2">
-              {mode === 'compare' ? (
-                <CompareSelector
-                  value={compareModelIds}
-                  onChange={(ids) => onCompareModelIdsChange?.(ids)}
-                  credits={credits}
-                />
-              ) : (
+              {(modelValue === undefined || compareEnabled) && (
                 <ModelSelector
                   value={modelId}
-                  onChange={setModelId}
+                  onChange={changeModel}
                   credits={credits}
+                  compareEnabled={compareEnabled}
+                  onCompareEnabledChange={(enabled) =>
+                    onCompareEnabledChange?.(enabled)
+                  }
+                  compareModelIds={compareModelIds}
+                  onCompareModelIdsChange={(ids) =>
+                    onCompareModelIdsChange?.(ids)
+                  }
                 />
               )}
               <SkillSelector value={skillId} onChange={setSkillId} />
@@ -455,19 +510,30 @@ export function Composer({
               <button
                 type="button"
                 data-testid="attachment-btn"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => {
+                  if (guest) {
+                    onSignIn?.()
+                    return
+                  }
+                  fileRef.current?.click()
+                }}
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline-mist bg-pure-white text-ink-black hover:bg-sandstone"
-                title="Attachment"
+                title={guest ? 'Masuk untuk melampirkan file' : 'Attachment'}
                 aria-label="Attach file"
               >
                 {uploading ? (
-                  <Loader2
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
                     size={14}
                     strokeWidth={1.75}
                     className="animate-spin"
                   />
                 ) : (
-                  <Paperclip size={14} strokeWidth={1.75} />
+                  <HugeiconsIcon
+                    icon={Attachment01Icon}
+                    size={14}
+                    strokeWidth={1.75}
+                  />
                 )}
               </button>
               <button
@@ -482,7 +548,11 @@ export function Composer({
                 }`}
                 title="Real-time web search via Tavily"
               >
-                <Globe size={16} strokeWidth={1.5} />
+                <HugeiconsIcon
+                  icon={GlobalSearchIcon}
+                  size={16}
+                  strokeWidth={1.5}
+                />
                 Web
                 {enableWebSearch && (
                   <span className="h-2 w-2 rounded-full bg-fresh-grass" />
@@ -491,7 +561,7 @@ export function Composer({
             </div>
           </div>
         </div>
-        {mode === 'compare' ? (
+        {compareEnabled && compareModelIds.length >= 2 ? (
           compareInsufficient ? (
             <p className="px-2 text-[13px] text-stone-deep">
               Kredit tidak cukup untuk compare ini.
@@ -500,7 +570,7 @@ export function Composer({
         ) : (
           isPremium && (
             <p className="px-2 text-[13px] text-stone-deep">
-              GPT-5.6 Sol memakai kredit lebih cepat â€” pakai Auto â†’
+              GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
             </p>
           )
         )}

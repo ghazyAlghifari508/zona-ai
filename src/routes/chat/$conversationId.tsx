@@ -1,10 +1,10 @@
 ﻿import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { CompareGrid } from '@/components/chat/CompareGrid'
-import { CompareToggles } from '@/components/chat/CompareToggles'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { MobileCompareTabs } from '@/components/chat/MobileCompareTabs'
+import { ModelSelector } from '@/components/chat/ModelSelector'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
@@ -43,15 +43,15 @@ function ConversationError() {
     <WorkspaceShell>
       <div className="flex min-h-[60vh] items-center justify-center text-center">
         <div>
-          <h1 className="text-[30px] font-medium text-ink-black">
+          <h1 className="text-[30px] font-medium text-ink">
             Percakapan tidak ditemukan
           </h1>
-          <p className="mt-2 text-[15px] text-stone-deep">
+          <p className="mt-2 text-[15px] text-stone">
             Percakapan ini tidak tersedia atau tidak dapat diakses.
           </p>
           <Link
             to="/chat"
-            className="mt-5 inline-flex rounded-full border border-ink-black bg-pure-white px-4 py-2 text-[15px] font-medium text-ink-black hover:bg-sandstone"
+            className="mt-5 inline-flex rounded-md border border-hairline-strong bg-pure-white px-4 py-2 text-[14px] font-medium text-ink hover:bg-ink/5"
           >
             Kembali ke chat
           </Link>
@@ -101,6 +101,7 @@ function ChatThread() {
     (conversation.mode as 'normal' | 'compare') ?? 'normal',
   )
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
+  const [modelId, setModelId] = useState('auto')
   const [compareGenerations, setCompareGenerations] = useState<
     CompareGeneration[]
   >(() => {
@@ -147,6 +148,13 @@ function ChatThread() {
   const [compareIsStreaming, setCompareIsStreaming] = useState(false)
 
   // Keep mode sync if conversation mode changes externally? Not needed
+  const compareEnabled = mode === 'compare'
+  const setCompareEnabled = (enabled: boolean) =>
+    setMode(enabled ? 'compare' : 'normal')
+  const showCompare =
+    compareEnabled &&
+    compareGenerations.length > 0 &&
+    compareModelIds.length >= 2
 
   const handleSend = async (
     content: string,
@@ -660,26 +668,53 @@ function ChatThread() {
         })
       }}
     >
-      <div className="flex h-[calc(100vh-2rem)] flex-col">
+      <div className="flex h-[calc(100dvh-2rem)] flex-col lg:h-[calc(100dvh-3rem)]">
         {webSearchToast && (
           <div
             role="status"
             data-testid="web-search-toast"
-            className="fixed right-6 top-6 z-50 rounded-[10px] border border-hairline-mist bg-pure-white px-4 py-3 text-[13px] text-ink-black"
+            className="fixed right-6 top-6 z-50 rounded-md border border-hairline bg-pure-white px-4 py-3 text-[13px] text-ink"
           >
-            Web search unavailable. Responding without web results.
+            Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        <header className="mb-4 flex items-center justify-between border-b border-hairline-mist px-1 pb-3">
-          <h1 className="truncate text-[20px] font-medium text-ink-black">
-            {conversation.title ?? 'New Chat'}
-          </h1>
-          <div className="flex items-center gap-2">
-            <CompareToggles mode={mode} onChange={setMode} />
-            <span className="rounded-[10px] border border-hairline-mist bg-pure-white px-2 py-1 text-[13px] text-stone-deep">
-              {conversation.mode}
+        <header className="flex h-16 shrink-0 items-center gap-3 px-1 lg:px-2">
+          {!compareEnabled ? (
+            <ModelSelector
+              value={modelId}
+              onChange={setModelId}
+              credits={credits}
+              compareEnabled={compareEnabled}
+              onCompareEnabledChange={setCompareEnabled}
+              compareModelIds={compareModelIds}
+              onCompareModelIdsChange={setCompareModelIds}
+            />
+          ) : (
+            <span
+              data-testid="topbar-compare-label"
+              className="text-[14px] font-bold text-ink"
+            >
+              Mode banding · {compareModelIds.length} model
             </span>
-          </div>
+          )}
+          <span className="flex-1" />
+          {!showCompare &&
+            messages.some((m) => m.role === 'assistant' && !m.streaming) && (
+              <button
+                type="button"
+                data-testid="regenerate-button"
+                onClick={() => {
+                  const lastAssistant = [...messages]
+                    .reverse()
+                    .find((m) => m.role === 'assistant')
+                  if (lastAssistant) handleRegenerate(lastAssistant.id)
+                }}
+                disabled={isStreaming}
+                className="flex min-h-9 items-center rounded-md px-3 text-[13px] text-stone transition-colors duration-200 hover:bg-ink/5 hover:text-ink disabled:opacity-50"
+              >
+                Buat ulang
+              </button>
+            )}
         </header>
 
         {mode === 'compare' ? (
@@ -717,27 +752,7 @@ function ChatThread() {
             </div>
           </>
         ) : (
-          <>
-            <MessageList messages={messages} />
-            {messages.some((m) => m.role === 'assistant' && !m.streaming) && (
-              <div className="mx-auto mb-2 flex gap-2">
-                <button
-                  type="button"
-                  data-testid="regenerate-button"
-                  onClick={() => {
-                    const lastAssistant = [...messages]
-                      .reverse()
-                      .find((m) => m.role === 'assistant')
-                    if (lastAssistant) handleRegenerate(lastAssistant.id)
-                  }}
-                  className="rounded-full border border-hairline-mist bg-pure-white px-4 py-1.5 text-xs text-ink-black hover:bg-sandstone"
-                  disabled={isStreaming}
-                >
-                  Regenerate
-                </button>
-              </div>
-            )}
-          </>
+          <MessageList messages={messages} />
         )}
 
         <Composer
@@ -746,7 +761,10 @@ function ChatThread() {
           onStop={handleStop}
           isStreaming={isStreaming || compareIsStreaming}
           credits={credits}
-          mode={mode}
+          modelValue={modelId}
+          onModelChange={setModelId}
+          compareEnabled={compareEnabled}
+          onCompareEnabledChange={setCompareEnabled}
           compareModelIds={compareModelIds}
           onCompareModelIdsChange={setCompareModelIds}
           conversationId={conversationId}
