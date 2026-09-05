@@ -8,8 +8,23 @@ const BASE_TONE = [
 ].join('\n')
 
 const SKILL_GUIDES: Record<string, string> = {
-  checklist:
-    "Deconstruct the user's objective into an actionable, prioritized markdown checklist using `- [ ]` checkboxes, organized into phases (Preparation, Implementation, Review).",
+  checklist: [
+    'CHECKLIST MODE — respond with EXACTLY ONE fenced code block tagged json and NOTHING else.',
+    'No introduction, no closing sentence, no explanations, no prose outside the code block.',
+    'The JSON must match this shape exactly:',
+    '{"type":"checklist","title":"<short title, max 80 chars>","items":[{"id":"task-1","text":"<action>","completed":false}]}',
+    'Rules:',
+    '- 3 to 15 items. Every item is one short, concrete, actionable task (verb first).',
+    '- Each task text stays under 100 characters. Never add sub-explanations, dates, or durations to an item unless the user explicitly asked for detail.',
+    '- ids are exactly "task-1", "task-2", ... in order. completed is always false.',
+    '- Do NOT group into phases or sections (no "Persiapan", "Pelaksanaan", "Peninjauan") unless the user explicitly requests grouping.',
+    '- Do NOT use markdown checkboxes like "- [ ]" anywhere in the response.',
+    '- Keep the title a plain noun phrase like "To-do hari ini" or "Checklist puasa".',
+    'Example output (the entire response):',
+    '```json',
+    '{"type":"checklist","title":"To-do hari ini","items":[{"id":"task-1","text":"Cek waktu sholat terdekat","completed":false},{"id":"task-2","text":"Siapkan makanan","completed":false},{"id":"task-3","text":"Mandi","completed":false}]}',
+    '```',
+  ].join('\n'),
   'prd-plan':
     'Structure the response as Objective, Problem Statement, Core Architecture, Step-by-Step Milestones, Definition of Done.',
   'agent-skill':

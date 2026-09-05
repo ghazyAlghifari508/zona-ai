@@ -5,7 +5,12 @@ import { type ReactNode, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
+import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import {
+  getChecklistCopyText,
+  resolveChecklistDisplay,
+} from '@/lib/chat/checklist'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { CompareGrid } from './CompareGrid'
@@ -213,28 +218,37 @@ function MessageItem({
           </span>
         </div>
         <div className="min-w-0 space-y-2 pl-9">
-          <div className="prose prose-sm max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
-            <ReactMarkdown
-              rehypePlugins={[rehypeSanitize, rehypeHighlight]}
-              components={{
-                code: ({ children, className }) => {
-                  const isBlock = Boolean(className)
-                  if (isBlock) {
-                    return <CodeBlock>{flattenReactNodes(children)}</CodeBlock>
-                  }
-                  return (
-                    <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
-                      {children}
-                    </code>
-                  )
-                },
-                pre: ({ children }) => <>{children}</>,
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-            {message.streaming && !message.content && <TypingDots />}
-          </div>
+          <ChecklistAwareContent
+            content={message.content}
+            isStreaming={Boolean(message.streaming)}
+            storageKey={`msg:${message.id}`}
+            renderMarkdown={(text) => (
+              <div className="prose prose-sm max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
+                <ReactMarkdown
+                  rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                  components={{
+                    code: ({ children, className }) => {
+                      const isBlock = Boolean(className)
+                      if (isBlock) {
+                        return (
+                          <CodeBlock>{flattenReactNodes(children)}</CodeBlock>
+                        )
+                      }
+                      return (
+                        <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
+                          {children}
+                        </code>
+                      )
+                    },
+                    pre: ({ children }) => <>{children}</>,
+                  }}
+                >
+                  {text}
+                </ReactMarkdown>
+                {message.streaming && !message.content && <TypingDots />}
+              </div>
+            )}
+          />
           {message.errorMessage && (
             <InlineError
               code={message.errorCode}
@@ -250,9 +264,17 @@ function MessageItem({
               <button
                 type="button"
                 aria-label="Salin"
-                onClick={() =>
-                  void navigator.clipboard.writeText(message.content)
-                }
+                onClick={() => {
+                  const display = resolveChecklistDisplay(
+                    message.content,
+                    false,
+                  )
+                  const text =
+                    display?.status === 'ready'
+                      ? getChecklistCopyText(display.checklist)
+                      : message.content
+                  void navigator.clipboard.writeText(text)
+                }}
                 className="flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[12px] text-stone transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
               >
                 <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />

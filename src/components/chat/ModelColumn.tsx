@@ -5,12 +5,16 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import {
+  getChecklistCopyText,
+  resolveChecklistDisplay,
+} from '@/lib/chat/checklist'
 import { humanizeGenerationError } from '@/lib/utils/error-display'
+import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { InlineError } from './InlineError'
 import { ReasoningSection } from './ReasoningSection'
-import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 type Generation = {
@@ -42,8 +46,13 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
 
   const handleCopy = async () => {
     if (generation.content) {
-      await navigator.clipboard.writeText(generation.content).catch(() => {})
-      onCopy?.(generation.content)
+      const display = resolveChecklistDisplay(generation.content, false)
+      const text =
+        display?.status === 'ready'
+          ? getChecklistCopyText(display.checklist)
+          : generation.content
+      await navigator.clipboard.writeText(text).catch(() => {})
+      onCopy?.(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     }
@@ -148,31 +157,34 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
         ) : (
           <>
             <ReasoningSection content={generation.reasoningContent} />
-            <div className="prose prose-sm max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
-              {generation.content ? (
-                <ReactMarkdown
-                  rehypePlugins={[rehypeSanitize, rehypeHighlight]}
-                  components={{
-                    code: ({ children, className }) => {
-                      const isBlock =
-                        String(children).includes('\n') || Boolean(className)
-                      if (isBlock)
-                        return <CodeBlock>{String(children)}</CodeBlock>
-                      return (
-                        <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
-                          {children}
-                        </code>
-                      )
-                    },
-                    pre: ({ children }) => <>{children}</>,
-                  }}
-                >
-                  {generation.content}
-                </ReactMarkdown>
-              ) : generation.status === 'streaming' ? (
-                <TypingDots />
-              ) : null}
-            </div>
+            <ChecklistAwareContent
+              content={generation.content ?? ''}
+              isStreaming={generation.status === 'streaming'}
+              storageKey={`gen:${generation.id}`}
+              renderMarkdown={(text) => (
+                <div className="prose prose-sm max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
+                  <ReactMarkdown
+                    rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                    components={{
+                      code: ({ children, className }) => {
+                        const isBlock =
+                          String(children).includes('\n') || Boolean(className)
+                        if (isBlock)
+                          return <CodeBlock>{String(children)}</CodeBlock>
+                        return (
+                          <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
+                            {children}
+                          </code>
+                        )
+                      },
+                      pre: ({ children }) => <>{children}</>,
+                    }}
+                  >
+                    {text}
+                  </ReactMarkdown>
+                </div>
+              )}
+            />
             {generation.webSources && generation.webSources.length > 0 && (
               <CitationDrawer sources={generation.webSources} />
             )}
