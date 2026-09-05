@@ -48,9 +48,10 @@ export const SKILLS = [
 type Props = {
   value: string
   onChange: (id: string) => void
+  compareEnabled?: boolean
 }
 
-export function SkillSelector({ value, onChange }: Props) {
+export function SkillSelector({ value, onChange, compareEnabled }: Props) {
   const [open, setOpen] = useState(false)
   const selected = SKILLS.find((s) => s.id === value) ?? SKILLS[0]
 
@@ -91,16 +92,30 @@ export function SkillSelector({ value, onChange }: Props) {
         <div className="space-y-1">
           {SKILLS.map((s) => {
             const isActive = value === s.id
+            const isPrdBlocked = s.id === 'prd-plan' && compareEnabled
             return (
               <button
                 key={s.id}
                 type="button"
                 data-testid={`skill-option-${s.id}`}
+                disabled={isPrdBlocked}
                 onClick={() => {
+                  if (isPrdBlocked) return
                   onChange(s.id)
                   setOpen(false)
                 }}
-                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-200 ${isActive ? 'bg-paper' : 'hover:bg-ink/5'}`}
+                title={
+                  isPrdBlocked
+                    ? 'PRD Plan hanya tersedia untuk mode single model'
+                    : undefined
+                }
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-200 ${
+                  isPrdBlocked
+                    ? 'cursor-not-allowed opacity-40'
+                    : isActive
+                      ? 'bg-paper'
+                      : 'hover:bg-ink/5'
+                }`}
               >
                 <HugeiconsIcon
                   icon={s.icon}
@@ -109,12 +124,21 @@ export function SkillSelector({ value, onChange }: Props) {
                   className="text-ink"
                 />
                 <div className="flex-1">
-                  <div className="text-[14px] font-bold tracking-[-0.015em] text-ink">
-                    {s.label}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[14px] font-bold tracking-[-0.015em] text-ink">
+                      {s.label}
+                    </span>
+                    {isPrdBlocked && (
+                      <span className="rounded bg-paper px-1.5 py-0.2 font-mono text-[9px] font-medium uppercase text-stone">
+                        Single Only
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs text-stone">{s.desc}</div>
+                  <div className="text-xs text-stone">
+                    {isPrdBlocked ? 'Tidak tersedia di Compare Mode' : s.desc}
+                  </div>
                 </div>
-                {isActive && (
+                {isActive && !isPrdBlocked && (
                   <HugeiconsIcon
                     icon={Tick01Icon}
                     size={16}

@@ -552,15 +552,22 @@ export function Composer({
                 onChange={changeModel}
                 credits={credits}
                 compareEnabled={compareEnabled}
-                onCompareEnabledChange={(enabled) =>
+                onCompareEnabledChange={(enabled) => {
+                  if (enabled && skillId === 'prd-plan') {
+                    setSkillId('none')
+                  }
                   onCompareEnabledChange?.(enabled)
-                }
+                }}
                 compareModelIds={compareModelIds}
                 onCompareModelIdsChange={(ids) =>
                   onCompareModelIdsChange?.(ids)
                 }
               />
-              <SkillSelector value={skillId} onChange={setSkillId} />
+              <SkillSelector
+                value={skillId}
+                onChange={setSkillId}
+                compareEnabled={compareEnabled}
+              />
               <input
                 ref={fileRef}
                 type="file"

@@ -477,6 +477,14 @@ export async function sendCompareMessageCore({
     windowMs: RATE_LIMIT_WINDOW_MS,
   })
 
+  if (data.skillId === 'prd-plan') {
+    throw new AppError(
+      'Skill PRD Plan hanya tersedia untuk mode single model.',
+      400,
+      'ERR-003',
+    )
+  }
+
   // Validate enabled and collect costs/routerIds
   const costs: number[] = []
   const routerModelIds: string[] = []
