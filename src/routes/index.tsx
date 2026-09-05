@@ -18,6 +18,7 @@ import {
   savePendingMessage,
   takeGuestDraft,
 } from '@/lib/chat/guest-draft'
+import { setSelectedSkillPreference } from '@/lib/chat/skill-preference'
 import { useSelectedModel } from '@/lib/models/preference'
 import { createConversation } from '@/server/functions/conversations'
 import {
@@ -174,6 +175,7 @@ function ChatHome() {
     _attachmentIds?: string[],
     enableWebSearch = false,
   ) => {
+    setSelectedSkillPreference(skillId)
     if (!activeSession?.user) {
       await signIn(content)
       return
@@ -207,6 +209,7 @@ function ChatHome() {
     enableWebSearch = false,
   ) => {
     if (!isCompareSelectionValid(modelIds)) return
+    setSelectedSkillPreference(skillId)
     if (!activeSession?.user) {
       await signIn(content)
       return

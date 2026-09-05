@@ -17,6 +17,7 @@ import {
   canSendCompareWith,
   getCompareSelectionHint,
 } from '@/lib/chat/compare-selection'
+import { useSelectedSkill } from '@/lib/chat/skill-preference'
 import { useSelectedModel } from '@/lib/models/preference'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { ModelSelector } from './ModelSelector'
@@ -42,7 +43,6 @@ type Props = {
   isStreaming?: boolean
   credits?: number
   initialModel?: string
-  initialSkill?: string
   compareModelIds?: string[]
   onCompareModelIdsChange?: (ids: string[]) => void
   compareEnabled?: boolean
@@ -67,7 +67,6 @@ export function Composer({
   isStreaming = false,
   credits = 0,
   initialModel = 'auto',
-  initialSkill = 'none',
   compareModelIds = [],
   onCompareModelIdsChange,
   compareEnabled = false,
@@ -89,7 +88,7 @@ export function Composer({
     setGlobalModelId(id)
     onModelChange?.(id)
   }
-  const [skillId, setSkillId] = useState(initialSkill)
+  const [skillId, setSkillId] = useSelectedSkill()
   const catalog = useModelCatalog()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)

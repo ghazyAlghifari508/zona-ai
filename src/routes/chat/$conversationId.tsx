@@ -11,6 +11,7 @@ import {
   type PendingMessage,
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
+import { setSelectedSkillPreference } from '@/lib/chat/skill-preference'
 import { useSelectedModel } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
@@ -492,6 +493,7 @@ function ChatThread() {
 
   const sendPendingMessage = useEffectEvent((pending: PendingMessage) => {
     setModelId(pending.modelId)
+    setSelectedSkillPreference(pending.skillId)
     if (pending.modelIds && pending.modelIds.length >= 2) {
       setMode('compare')
       setCompareModelIds(pending.modelIds)
