@@ -99,7 +99,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               content={getCopyText()}
               onCopied={onCopy}
               testId={`copy-${generation.id}`}
-              className="h-7 w-7 min-h-0 justify-center rounded-md p-0 text-stone hover:bg-ink/5 hover:text-ink"
+              className="h-7 w-7 min-h-0 justify-center rounded-md p-0 text-stone"
             />
           )}
         </div>

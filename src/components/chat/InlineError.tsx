@@ -1,4 +1,4 @@
-﻿import {
+import {
   Alert02Icon,
   ArrowDown01Icon,
   Copy01Icon,
@@ -78,7 +78,7 @@ export function InlineError({
                   void navigator.clipboard.writeText(technicalDetail)
                 }
                 aria-label="Salin detail error"
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded text-stone hover:bg-ink/5 hover:text-ink"
+                className="absolute right-1 top-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded text-stone"
               >
                 <HugeiconsIcon
                   icon={Copy01Icon}

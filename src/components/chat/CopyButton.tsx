@@ -53,7 +53,7 @@ export function CopyButton({
       onClick={() => void handleCopy()}
       aria-label={copied ? 'Tersalin' : 'Salin'}
       className={cn(
-        'flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[12px] transition-colors duration-200 hover:bg-ink/5 hover:text-ink',
+        'flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[12px]',
         copied ? 'text-ink' : 'text-stone',
         className,
       )}
