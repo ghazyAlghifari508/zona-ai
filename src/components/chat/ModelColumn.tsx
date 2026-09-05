@@ -71,9 +71,12 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   return (
     <div
       data-testid="model-column"
-      className="flex min-w-0 min-h-[400px] flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white"
+      className="flex h-[520px] sm:h-[560px] min-w-0 flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white"
     >
-      <div className="sticky top-0 flex items-center justify-between rounded-t-lg border-b border-hairline bg-pure-white p-3">
+      <div
+        data-testid="model-column-header"
+        className="flex shrink-0 items-center justify-between rounded-t-lg border-b border-hairline bg-pure-white p-3"
+      >
         <div className="flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
             <ProviderIcon
@@ -113,7 +116,10 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
         </div>
       </div>
 
-      <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
+      <div
+        data-testid="model-column-content"
+        className="zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+      >
         {generation.status === 'failed' ? (
           <div className="flex min-w-0 flex-col items-center justify-center gap-3 py-8 text-center">
             <InlineError
