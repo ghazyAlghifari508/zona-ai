@@ -1,3 +1,5 @@
+import { ZapIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
@@ -23,7 +25,10 @@ import {
   stopGeneration,
 } from '@/server/functions/chat'
 import { getConversation } from '@/server/functions/conversations'
-import { getCreditBalanceFn } from '@/server/functions/credits'
+import {
+  getCreditBalanceFn,
+  resetDevCreditsFn,
+} from '@/server/functions/credits'
 import { getMessages } from '@/server/functions/messages'
 import { getCurrentSession } from '@/server/functions/session'
 
@@ -104,6 +109,22 @@ function ChatThread() {
   const [generationId, setGenerationId] = useState<string | null>(null)
   const [webSearchToast, setWebSearchToast] = useState(false)
   const [credits, setCredits] = useState(creditBalance)
+  const [resettingCredits, setResettingCredits] = useState(false)
+
+  const handleResetCredits = async () => {
+    if (resettingCredits) return
+    setResettingCredits(true)
+    try {
+      const res = await resetDevCreditsFn()
+      if (res && typeof res.newBalance === 'number') {
+        setCredits(res.newBalance)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setResettingCredits(false)
+    }
+  }
 
   const [mode, setMode] = useState<'normal' | 'compare'>('normal')
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
@@ -1054,7 +1075,31 @@ function ChatThread() {
         })
       }}
     >
-      <GlobalNav user={user} authState="authenticated" mode="app" />
+      <GlobalNav
+        user={user}
+        authState="authenticated"
+        mode="app"
+        leading={
+          process.env.NODE_ENV !== 'production' ? (
+            <button
+              type="button"
+              data-testid="reset-credits-btn"
+              onClick={handleResetCredits}
+              disabled={resettingCredits}
+              className="mr-1 flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+              title="Reset ke 100 kredit (mode dev)"
+            >
+              <HugeiconsIcon
+                icon={ZapIcon}
+                size={14}
+                strokeWidth={1.75}
+                className="text-amber-500"
+              />
+              {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
+            </button>
+          ) : undefined
+        }
+      />
       <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
         {webSearchToast && (
           <div
