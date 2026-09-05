@@ -42,7 +42,7 @@ import {
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
 
-async function autoTitleConversation(
+export async function autoTitleConversation(
   convId: string,
   prompt: string,
 ): Promise<void> {
@@ -67,7 +67,7 @@ if (typeof window !== 'undefined') {
   throw new Error('src/server/core/chat.ts is server-only')
 }
 
-const controllers = new Map<string, AbortController>()
+export const controllers = new Map<string, AbortController>()
 
 function getRows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
