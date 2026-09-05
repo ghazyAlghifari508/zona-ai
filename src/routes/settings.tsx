@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/dialog'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { authClient } from '@/lib/auth/auth-client'
-import { useSelectedSkill } from '@/lib/chat/skill-preference'
-import { useSelectedModel } from '@/lib/models/preference'
+import { useDefaultSkill } from '@/lib/chat/skill-preference'
+import { useDefaultModel } from '@/lib/models/preference'
 import { deleteAllConversations } from '@/server/functions/conversations'
 import { getCreditBalanceFn } from '@/server/functions/credits'
 import { getCurrentSession } from '@/server/functions/session'
@@ -58,8 +58,8 @@ function SettingsPage() {
   const activeSession = clientSession ?? loaderData?.session ?? null
   const user = activeSession?.user
 
-  const [selectedModel, setSelectedModel] = useSelectedModel()
-  const [selectedSkill, setSelectedSkill] = useSelectedSkill()
+  const [defaultModel, setDefaultModel] = useDefaultModel()
+  const [defaultSkill, setDefaultSkill] = useDefaultSkill()
   const catalog = useModelCatalog()
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -292,8 +292,8 @@ function SettingsPage() {
             <div className="w-full min-w-[220px] sm:w-auto">
               <select
                 data-testid="default-model-select"
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                value={defaultModel}
+                onChange={(e) => setDefaultModel(e.target.value)}
                 className="w-full rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink focus:border-notion-blue focus:outline-none"
               >
                 {catalog.map((m) => (
@@ -318,8 +318,8 @@ function SettingsPage() {
             <div className="w-full min-w-[220px] sm:w-auto">
               <select
                 data-testid="default-skill-select"
-                value={selectedSkill}
-                onChange={(e) => setSelectedSkill(e.target.value)}
+                value={defaultSkill}
+                onChange={(e) => setDefaultSkill(e.target.value)}
                 className="w-full rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink focus:border-notion-blue focus:outline-none"
               >
                 <option value="none">Standar (Percakapan Bebas)</option>

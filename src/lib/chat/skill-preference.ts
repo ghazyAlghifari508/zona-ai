@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
-export const SKILL_PREFERENCE_KEY = 'zona-ai:selected-skill'
+export const DEFAULT_SKILL_PREFERENCE_KEY = 'zona-ai:default-skill'
+export const SKILL_PREFERENCE_KEY = DEFAULT_SKILL_PREFERENCE_KEY
 
 export const DEFAULT_SKILL_ID = 'none'
 
@@ -11,7 +12,9 @@ const listeners = new Set<() => void>()
 function initPreference(): void {
   if (initialized || typeof window === 'undefined') return
   try {
-    const saved = localStorage.getItem(SKILL_PREFERENCE_KEY)
+    const saved =
+      localStorage.getItem(DEFAULT_SKILL_PREFERENCE_KEY) ||
+      localStorage.getItem('zona-ai:selected-skill')
     if (saved && typeof saved === 'string') {
       const trimmed = saved.trim()
       if (trimmed) {
@@ -22,21 +25,23 @@ function initPreference(): void {
   initialized = true
 }
 
-export function getSelectedSkillPreference(): string {
+export function getDefaultSkillPreference(): string {
   initPreference()
   return currentSkillPreference
 }
 
-export function setSelectedSkillPreference(skillId: string): void {
+export function setDefaultSkillPreference(skillId: string): void {
   const normalized = skillId.trim() || DEFAULT_SKILL_ID
   currentSkillPreference = normalized
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(SKILL_PREFERENCE_KEY, normalized)
+      localStorage.setItem(DEFAULT_SKILL_PREFERENCE_KEY, normalized)
     } catch {}
   }
   listeners.forEach((listener) => {
-    listener()
+    try {
+      listener()
+    } catch {}
   })
 }
 
@@ -47,17 +52,23 @@ export function subscribeSkillPreference(callback: () => void): () => void {
   }
 }
 
-export function resetSkillPreferenceForTesting(): void {
+export function resetDefaultSkillPreferenceForTesting(): void {
   currentSkillPreference = DEFAULT_SKILL_ID
   initialized = false
   listeners.clear()
 }
 
-export function useSelectedSkill(): [string, (skillId: string) => void] {
+export function useDefaultSkill(): [string, (skillId: string) => void] {
   const skillId = useSyncExternalStore(
     subscribeSkillPreference,
-    getSelectedSkillPreference,
+    getDefaultSkillPreference,
     () => DEFAULT_SKILL_ID,
   )
-  return [skillId, setSelectedSkillPreference]
+  return [skillId, setDefaultSkillPreference]
 }
+
+export const getSelectedSkillPreference = getDefaultSkillPreference
+export const setSelectedSkillPreference = setDefaultSkillPreference
+export const resetSkillPreferenceForTesting =
+  resetDefaultSkillPreferenceForTesting
+export const useSelectedSkill = useDefaultSkill

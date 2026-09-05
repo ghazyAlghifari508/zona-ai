@@ -18,8 +18,8 @@ import {
   savePendingMessage,
   takeGuestDraft,
 } from '@/lib/chat/guest-draft'
-import { setSelectedSkillPreference } from '@/lib/chat/skill-preference'
-import { useSelectedModel } from '@/lib/models/preference'
+import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
+import { getDefaultModelPreference } from '@/lib/models/preference'
 import { createConversation } from '@/server/functions/conversations'
 import {
   getCreditBalanceFn,
@@ -129,7 +129,12 @@ function ChatHome() {
   const [signingIn, setSigningIn] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [composerKey, setComposerKey] = useState(0)
-  const [selectedModel, setSelectedModel] = useSelectedModel()
+  const [selectedModel, setSelectedModel] = useState(() =>
+    getDefaultModelPreference(),
+  )
+  const [selectedSkill, setSelectedSkill] = useState(() =>
+    getDefaultSkillPreference(),
+  )
   const [compareEnabled, setCompareEnabled] = useState(false)
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
   const [credits, setCredits] = useState(serverCredits)
@@ -175,7 +180,6 @@ function ChatHome() {
     _attachmentIds?: string[],
     enableWebSearch = false,
   ) => {
-    setSelectedSkillPreference(skillId)
     if (!activeSession?.user) {
       await signIn(content)
       return
@@ -209,7 +213,6 @@ function ChatHome() {
     enableWebSearch = false,
   ) => {
     if (!isCompareSelectionValid(modelIds)) return
-    setSelectedSkillPreference(skillId)
     if (!activeSession?.user) {
       await signIn(content)
       return
@@ -246,6 +249,8 @@ function ChatHome() {
       onNewChat={() => {
         setDraft('')
         setAuthError(null)
+        setSelectedModel(getDefaultModelPreference())
+        setSelectedSkill(getDefaultSkillPreference())
         setComposerKey((current) => current + 1)
       }}
       onSelectConversation={(conversationId) => {
@@ -341,6 +346,8 @@ function ChatHome() {
                   credits={credits}
                   modelValue={selectedModel}
                   onModelChange={setSelectedModel}
+                  skillValue={selectedSkill}
+                  onSkillChange={setSelectedSkill}
                   compareEnabled={compareEnabled}
                   onCompareEnabledChange={setCompareEnabled}
                   compareModelIds={compareModelIds}

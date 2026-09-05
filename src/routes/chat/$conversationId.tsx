@@ -12,8 +12,8 @@ import {
   type PendingMessage,
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
-import { setSelectedSkillPreference } from '@/lib/chat/skill-preference'
-import { useSelectedModel } from '@/lib/models/preference'
+import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
+import { getDefaultModelPreference } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
   generatePrdArtifact,
@@ -115,7 +115,26 @@ function ChatThread() {
 
   const [mode, setMode] = useState<'normal' | 'compare'>('normal')
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
-  const [modelId, setModelId] = useSelectedModel()
+  const [modelId, setModelId] = useState<string>(() => {
+    if (Array.isArray(persistedMessages)) {
+      for (let i = persistedMessages.length - 1; i >= 0; i--) {
+        const msg = persistedMessages[i]
+        if (
+          msg &&
+          typeof msg === 'object' &&
+          'modelId' in msg &&
+          typeof msg.modelId === 'string' &&
+          msg.modelId
+        ) {
+          return msg.modelId
+        }
+      }
+    }
+    return getDefaultModelPreference()
+  })
+  const [skillId, setSkillId] = useState<string>(() =>
+    getDefaultSkillPreference(),
+  )
 
   const compareEnabled = mode === 'compare'
   const setCompareEnabled = (enabled: boolean) =>
@@ -710,7 +729,7 @@ function ChatThread() {
 
   const sendPendingMessage = useEffectEvent((pending: PendingMessage) => {
     setModelId(pending.modelId)
-    setSelectedSkillPreference(pending.skillId)
+    setSkillId(pending.skillId)
     if (pending.modelIds && pending.modelIds.length >= 2) {
       setMode('compare')
       setCompareModelIds(pending.modelIds)
@@ -952,6 +971,8 @@ function ChatThread() {
               credits={credits}
               modelValue={modelId}
               onModelChange={setModelId}
+              skillValue={skillId}
+              onSkillChange={setSkillId}
               compareEnabled={compareEnabled}
               onCompareEnabledChange={setCompareEnabled}
               compareModelIds={compareModelIds}

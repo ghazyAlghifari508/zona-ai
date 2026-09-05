@@ -17,8 +17,8 @@ import {
   canSendCompareWith,
   getCompareSelectionHint,
 } from '@/lib/chat/compare-selection'
-import { useSelectedSkill } from '@/lib/chat/skill-preference'
-import { useSelectedModel } from '@/lib/models/preference'
+import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
+import { getDefaultModelPreference } from '@/lib/models/preference'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { ModelSelector } from './ModelSelector'
 import { SKILLS, SkillSelector } from './SkillSelector'
@@ -55,6 +55,8 @@ type Props = {
   autoFocusInput?: boolean
   modelValue?: string
   onModelChange?: (id: string) => void
+  skillValue?: string
+  onSkillChange?: (id: string) => void
 }
 
 const MIN_TEXTAREA_HEIGHT = 56
@@ -79,16 +81,32 @@ export function Composer({
   autoFocusInput = false,
   modelValue,
   onModelChange,
+  skillValue,
+  onSkillChange,
 }: Props) {
   const [content, setContent] = useState(initialContent)
-  const [globalModelId, setGlobalModelId] = useSelectedModel()
-  const modelId =
-    modelValue ?? (initialModel !== 'auto' ? initialModel : globalModelId)
+  const [internalModelId, setInternalModelId] = useState(() =>
+    initialModel !== 'auto' ? initialModel : getDefaultModelPreference(),
+  )
+  const [internalSkillId, setInternalSkillId] = useState(() =>
+    getDefaultSkillPreference(),
+  )
+
+  const modelId = modelValue ?? internalModelId
   const changeModel = (id: string) => {
-    setGlobalModelId(id)
+    if (modelValue === undefined) {
+      setInternalModelId(id)
+    }
     onModelChange?.(id)
   }
-  const [skillId, setSkillId] = useSelectedSkill()
+
+  const skillId = skillValue ?? internalSkillId
+  const changeSkill = (id: string) => {
+    if (skillValue === undefined) {
+      setInternalSkillId(id)
+    }
+    onSkillChange?.(id)
+  }
   const catalog = useModelCatalog()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -554,7 +572,7 @@ export function Composer({
                 compareEnabled={compareEnabled}
                 onCompareEnabledChange={(enabled) => {
                   if (enabled && skillId === 'prd-plan') {
-                    setSkillId('none')
+                    changeSkill('none')
                   }
                   onCompareEnabledChange?.(enabled)
                 }}
@@ -565,7 +583,7 @@ export function Composer({
               />
               <SkillSelector
                 value={skillId}
-                onChange={setSkillId}
+                onChange={changeSkill}
                 compareEnabled={compareEnabled}
               />
               <input
