@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useEffect, useEffectEvent, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { GlobalNav } from '@/components/layout/GlobalNav'
@@ -54,6 +54,15 @@ export const Route = createFileRoute('/chat/$conversationId')({
 
 function ConversationRoute() {
   const { conversationId } = Route.useParams()
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('zona_last_conversation_id', conversationId)
+    } catch {
+      // ignore storage errors
+    }
+  }, [conversationId])
+
   return <ChatThread key={conversationId} />
 }
 
@@ -697,41 +706,47 @@ function ChatThread() {
             Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        <header className="flex h-12 shrink-0 items-center justify-between px-4 lg:px-6">
-          {compareEnabled && (
-            <span
-              data-testid="topbar-compare-label"
-              className="text-[14px] font-medium text-stone"
-            >
-              Mode banding · {compareModelIds.length} model
-            </span>
-          )}
-          <span className="flex-1" />
-        </header>
+        <div
+          ref={scrollRef}
+          className="zona-scroll flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
+        >
+          <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
+            {compareEnabled && (
+              <span
+                data-testid="topbar-compare-label"
+                className="text-[14px] font-medium text-stone"
+              >
+                Mode banding · {compareModelIds.length} model
+              </span>
+            )}
+            <span className="flex-1" />
+          </header>
 
-        <MessageList
-          messages={messages}
-          onRetryGeneration={handleRetry}
-          onStopGeneration={handleStopPerModel}
-        />
+          <MessageList
+            messages={messages}
+            onRetryGeneration={handleRetry}
+            onStopGeneration={handleStopPerModel}
+            scrollRef={scrollRef}
+          />
 
-        <div className="pointer-events-none shrink-0 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6">
-          <div className="pointer-events-auto mx-auto max-w-[860px]">
-            <Composer
-              onSend={handleSend}
-              onSendCompare={handleSendCompare}
-              onStop={handleStop}
-              isStreaming={isStreaming}
-              credits={credits}
-              modelValue={modelId}
-              onModelChange={setModelId}
-              compareEnabled={compareEnabled}
-              onCompareEnabledChange={setCompareEnabled}
-              compareModelIds={compareModelIds}
-              onCompareModelIdsChange={setCompareModelIds}
-              conversationId={conversationId}
-              placement="inline"
-            />
+          <div className="sticky bottom-0 z-10 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6">
+            <div className="mx-auto max-w-[860px]">
+              <Composer
+                onSend={handleSend}
+                onSendCompare={handleSendCompare}
+                onStop={handleStop}
+                isStreaming={isStreaming}
+                credits={credits}
+                modelValue={modelId}
+                onModelChange={setModelId}
+                compareEnabled={compareEnabled}
+                onCompareEnabledChange={setCompareEnabled}
+                compareModelIds={compareModelIds}
+                onCompareModelIdsChange={setCompareModelIds}
+                conversationId={conversationId}
+                placement="inline"
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -1,16 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  getSelectedModelPreference,
-  MODEL_PREFERENCE_KEY,
-  resetModelPreferenceForTesting,
-} from '../../src/lib/models/preference'
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getSelectedSkillPreference,
   resetSkillPreferenceForTesting,
   SKILL_PREFERENCE_KEY,
 } from '../../src/lib/chat/skill-preference'
+import {
+  getSelectedModelPreference,
+  MODEL_PREFERENCE_KEY,
+  resetModelPreferenceForTesting,
+} from '../../src/lib/models/preference'
 
 const deleteAllMock = vi.fn().mockResolvedValue({ success: true })
 
@@ -137,29 +143,39 @@ describe('Settings Page', () => {
 
     // User details
     expect(screen.getByText('Ghazy Alghifari')).toBeTruthy()
-    expect(screen.getAllByText('alghifarighazy508@gmail.com').length).toBeGreaterThanOrEqual(1)
+    expect(
+      screen.getAllByText('alghifarighazy508@gmail.com').length,
+    ).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Google')).toBeTruthy()
     expect(screen.getByText(/Standar \(100 Kredit\)/)).toBeTruthy()
-    expect(screen.getByText('Dikelola oleh akun Google Anda (hanya-baca).')).toBeTruthy()
+    expect(
+      screen.getByText('Dikelola oleh akun Google Anda (hanya-baca).'),
+    ).toBeTruthy()
   })
 
   it('changes default model and persists to localStorage and reactive store', () => {
     renderPage()
 
-    const select = screen.getByTestId('default-model-select') as HTMLSelectElement
+    const select = screen.getByTestId(
+      'default-model-select',
+    ) as HTMLSelectElement
     expect(select.value).toBe('auto')
 
     // Change to gemini-3.7-flash-high
     fireEvent.change(select, { target: { value: 'gemini-3.7-flash-high' } })
 
     expect(getSelectedModelPreference()).toBe('gemini-3.7-flash-high')
-    expect(localStorage.getItem(MODEL_PREFERENCE_KEY)).toBe('gemini-3.7-flash-high')
+    expect(localStorage.getItem(MODEL_PREFERENCE_KEY)).toBe(
+      'gemini-3.7-flash-high',
+    )
   })
 
   it('changes default skill and persists to localStorage and reactive store', () => {
     renderPage()
 
-    const select = screen.getByTestId('default-skill-select') as HTMLSelectElement
+    const select = screen.getByTestId(
+      'default-skill-select',
+    ) as HTMLSelectElement
     expect(select.value).toBe('none')
 
     // Change to prd-plan
@@ -211,5 +227,21 @@ describe('Settings Page', () => {
 
     expect(authClient.signOut).toHaveBeenCalled()
   })
-})
 
+  it('renders marketing navigation layout with back to chat button and without chat sidebar', () => {
+    renderPage()
+
+    // Navbar items
+    expect(screen.getByTestId('back-to-chat')).toBeTruthy()
+    expect(screen.getByText('Kembali ke chat')).toBeTruthy()
+    expect(screen.getByText('FAQ')).toBeTruthy()
+    expect(screen.getByText('Bantuan')).toBeTruthy()
+
+    // No chat sidebar
+    expect(screen.queryByTestId('mock-sidebar')).toBeNull()
+    expect(screen.queryByTestId('sidebar')).toBeNull()
+
+    // Avatar initials
+    expect(screen.getAllByText('GA').length).toBeGreaterThanOrEqual(1)
+  })
+})

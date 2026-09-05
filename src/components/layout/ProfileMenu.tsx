@@ -1,8 +1,4 @@
-import {
-  Logout01Icon,
-  Settings01Icon,
-  UserIcon,
-} from '@hugeicons/core-free-icons'
+import { Logout01Icon, Settings01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import {
@@ -13,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { authClient } from '@/lib/auth/auth-client'
 
 type Props = {
@@ -27,14 +24,6 @@ type Props = {
 }
 
 export function ProfileMenu({ user }: Props) {
-  const initials =
-    user?.name
-      ?.split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join('') || 'ZA'
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -42,43 +31,14 @@ export function ProfileMenu({ user }: Props) {
           type="button"
           data-testid="profile-menu-trigger"
           aria-label="Profil"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-tint text-[12px] font-semibold text-notion-blue transition-colors duration-200 hover:bg-sky-tint/70 overflow-hidden border border-hairline"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-opacity duration-200 hover:opacity-85"
         >
-          {user?.image ? (
-            <img
-              src={user.image}
-              alt={user.name ?? 'Avatar'}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-          ) : (
-            initials
-          )}
+          <UserAvatar user={user} className="h-9 w-9 text-[12px]" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-[220px]">
         <DropdownMenuLabel className="flex items-center gap-2.5 px-2.5 py-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-tint text-[11px] font-semibold text-notion-blue overflow-hidden border border-hairline">
-            {user?.image ? (
-              <img
-                src={user.image}
-                alt={user.name ?? 'Avatar'}
-                className="h-full w-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-            ) : (
-              <HugeiconsIcon
-                icon={UserIcon}
-                size={15}
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-            )}
-          </span>
+          <UserAvatar user={user} className="h-8 w-8 text-[11px]" />
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-[13px] font-medium text-ink">
               {user?.name ?? 'Pengguna'}
