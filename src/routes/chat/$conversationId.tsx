@@ -6,6 +6,7 @@ import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
+import { parsePrdStreamEvent } from '@/lib/ai/prd-stream'
 import { isCompareSelectionValid } from '@/lib/chat/compare-selection'
 import {
   type PendingMessage,
@@ -15,6 +16,7 @@ import { setSelectedSkillPreference } from '@/lib/chat/skill-preference'
 import { useSelectedModel } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
+  generatePrdArtifact,
   retryGeneration,
   sendCompareMessage,
   sendMessage,
@@ -118,6 +120,208 @@ function ChatThread() {
   const compareEnabled = mode === 'compare'
   const setCompareEnabled = (enabled: boolean) =>
     setMode(enabled ? 'compare' : 'normal')
+
+  const handleSendPrd = async (
+    content: string,
+    modelId: string,
+    attachmentIds?: string[],
+    enableWebSearch?: boolean,
+  ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+    }
+    const assistantId = crypto.randomUUID()
+    const assistantMsg: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      modelId,
+      streaming: true,
+      prdStatus: 'preparing',
+    }
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
+    setIsStreaming(true)
+
+    try {
+      const response = (await generatePrdArtifact({
+        data: {
+          conversationId,
+          modelId,
+          skillId: 'prd-plan',
+          content,
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
+      })) as Response
+
+      const genId = response.headers.get('X-Generation-Id')
+      const routerModelId = response.headers.get('X-Router-Model-Id')
+      const routingReason = response.headers.get('X-Routing-Reason')
+      if (genId) setGenerationId(genId)
+
+      refreshConversationList()
+      setTimeout(refreshConversationList, 3000)
+
+      if (routerModelId && modelId === 'auto') {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  routerModelId,
+                  routingReason: routingReason ?? undefined,
+                }
+              : m,
+          ),
+        )
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        setIsStreaming(false)
+        setGenerationId(null)
+        void refreshCredits()
+        return
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+          const lines = part.split('\n')
+          for (const line of lines) {
+            if (!line.startsWith('data:')) continue
+            const jsonStr = line.slice(5).trim()
+            if (!jsonStr || jsonStr === '[DONE]') continue
+            try {
+              const raw = JSON.parse(jsonStr)
+              const event = parsePrdStreamEvent(raw)
+
+              if (event.type === 'prd-status') {
+                if (event.phase === 'error') {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            prdStatus: 'error',
+                            errorMessage: event.message,
+                            streaming: false,
+                          }
+                        : m,
+                    ),
+                  )
+                } else if (event.phase === 'generating') {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            prdStatus: 'generating',
+                            prdSection: event.section,
+                          }
+                        : m,
+                    ),
+                  )
+                } else {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            prdStatus: event.phase,
+                          }
+                        : m,
+                    ),
+                  )
+                }
+              } else if (event.type === 'prd-artifact') {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          prdArtifact: {
+                            attachmentId: event.attachmentId,
+                            fileName: event.fileName,
+                            fileSize: event.fileSize,
+                            mimeType: event.mimeType,
+                          },
+                          content: 'PRD selesai dibuat.',
+                        }
+                      : m,
+                  ),
+                )
+              } else if (event.type === 'prd-done') {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          prdStatus: 'completed',
+                          streaming: false,
+                        }
+                      : m,
+                  ),
+                )
+              }
+            } catch (err) {
+              console.error('Error parsing PRD event:', err)
+            }
+          }
+        }
+      }
+
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      refreshConversationList()
+      void refreshCredits()
+    } catch (e) {
+      const err = e as Error & { status?: number; code?: string }
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: 'Kredit tidak mencukupi. Silakan reset kredit.',
+                  streaming: false,
+                  prdStatus: undefined,
+                }
+              : m,
+          ),
+        )
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  prdStatus: 'error',
+                  errorMessage: err.message || 'Pembuatan PRD gagal.',
+                  streaming: false,
+                }
+              : m,
+          ),
+        )
+      }
+    } finally {
+      setIsStreaming(false)
+      setGenerationId(null)
+    }
+  }
+
   const handleSend = async (
     content: string,
     modelId: string,
@@ -125,6 +329,9 @@ function ChatThread() {
     attachmentIds?: string[],
     enableWebSearch?: boolean,
   ) => {
+    if (skillId === 'prd-plan') {
+      return handleSendPrd(content, modelId, attachmentIds, enableWebSearch)
+    }
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',

@@ -21,7 +21,9 @@ import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { CompareGrid } from './CompareGrid'
 import { CopyButton } from './CopyButton'
+import { FileCard } from './FileCard'
 import { InlineError } from './InlineError'
+import { PrdProgress } from './PrdProgress'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
@@ -261,38 +263,51 @@ function MessageItem({
           </span>
         </div>
         <div className="min-w-0 space-y-2 pl-9">
-          <ChecklistAwareContent
-            content={message.content}
-            isStreaming={Boolean(message.streaming)}
-            storageKey={`msg:${message.id}`}
-            renderMarkdown={(text) => (
-              <div className="chat-prose max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
-                <ReactMarkdown
-                  rehypePlugins={[rehypeSanitize, rehypeHighlight]}
-                  components={{
-                    code: ({ children, className }) => {
-                      const isBlock = Boolean(className)
-                      if (isBlock) {
-                        return (
-                          <CodeBlock>{flattenReactNodes(children)}</CodeBlock>
-                        )
-                      }
-                      return (
-                        <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
-                          {children}
-                        </code>
-                      )
-                    },
-                    pre: ({ children }) => <>{children}</>,
-                  }}
-                >
-                  {text}
-                </ReactMarkdown>
-                {message.streaming && !message.content && <TypingDots />}
-              </div>
+          {message.prdStatus && message.prdStatus !== 'completed' && (
+            <PrdProgress
+              phase={message.prdStatus}
+              section={message.prdSection}
+              errorMessage={message.errorMessage}
+            />
+          )}
+          {message.content &&
+            (!message.prdStatus || message.prdStatus === 'completed') && (
+              <ChecklistAwareContent
+                content={message.content}
+                isStreaming={Boolean(message.streaming)}
+                storageKey={`msg:${message.id}`}
+                renderMarkdown={(text) => (
+                  <div className="chat-prose max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
+                    <ReactMarkdown
+                      rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                      components={{
+                        code: ({ children, className }) => {
+                          const isBlock = Boolean(className)
+                          if (isBlock) {
+                            return (
+                              <CodeBlock>
+                                {flattenReactNodes(children)}
+                              </CodeBlock>
+                            )
+                          }
+                          return (
+                            <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
+                              {children}
+                            </code>
+                          )
+                        },
+                        pre: ({ children }) => <>{children}</>,
+                      }}
+                    >
+                      {text}
+                    </ReactMarkdown>
+                    {message.streaming && !message.content && <TypingDots />}
+                  </div>
+                )}
+              />
             )}
-          />
-          {message.errorMessage && (
+          {message.prdArtifact && <FileCard artifact={message.prdArtifact} />}
+          {message.errorMessage && !message.prdStatus && (
             <InlineError
               code={message.errorCode}
               message={message.errorMessage}
@@ -302,7 +317,7 @@ function MessageItem({
           {message.webSources && message.webSources.length > 0 && (
             <CitationDrawer sources={message.webSources} />
           )}
-          {!message.streaming && message.content && (
+          {!message.streaming && message.content && !message.prdArtifact && (
             <div className="flex items-center gap-1 pt-1">
               <CopyButton
                 content={getCopyTextForMessage(message.content)}
