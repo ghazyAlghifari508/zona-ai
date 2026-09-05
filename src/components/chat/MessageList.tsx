@@ -229,7 +229,7 @@ function MessageItem({
             isStreaming={Boolean(message.streaming)}
             storageKey={`msg:${message.id}`}
             renderMarkdown={(text) => (
-              <div className="prose prose-sm max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
+              <div className="chat-prose max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
                 <ReactMarkdown
                   rehypePlugins={[rehypeSanitize, rehypeHighlight]}
                   components={{

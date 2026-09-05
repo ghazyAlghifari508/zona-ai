@@ -154,7 +154,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               isStreaming={generation.status === 'streaming'}
               storageKey={`gen:${generation.id}`}
               renderMarkdown={(text) => (
-                <div className="prose prose-sm max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
+                <div className="chat-prose max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
                   {text ? (
                     <ReactMarkdown
                       rehypePlugins={[rehypeSanitize, rehypeHighlight]}
