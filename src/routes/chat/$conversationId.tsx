@@ -947,6 +947,7 @@ function ChatThread() {
             onRetryGeneration={handleRetry}
             onStopGeneration={handleStopPerModel}
             scrollRef={scrollRef}
+            compareEnabled={compareEnabled}
           />
         </div>
 
@@ -954,7 +955,11 @@ function ChatThread() {
           data-testid="chat-composer-container"
           className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
         >
-          <div className="pointer-events-auto mx-auto max-w-[860px]">
+          <div
+            className={`pointer-events-auto mx-auto w-full ${
+              compareEnabled ? 'max-w-[1400px]' : 'max-w-[860px]'
+            }`}
+          >
             <Composer
               onSend={handleSend}
               onSendCompare={handleSendCompare}

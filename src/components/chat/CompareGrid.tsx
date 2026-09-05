@@ -42,6 +42,13 @@ export function CompareGrid({
     comparisonRun?.content ??
     ''
 
+  const gridColsClass =
+    generations.length === 3
+      ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+      : generations.length === 1
+        ? 'grid-cols-1'
+        : 'grid-cols-1 md:grid-cols-2'
+
   return (
     <div className="space-y-4">
       {prompt && (
@@ -51,10 +58,7 @@ export function CompareGrid({
           </div>
         </div>
       )}
-      <div
-        data-testid="compare-grid"
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-      >
+      <div data-testid="compare-grid" className={`grid gap-4 ${gridColsClass}`}>
         {generations.map((g) => (
           <ModelColumn
             key={g.id}

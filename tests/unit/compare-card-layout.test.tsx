@@ -162,4 +162,40 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     expect(contents[2].textContent).toContain('Moderate response')
     expect(contents[3].textContent).toContain('Another long detailed')
   })
+
+  it('renders 3 models in independent columns with headers and content', () => {
+    const generations = [
+      {
+        id: 'gen-1',
+        modelId: 'gemini-3.7-flash-high',
+        status: 'completed',
+        content: 'Response 1',
+      },
+      {
+        id: 'gen-2',
+        modelId: 'gpt-5.6-sol',
+        status: 'completed',
+        content: 'Response 2',
+      },
+      {
+        id: 'gen-3',
+        modelId: 'qwen3.8-flash',
+        status: 'completed',
+        content: 'Response 3',
+      },
+    ]
+
+    render(<CompareGrid generations={generations} />)
+
+    const columns = screen.getAllByTestId('model-column')
+    const headers = screen.getAllByTestId('model-column-header')
+    const contents = screen.getAllByTestId('model-column-content')
+
+    expect(columns.length).toBe(3)
+    expect(headers.length).toBe(3)
+    expect(contents.length).toBe(3)
+    expect(contents[0].textContent).toContain('Response 1')
+    expect(contents[1].textContent).toContain('Response 2')
+    expect(contents[2].textContent).toContain('Response 3')
+  })
 })
