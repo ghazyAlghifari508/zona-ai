@@ -137,7 +137,7 @@ export function MessageList({
           : 'zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto w-full'
       }
     >
-      <div className="mx-auto w-full max-w-[860px] px-4 pt-2 pb-6 lg:px-6">
+      <div className="mx-auto w-full max-w-[860px] px-4 pt-2 pb-8 lg:px-6">
         {shouldVirtualize ? (
           <div
             style={{
