@@ -7,10 +7,10 @@ describe('Chat Layout Structure & Composer Positioning', () => {
     vi.restoreAllMocks()
   })
 
-  it('maintains independent scroll container for messages and fixed container for composer', () => {
+  it('maintains independent scroll container for messages and fixed container for composer without extra border-top', () => {
     const { container } = render(
       <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-hairline/60 bg-pure-white px-4">
+        <header className="flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
           <span data-testid="topbar-compare-label">Mode banding</span>
         </header>
         <div
@@ -21,7 +21,7 @@ describe('Chat Layout Structure & Composer Positioning', () => {
         </div>
         <div
           data-testid="chat-composer-container"
-          className="shrink-0 border-t border-hairline/60 bg-pure-white px-4 pb-4 pt-3"
+          className="shrink-0 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6"
         >
           <div data-testid="composer-mock">Composer here</div>
         </div>
@@ -48,5 +48,10 @@ describe('Chat Layout Structure & Composer Positioning', () => {
 
     // Composer container must have shrink-0 so it remains anchored at bottom
     expect(composerContainer.className).toContain('shrink-0')
+
+    // Must NOT contain border-top or divider lines
+    expect(composerContainer.className).not.toContain('border-t')
+    expect(composerContainer.className).not.toContain('border-b')
+    expect(composerContainer.className).toContain('bg-gradient-to-t')
   })
 })

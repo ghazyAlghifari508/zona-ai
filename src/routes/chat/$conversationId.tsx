@@ -894,7 +894,7 @@ function ChatThread() {
       credits={credits}
       activeConversationId={conversationId}
       onNewChat={() => {
-        void navigate({ to: '/chat' })
+        void navigate({ to: '/' })
       }}
       onSelectConversation={(id) => {
         void navigate({
@@ -914,21 +914,17 @@ function ChatThread() {
             Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        {compareEnabled ? (
-          <header className="flex h-12 shrink-0 items-center justify-between border-b border-hairline/60 bg-pure-white px-4 lg:px-6">
+        <header className="flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
+          {compareEnabled && (
             <span
               data-testid="topbar-compare-label"
               className="text-[14px] font-medium text-stone"
             >
               Mode banding · {compareModelIds.length} model
             </span>
-            <span className="flex-1" />
-          </header>
-        ) : (
-          <header className="flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
-            <span className="flex-1" />
-          </header>
-        )}
+          )}
+          <span className="flex-1" />
+        </header>
 
         <div
           ref={scrollRef}
@@ -945,7 +941,7 @@ function ChatThread() {
 
         <div
           data-testid="chat-composer-container"
-          className="shrink-0 border-t border-hairline/60 bg-pure-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 lg:px-6"
+          className="shrink-0 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6"
         >
           <div className="mx-auto max-w-[860px]">
             <Composer
