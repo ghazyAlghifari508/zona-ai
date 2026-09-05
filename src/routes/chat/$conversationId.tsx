@@ -715,7 +715,7 @@ function ChatThread() {
           onStopGeneration={handleStopPerModel}
         />
 
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent pt-6 pb-[max(1rem,env(safe-area-inset-bottom))] px-4 lg:px-6">
+        <div className="pointer-events-none shrink-0 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6">
           <div className="pointer-events-auto mx-auto max-w-[860px]">
             <Composer
               onSend={handleSend}
