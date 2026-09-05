@@ -39,6 +39,9 @@ export const envSchema = z.object({
   TAVILY_API_KEY: z
     .string()
     .startsWith('tvly-', 'TAVILY_API_KEY must start with tvly-'),
+  MIDTRANS_SERVER_KEY: z.string().min(1, 'MIDTRANS_SERVER_KEY is required'),
+  MIDTRANS_CLIENT_KEY: z.string().min(1, 'MIDTRANS_CLIENT_KEY is required'),
+  MIDTRANS_IS_PRODUCTION: z.enum(['true', 'false']).default('false'),
   EXA_API_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
