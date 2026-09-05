@@ -8,6 +8,12 @@ describe('system prompt', () => {
     expect(prompt).toMatch(/directly and briefly/)
     expect(prompt).toMatch(/plain everyday language/)
   })
+  it('instructs natural paragraph breaks for long answers', () => {
+    const prompt = buildSystemPrompt({ skillId: 'none' })
+    expect(prompt).toMatch(/one main idea per paragraph/i)
+    expect(prompt).toMatch(/blank line/i)
+    expect(prompt).toMatch(/single paragraph/i)
+  })
   it('checklist contains checkbox', () => {
     expect(buildSystemPrompt({ skillId: 'checklist' })).toContain('- [ ]')
   })
