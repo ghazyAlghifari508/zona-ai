@@ -353,36 +353,62 @@ export async function sendMessageCore({
       onFinish: async ({ text, usage, reasoningText }) => {
         const latencyMs = Date.now() - startTime
         const ttft = firstTokenAt ? firstTokenAt - startTime : null
+        const hasFinalAnswer = Boolean(text && text.trim().length > 0)
         try {
           const u = usage as UsageLike
-          await db
-            .update(generationRuns)
-            .set({
-              content: text,
-              reasoningContent: reasoningText ?? null,
-              promptTokens: u?.inputTokens ?? u?.promptTokens ?? null,
-              completionTokens: u?.outputTokens ?? u?.completionTokens ?? null,
-              totalTokens: u?.totalTokens ?? null,
-              latencyMs,
-              timeToFirstTokenMs: ttft,
-              status: 'completed',
-              completedAt: new Date(),
-            })
-            .where(eq(generationRuns.id, genId))
+          if (hasFinalAnswer) {
+            await db
+              .update(generationRuns)
+              .set({
+                content: text,
+                reasoningContent: reasoningText ?? null,
+                promptTokens: u?.inputTokens ?? u?.promptTokens ?? null,
+                completionTokens:
+                  u?.outputTokens ?? u?.completionTokens ?? null,
+                totalTokens: u?.totalTokens ?? null,
+                latencyMs,
+                timeToFirstTokenMs: ttft,
+                status: 'completed',
+                completedAt: new Date(),
+              })
+              .where(eq(generationRuns.id, genId))
 
-          await db
-            .update(messages)
-            .set({ content: text })
-            .where(eq(messages.id, assistantMsg.id))
+            await db
+              .update(messages)
+              .set({ content: text })
+              .where(eq(messages.id, assistantMsg.id))
 
-          if (usage) {
-            await db.insert(usageRecords).values({
+            if (usage) {
+              await db.insert(usageRecords).values({
+                userId,
+                generationRunId: genId,
+                modelId: input.modelId,
+                promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
+                completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
+                totalTokens: u.totalTokens ?? 0,
+              })
+            }
+          } else {
+            await db
+              .update(generationRuns)
+              .set({
+                content: '',
+                reasoningContent: reasoningText ?? null,
+                status: 'failed',
+                error: {
+                  message: 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                  code: 'ERR-001',
+                },
+                latencyMs,
+                timeToFirstTokenMs: ttft,
+                completedAt: new Date(),
+              })
+              .where(eq(generationRuns.id, genId))
+            await refundCredits({
               userId,
               generationRunId: genId,
               modelId: input.modelId,
-              promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
-              completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
-              totalTokens: u.totalTokens ?? 0,
+              amount: cost,
             })
           }
         } catch (e) {
@@ -790,6 +816,13 @@ export async function sendCompareMessageCore({
           type: 'generation-start',
           timestamp: Date.now(),
         } as StreamEvent)
+
+        let accumulatedContent = ''
+        let accumulatedReasoning = ''
+        let hasError = false
+        let finishReason = 'stop'
+        const eventTypes = new Set<string>(['generation-start'])
+
         try {
           const result = streamText({
             model: nineRouter(routerId),
@@ -800,41 +833,86 @@ export async function sendCompareMessageCore({
               if (!firstTokenAts.has(genId))
                 firstTokenAts.set(genId, Date.now())
             },
-            onFinish: async ({ text, usage, reasoningText }) => {
+            onFinish: async ({
+              text,
+              usage,
+              reasoningText,
+              finishReason: fr,
+            }) => {
+              if (fr) finishReason = fr
               const latencyMs =
                 Date.now() - (startTimes.get(genId) ?? Date.now())
               const ttft = firstTokenAts.has(genId)
                 ? (firstTokenAts.get(genId) ?? 0) - (startTimes.get(genId) ?? 0)
                 : null
+              const finalText = text || accumulatedContent
+              const finalReasoning =
+                reasoningText || accumulatedReasoning || null
+              const hasFinalAnswer = Boolean(
+                finalText && finalText.trim().length > 0,
+              )
+
+              console.info(
+                `[STREAM_METRICS_SERVER] modelId=${modelId} genId=${genId} hasFinalAnswer=${hasFinalAnswer} contentLength=${finalText.length} reasoningLength=${finalReasoning?.length ?? 0} finishReason=${finishReason}`,
+              )
+
               try {
                 const u = usage as UsageLike
-                await db
-                  .update(generationRuns)
-                  .set({
-                    content: text,
-                    reasoningContent: (reasoningText as string) ?? null,
-                    promptTokens: u?.inputTokens ?? u?.promptTokens ?? null,
-                    completionTokens:
-                      u?.outputTokens ?? u?.completionTokens ?? null,
-                    totalTokens: u?.totalTokens ?? null,
-                    latencyMs,
-                    timeToFirstTokenMs: ttft,
-                    status: 'completed',
-                    completedAt: new Date(),
-                  })
-                  .where(eq(generationRuns.id, genId))
-                await db
-                  .update(messages)
-                  .set({ content: text })
-                  .where(eq(messages.id, assistantMsg.id))
-                if (usage) {
-                  await db.insert(usageRecords).values({
+                if (hasFinalAnswer) {
+                  await db
+                    .update(generationRuns)
+                    .set({
+                      content: finalText,
+                      reasoningContent: finalReasoning,
+                      promptTokens: u?.inputTokens ?? u?.promptTokens ?? null,
+                      completionTokens:
+                        u?.outputTokens ?? u?.completionTokens ?? null,
+                      totalTokens: u?.totalTokens ?? null,
+                      latencyMs,
+                      timeToFirstTokenMs: ttft,
+                      status: 'completed',
+                      completedAt: new Date(),
+                    })
+                    .where(eq(generationRuns.id, genId))
+                  await db
+                    .update(messages)
+                    .set({ content: finalText })
+                    .where(eq(messages.id, assistantMsg.id))
+                  if (usage) {
+                    await db.insert(usageRecords).values({
+                      userId,
+                      generationRunId: genId,
+                      modelId,
+                      promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
+                      completionTokens:
+                        u.outputTokens ?? u.completionTokens ?? 0,
+                      totalTokens: u.totalTokens ?? 0,
+                    })
+                  }
+                } else {
+                  // Guard: Model completed without generating final answer text
+                  hasError = true
+                  await db
+                    .update(generationRuns)
+                    .set({
+                      content: '',
+                      reasoningContent: finalReasoning,
+                      status: 'failed',
+                      error: {
+                        message:
+                          'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                        code: 'ERR-001',
+                      },
+                      latencyMs,
+                      timeToFirstTokenMs: ttft,
+                      completedAt: new Date(),
+                    })
+                    .where(eq(generationRuns.id, genId))
+                  await refundCredits({
                     userId,
                     generationRunId: genId,
                     modelId,
-                    promptTokens: u.inputTokens ?? u.promptTokens ?? 0,
-                    completionTokens: u.outputTokens ?? u.completionTokens ?? 0,
-                    totalTokens: u.totalTokens ?? 0,
+                    amount: costs[i],
                   })
                 }
               } catch (e) {
@@ -844,11 +922,13 @@ export async function sendCompareMessageCore({
               }
             },
             onError: async ({ error }) => {
+              hasError = true
               try {
                 await db
                   .update(generationRuns)
                   .set({
                     status: 'failed',
+                    reasoningContent: accumulatedReasoning || null,
                     error: { message: (error as Error).message },
                     completedAt: new Date(),
                   })
@@ -864,50 +944,56 @@ export async function sendCompareMessageCore({
             },
           })
 
-          // Consume stream to trigger onChunk/onFinish; we still produce text-delta events for multiplex
-          // cast boundary: AI SDK StreamTextResult version variance
+          // Consume stream to trigger onChunk/onFinish; produce reasoning-delta and text-delta events
           const anyResult = result as {
             toUIMessageStreamResponse?: (opts?: unknown) => Response
             toTextStreamResponse?: () => Response
             stream?: ReadableStream
             textStream?: ReadableStream<string>
+            fullStream?: ReadableStream<unknown>
           }
-          let effectiveStream: ReadableStream<
-            string | Record<string, unknown>
-          > | null = null
-          if (typeof anyResult.textStream !== 'undefined') {
-            effectiveStream = anyResult.textStream as ReadableStream<
-              string | Record<string, unknown>
-            >
-          } else if (anyResult.stream) {
-            effectiveStream = anyResult.stream as ReadableStream<
-              string | Record<string, unknown>
-            >
-          }
-          if (effectiveStream) {
-            const effReader = effectiveStream.getReader()
+
+          if (anyResult.fullStream) {
+            const effReader = anyResult.fullStream.getReader()
             try {
               while (true) {
                 const { done, value } = await effReader.read()
                 if (done) break
-                let deltaText: string | null = null
-                if (typeof value === 'string') deltaText = value
-                else if (value && typeof value === 'object') {
+                if (value && typeof value === 'object') {
                   const v = value as Record<string, unknown>
-                  if (typeof v.textDelta === 'string')
-                    deltaText = v.textDelta as string
-                  else if (typeof v.delta === 'string')
-                    deltaText = v.delta as string
-                  else if (typeof v.content === 'string')
-                    deltaText = v.content as string
-                }
-                if (deltaText !== null) {
-                  controller.enqueue({
-                    generationId: genId,
-                    modelId,
-                    type: 'text-delta',
-                    text: deltaText,
-                  } as StreamEvent)
+                  if (v.type === 'reasoning' || v.type === 'reasoning-delta') {
+                    const rText =
+                      (v.textDelta as string) ?? (v.text as string) ?? ''
+                    if (rText) {
+                      accumulatedReasoning += rText
+                      eventTypes.add('reasoning-delta')
+                      controller.enqueue({
+                        generationId: genId,
+                        modelId,
+                        type: 'reasoning-delta',
+                        text: rText,
+                      } as StreamEvent)
+                    }
+                  } else if (v.type === 'text-delta') {
+                    const tText =
+                      (v.textDelta as string) ?? (v.text as string) ?? ''
+                    if (tText) {
+                      accumulatedContent += tText
+                      eventTypes.add('text-delta')
+                      controller.enqueue({
+                        generationId: genId,
+                        modelId,
+                        type: 'text-delta',
+                        text: tText,
+                      } as StreamEvent)
+                    }
+                  } else if (v.type === 'finish') {
+                    if (typeof v.finishReason === 'string') {
+                      finishReason = v.finishReason
+                    }
+                  } else if (v.type === 'error') {
+                    hasError = true
+                  }
                 }
               }
             } finally {
@@ -915,14 +1001,79 @@ export async function sendCompareMessageCore({
                 effReader.releaseLock()
               } catch {}
             }
+          } else {
+            let effectiveStream: ReadableStream<
+              string | Record<string, unknown>
+            > | null = null
+            if (typeof anyResult.textStream !== 'undefined') {
+              effectiveStream = anyResult.textStream as ReadableStream<
+                string | Record<string, unknown>
+              >
+            } else if (anyResult.stream) {
+              effectiveStream = anyResult.stream as ReadableStream<
+                string | Record<string, unknown>
+              >
+            }
+            if (effectiveStream) {
+              const effReader = effectiveStream.getReader()
+              try {
+                while (true) {
+                  const { done, value } = await effReader.read()
+                  if (done) break
+                  let deltaText: string | null = null
+                  if (typeof value === 'string') deltaText = value
+                  else if (value && typeof value === 'object') {
+                    const v = value as Record<string, unknown>
+                    if (typeof v.textDelta === 'string')
+                      deltaText = v.textDelta as string
+                    else if (typeof v.delta === 'string')
+                      deltaText = v.delta as string
+                    else if (typeof v.content === 'string')
+                      deltaText = v.content as string
+                  }
+                  if (deltaText !== null) {
+                    accumulatedContent += deltaText
+                    eventTypes.add('text-delta')
+                    controller.enqueue({
+                      generationId: genId,
+                      modelId,
+                      type: 'text-delta',
+                      text: deltaText,
+                    } as StreamEvent)
+                  }
+                }
+              } finally {
+                try {
+                  effReader.releaseLock()
+                } catch {}
+              }
+            }
           }
 
-          controller.enqueue({
-            generationId: genId,
-            modelId,
-            type: 'generation-finish',
-            finishReason: 'stop',
-          } as StreamEvent)
+          console.info(
+            `[STREAM_METRICS] modelId=${modelId} genId=${genId} eventTypes=${Array.from(eventTypes).join(',')} receivedReasoning=${accumulatedReasoning.length > 0} receivedTextDelta=${accumulatedContent.length > 0} finishReason=${finishReason} hasError=${hasError} contentLength=${accumulatedContent.length}`,
+          )
+
+          const hasValidFinalAnswer = Boolean(
+            accumulatedContent && accumulatedContent.trim().length > 0,
+          )
+
+          if (!hasValidFinalAnswer || hasError) {
+            controller.enqueue({
+              generationId: genId,
+              modelId,
+              type: 'generation-error',
+              error: 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+              code: 'ERR-001',
+            } as StreamEvent)
+          } else {
+            controller.enqueue({
+              generationId: genId,
+              modelId,
+              type: 'generation-finish',
+              finishReason: (finishReason as 'stop') || 'stop',
+            } as StreamEvent)
+          }
           controller.close()
         } catch (err) {
           const msg = (err as Error).message
@@ -934,7 +1085,11 @@ export async function sendCompareMessageCore({
             try {
               await db
                 .update(generationRuns)
-                .set({ status: 'cancelled', completedAt: new Date() })
+                .set({
+                  status: 'cancelled',
+                  reasoningContent: accumulatedReasoning || null,
+                  completedAt: new Date(),
+                })
                 .where(eq(generationRuns.id, genId))
             } catch {}
           } else {
@@ -943,6 +1098,7 @@ export async function sendCompareMessageCore({
                 .update(generationRuns)
                 .set({
                   status: 'failed',
+                  reasoningContent: accumulatedReasoning || null,
                   error: { message: msg },
                   completedAt: new Date(),
                 })
@@ -1158,36 +1314,64 @@ export async function retryGenerationCore({
     onChunk: () => {
       if (firstTokenAt === null) firstTokenAt = Date.now()
     },
-    onFinish: async ({ text, usage }) => {
+    onFinish: async ({ text, usage, reasoningText }) => {
       const latencyMs = Date.now() - startTime
       const ttft = firstTokenAt ? firstTokenAt - startTime : null
+      const hasFinalAnswer = Boolean(text && text.trim().length > 0)
       const u = usage as UsageLike
-      await db
-        .update(generationRuns)
-        .set({
-          content: text,
-          promptTokens: u?.inputTokens ?? null,
-          completionTokens: u?.outputTokens ?? null,
-          totalTokens: u?.totalTokens ?? null,
-          latencyMs,
-          timeToFirstTokenMs: ttft,
-          status: 'completed',
-          completedAt: new Date(),
-        })
-        .where(eq(generationRuns.id, newGenId))
-      await db
-        .update(messages)
-        .set({ content: text })
-        .where(eq(messages.id, newMsg.id))
-      if (usage) {
-        await db.insert(usageRecords).values({
-          userId: session.user.id,
-          generationRunId: newGenId,
-          modelId: gen.modelId,
-          promptTokens: u.inputTokens ?? 0,
-          completionTokens: u.outputTokens ?? 0,
-          totalTokens: u.totalTokens ?? 0,
-        })
+      if (hasFinalAnswer) {
+        await db
+          .update(generationRuns)
+          .set({
+            content: text,
+            reasoningContent: reasoningText ?? null,
+            promptTokens: u?.inputTokens ?? null,
+            completionTokens: u?.outputTokens ?? null,
+            totalTokens: u?.totalTokens ?? null,
+            latencyMs,
+            timeToFirstTokenMs: ttft,
+            status: 'completed',
+            completedAt: new Date(),
+          })
+          .where(eq(generationRuns.id, newGenId))
+        await db
+          .update(messages)
+          .set({ content: text })
+          .where(eq(messages.id, newMsg.id))
+        if (usage) {
+          await db.insert(usageRecords).values({
+            userId: session.user.id,
+            generationRunId: newGenId,
+            modelId: gen.modelId,
+            promptTokens: u.inputTokens ?? 0,
+            completionTokens: u.outputTokens ?? 0,
+            totalTokens: u.totalTokens ?? 0,
+          })
+        }
+      } else {
+        await db
+          .update(generationRuns)
+          .set({
+            content: '',
+            reasoningContent: reasoningText ?? null,
+            status: 'failed',
+            error: {
+              message: 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+              code: 'ERR-001',
+            },
+            latencyMs,
+            timeToFirstTokenMs: ttft,
+            completedAt: new Date(),
+          })
+          .where(eq(generationRuns.id, newGenId))
+        try {
+          await refundCredits({
+            userId: session.user.id,
+            generationRunId: newGenId,
+            modelId: gen.modelId,
+            amount: cost,
+          })
+        } catch {}
       }
       controllers.delete(newGenId)
     },

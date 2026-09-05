@@ -72,15 +72,37 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
       Boolean(prdAttachment)
 
     if (!compRunId) {
+      const rawContent = message.content ?? run?.content ?? ''
+      const hasContent = Boolean(rawContent && rawContent.trim().length > 0)
+      const isFailed =
+        run?.status === 'failed' ||
+        (!hasContent && !isPrd && run?.status === 'completed')
+
       result.push({
         id: message.id,
         role: 'assistant',
-        content: message.content,
+        content: isFailed && !hasContent ? '' : rawContent,
         ...(run
           ? {
               modelId: run.modelId,
               routerModelId: run.routerModelId,
               webSources: run.webSources ?? undefined,
+            }
+          : {}),
+        ...(isFailed && !isPrd
+          ? {
+              errorCode:
+                typeof run?.error === 'object' &&
+                run?.error &&
+                'code' in run.error
+                  ? String((run.error as { code: unknown }).code)
+                  : 'ERR-001',
+              errorMessage:
+                typeof run?.error === 'object' &&
+                run?.error &&
+                'message' in run.error
+                  ? String((run.error as { message: unknown }).message)
+                  : 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
             }
           : {}),
         ...(isPrd && prdAttachment
@@ -106,11 +128,25 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
       const m = messages[i]
       const r = m.generationRuns[0]
       if (m.role !== 'assistant' || r?.comparisonRunId !== compRunId) break
+
+      const rawContent = r.content ?? m.content ?? ''
+      const hasContent = Boolean(rawContent && rawContent.trim().length > 0)
+      const isFailed =
+        r.status === 'failed' || (!hasContent && r.status === 'completed')
+      const finalStatus = isFailed ? 'failed' : r.status
+      const finalError =
+        isFailed && !r.error
+          ? {
+              message: 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+              code: 'ERR-001',
+            }
+          : r.error
+
       compareGenerations.push({
         id: r.id,
         modelId: r.modelId,
-        status: r.status,
-        content: r.content ?? m.content ?? '',
+        status: finalStatus,
+        content: isFailed && !hasContent ? '' : rawContent,
         reasoningContent: r.reasoningContent,
         promptTokens: r.promptTokens,
         completionTokens: r.completionTokens,
@@ -119,7 +155,7 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
         timeToFirstTokenMs: r.timeToFirstTokenMs,
         comparisonRunId: r.comparisonRunId,
         messageId: m.id,
-        error: r.error,
+        error: finalError,
         webSources: r.webSources,
       })
       i++

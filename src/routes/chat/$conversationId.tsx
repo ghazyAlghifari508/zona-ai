@@ -448,10 +448,28 @@ function ChatThread() {
           )
         }
       }
+      const hasFinalText = Boolean(fullText && fullText.trim().length > 0)
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
-            ? { ...m, content: fullText, streaming: false }
+            ? hasFinalText
+              ? { ...m, content: fullText, streaming: false }
+              : {
+                  ...m,
+                  content: '',
+                  streaming: false,
+                  errorCode: 'ERR-001',
+                  errorMessage:
+                    'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                  onRetry: () =>
+                    void handleSend(
+                      content,
+                      modelId,
+                      skillId,
+                      attachmentIds,
+                      enableWebSearch,
+                    ),
+                }
             : m,
         ),
       )
@@ -571,6 +589,23 @@ function ChatThread() {
       const decoder = new TextDecoder()
       let buffer = ''
       const genIdToIndex = new Map<string, number>()
+      const modelStats = new Map<
+        string,
+        {
+          eventTypes: Set<string>
+          hasReasoning: boolean
+          hasText: boolean
+          finishReason: string | null
+        }
+      >()
+      for (const mid of modelIds) {
+        modelStats.set(mid, {
+          eventTypes: new Set<string>(),
+          hasReasoning: false,
+          hasText: false,
+          finishReason: null,
+        })
+      }
 
       while (true) {
         const { done, value } = await reader.read()
@@ -587,8 +622,10 @@ function ChatThread() {
             try {
               const raw = JSON.parse(jsonStr)
               const event = parseStreamEvent(raw)
+              const s = modelStats.get(event.modelId)
 
               if (event.type === 'generation-start') {
+                if (s) s.eventTypes.add('generation-start')
                 const modelIdx = modelIds.indexOf(event.modelId)
                 if (modelIdx !== -1) {
                   genIdToIndex.set(event.generationId, modelIdx)
@@ -598,11 +635,36 @@ function ChatThread() {
                     ),
                   )
                 }
+              } else if (event.type === 'reasoning-delta') {
+                const idx =
+                  genIdToIndex.get(event.generationId) ??
+                  modelIds.indexOf(event.modelId)
+                if (idx !== -1) {
+                  if (s) {
+                    s.hasReasoning = true
+                    s.eventTypes.add('reasoning-delta')
+                  }
+                  updateCompareGen((gens) =>
+                    gens.map((g, i) =>
+                      i === idx
+                        ? {
+                            ...g,
+                            reasoningContent:
+                              (g.reasoningContent ?? '') + event.text,
+                          }
+                        : g,
+                    ),
+                  )
+                }
               } else if (event.type === 'text-delta') {
                 const idx =
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
+                  if (s) {
+                    s.hasText = true
+                    s.eventTypes.add('text-delta')
+                  }
                   updateCompareGen((gens) =>
                     gens.map((g, i) =>
                       i === idx
@@ -616,10 +678,29 @@ function ChatThread() {
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
+                  if (s) {
+                    s.finishReason = event.finishReason
+                    s.eventTypes.add('generation-finish')
+                  }
                   updateCompareGen((gens) =>
-                    gens.map((g, i) =>
-                      i === idx ? { ...g, status: 'completed' } : g,
-                    ),
+                    gens.map((g, i) => {
+                      if (i !== idx) return g
+                      const hasValidAnswer = Boolean(
+                        g.content && g.content.trim().length > 0,
+                      )
+                      if (!hasValidAnswer) {
+                        return {
+                          ...g,
+                          status: 'failed',
+                          error: {
+                            message:
+                              'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                            code: 'ERR-001',
+                          },
+                        }
+                      }
+                      return { ...g, status: 'completed' }
+                    }),
                   )
                 }
               } else if (event.type === 'generation-error') {
@@ -627,6 +708,7 @@ function ChatThread() {
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
+                  if (s) s.eventTypes.add('generation-error')
                   updateCompareGen((gens) =>
                     gens.map((g, i) =>
                       i === idx
@@ -634,7 +716,6 @@ function ChatThread() {
                             ...g,
                             status: 'failed',
                             error: { message: event.error, code: event.code },
-                            content: event.error,
                           }
                         : g,
                     ),
@@ -645,6 +726,7 @@ function ChatThread() {
                   genIdToIndex.get(event.generationId) ??
                   modelIds.indexOf(event.modelId)
                 if (idx !== -1) {
+                  if (s) s.eventTypes.add('usage')
                   updateCompareGen((gens) =>
                     gens.map((g, i) =>
                       i === idx
@@ -664,19 +746,60 @@ function ChatThread() {
         }
       }
 
+      // Guard: all compare generations must have valid final content or be marked failed
+      updateCompareGen((gens) =>
+        gens.map((g) => {
+          if (g.status === 'failed') return g
+          const hasValidAnswer = Boolean(
+            g.content && g.content.trim().length > 0,
+          )
+          if (!hasValidAnswer) {
+            return {
+              ...g,
+              status: 'failed',
+              error: {
+                message: 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                code: 'ERR-001',
+              },
+            }
+          }
+          return { ...g, status: 'completed' }
+        }),
+      )
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === compareAssistantId
             ? {
                 ...m,
                 streaming: false,
-                compareGenerations: m.compareGenerations?.map((g) =>
-                  g.status === 'streaming' ? { ...g, status: 'completed' } : g,
-                ),
+                compareGenerations: m.compareGenerations?.map((g) => {
+                  if (g.status === 'failed') return g
+                  const hasValidAnswer = Boolean(
+                    g.content && g.content.trim().length > 0,
+                  )
+                  return hasValidAnswer
+                    ? { ...g, status: 'completed' }
+                    : {
+                        ...g,
+                        status: 'failed',
+                        error: {
+                          message:
+                            'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                          code: 'ERR-001',
+                        },
+                      }
+                }),
               }
             : m,
         ),
       )
+
+      for (const [mId, s] of modelStats.entries()) {
+        console.info(
+          `[CLIENT_STREAM_METRICS] modelId=${mId} eventTypes=${Array.from(s.eventTypes).join(',')} receivedReasoning=${s.hasReasoning} receivedText=${s.hasText} finishReason=${s.finishReason ?? 'none'}`,
+        )
+      }
 
       const persisted = await getMessages({ data: { conversationId } })
       setMessages(
@@ -861,6 +984,7 @@ function ChatThread() {
           ),
         )
       }
+      const hasRetryContent = Boolean(full && full.trim().length > 0)
       setMessages((prev) =>
         prev.map((m) =>
           m.compareGenerations
@@ -868,7 +992,23 @@ function ChatThread() {
                 ...m,
                 compareGenerations: m.compareGenerations.map((g) =>
                   g.id === genId
-                    ? { ...g, content: full, status: 'completed' }
+                    ? hasRetryContent
+                      ? {
+                          ...g,
+                          content: full,
+                          status: 'completed',
+                          error: undefined,
+                        }
+                      : {
+                          ...g,
+                          content: '',
+                          status: 'failed',
+                          error: {
+                            message:
+                              'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                            code: 'ERR-001',
+                          },
+                        }
                     : g,
                 ),
               }
@@ -889,7 +1029,7 @@ function ChatThread() {
                         ...g,
                         status: 'failed',
                         error: { message: msg, code: 'ERR-001' },
-                        content: msg,
+                        content: '',
                       }
                     : g,
                 ),

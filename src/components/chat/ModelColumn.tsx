@@ -52,7 +52,24 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
       : generation.content
   }
 
-  const displayError = humanizeGenerationError(generation.error)
+  const hasVisibleContent = Boolean(
+    generation.content && generation.content.trim().length > 0,
+  )
+  const isWaiting =
+    (generation.status === 'streaming' || generation.status === 'queued') &&
+    !hasVisibleContent
+
+  const isFailedOrEmptyCompleted =
+    generation.status === 'failed' ||
+    (generation.status === 'completed' && !hasVisibleContent)
+
+  const errorToHumanize =
+    generation.error ??
+    (isFailedOrEmptyCompleted
+      ? 'Model tidak menghasilkan jawaban akhir. Coba lagi.'
+      : null)
+
+  const displayError = humanizeGenerationError(errorToHumanize)
   const contentAsError =
     displayError.technicalDetail === null && generation.content?.trim()
       ? humanizeGenerationError(generation.content)
@@ -60,13 +77,6 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   const userMessage = contentAsError?.userMessage ?? displayError.userMessage
   const technicalDetail =
     displayError.technicalDetail ?? contentAsError?.technicalDetail ?? null
-
-  const hasVisibleContent = Boolean(
-    generation.content && generation.content.trim().length > 0,
-  )
-  const isWaiting =
-    (generation.status === 'streaming' || generation.status === 'queued') &&
-    !hasVisibleContent
 
   return (
     <div
@@ -120,7 +130,10 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
         data-testid="model-column-content"
         className="zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
       >
-        {generation.status === 'failed' ? (
+        {generation.reasoningContent && (
+          <ReasoningSection content={generation.reasoningContent} />
+        )}
+        {isFailedOrEmptyCompleted ? (
           <div className="flex min-w-0 flex-col items-center justify-center gap-3 py-8 text-center">
             <InlineError
               code={
@@ -130,7 +143,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                 typeof (generation.error as { code?: unknown }).code ===
                   'string'
                   ? (generation.error as { code: string }).code
-                  : undefined
+                  : 'ERR-001'
               }
               message={userMessage}
               technicalDetail={technicalDetail}
@@ -154,7 +167,6 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
           </div>
         ) : (
           <>
-            <ReasoningSection content={generation.reasoningContent} />
             <ChecklistAwareContent
               content={generation.content ?? ''}
               isStreaming={generation.status === 'streaming'}

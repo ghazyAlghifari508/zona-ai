@@ -51,6 +51,11 @@ const MECHANISM_RULES: MechanismRule[] = [
     test: /\b5\d{2}\b|server\s*error|service\s*unavailable|bad\s*gateway|overloaded|internal\s*error|upstream/i,
     userMessage: 'Provider AI sedang mengalami gangguan. Coba lagi nanti.',
   },
+  {
+    id: 'empty-response',
+    test: /tidak menghasilkan jawaban akhir|empty response|no response text|blank content/i,
+    userMessage: 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+  },
 ]
 
 function extractRawMessage(error: unknown): string {
