@@ -57,14 +57,6 @@ export const Route = createFileRoute('/chat/$conversationId')({
 function ConversationRoute() {
   const { conversationId } = Route.useParams()
 
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('zona_last_conversation_id', conversationId)
-    } catch {
-      // ignore storage errors
-    }
-  }, [conversationId])
-
   return <ChatThread key={conversationId} />
 }
 
@@ -80,7 +72,7 @@ function ConversationError() {
             Percakapan ini tidak tersedia atau tidak dapat diakses.
           </p>
           <Link
-            to="/chat"
+            to="/"
             className="mt-5 inline-flex rounded-md border border-hairline-strong bg-pure-white px-4 py-2 text-[14px] font-medium text-ink hover:bg-ink/5"
           >
             Kembali ke chat

@@ -1,4 +1,4 @@
-﻿import { Alert02Icon } from '@hugeicons/core-free-icons'
+import { Alert02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
@@ -31,7 +31,7 @@ function ErrorPage() {
           Silakan coba beberapa saat lagi.
         </p>
         <Link
-          to="/chat"
+          to="/"
           className="mt-6 inline-flex rounded-md border border-hairline-strong bg-pure-white px-5 py-2 text-[15px] font-medium text-ink hover:bg-ink/5"
         >
           Kembali ke chat

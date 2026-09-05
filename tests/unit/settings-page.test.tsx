@@ -232,7 +232,9 @@ describe('Settings Page', () => {
     renderPage()
 
     // Navbar items
-    expect(screen.getByTestId('back-to-chat')).toBeTruthy()
+    const backBtn = screen.getByTestId('back-to-chat')
+    expect(backBtn).toBeTruthy()
+    expect(backBtn.getAttribute('href')).toBe('/')
     expect(screen.getByText('Kembali ke chat')).toBeTruthy()
     expect(screen.getByText('FAQ')).toBeTruthy()
     expect(screen.getByText('Bantuan')).toBeTruthy()

@@ -1,7 +1,7 @@
 import { ArrowLeft01Icon, Login03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
-import { type ReactNode, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ProfileMenu } from './ProfileMenu'
 
 type Props = {
@@ -27,19 +27,6 @@ export function GlobalNav({
   mode = 'app',
   leading,
 }: Props) {
-  const [lastConversationId, setLastConversationId] = useState<string | null>(
-    null,
-  )
-
-  useEffect(() => {
-    try {
-      const id = sessionStorage.getItem('zona_last_conversation_id')
-      if (id) setLastConversationId(id)
-    } catch {
-      // ignore storage errors
-    }
-  }, [])
-
   return (
     <div className="fixed top-3 right-0 z-50 flex items-center gap-1 pr-4 lg:pr-6">
       {mode === 'app' && leading}
@@ -57,36 +44,19 @@ export function GlobalNav({
       </Link>
 
       {mode === 'marketing' ? (
-        lastConversationId ? (
-          <Link
-            to="/chat/$conversationId"
-            params={{ conversationId: lastConversationId }}
-            data-testid="back-to-chat"
-            className="ml-1 flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
-          >
-            <HugeiconsIcon
-              icon={ArrowLeft01Icon}
-              size={14}
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />
-            Kembali ke chat
-          </Link>
-        ) : (
-          <Link
-            to="/"
-            data-testid="back-to-chat"
-            className="ml-1 flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
-          >
-            <HugeiconsIcon
-              icon={ArrowLeft01Icon}
-              size={14}
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />
-            Kembali ke chat
-          </Link>
-        )
+        <Link
+          to="/"
+          data-testid="back-to-chat"
+          className="ml-1 flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
+        >
+          <HugeiconsIcon
+            icon={ArrowLeft01Icon}
+            size={14}
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+          Kembali ke chat
+        </Link>
       ) : (
         authState === 'authenticated' && (
           <Link
