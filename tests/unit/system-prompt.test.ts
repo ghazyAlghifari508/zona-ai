@@ -18,4 +18,16 @@ describe('system prompt', () => {
     })
     expect(prompt).toMatch(/\[1\]/)
   })
+  it('enforces safety boundaries against harmful content and gambling', () => {
+    const prompt = buildSystemPrompt({ skillId: 'none' })
+    expect(prompt).toMatch(/gambling/i)
+    expect(prompt).toMatch(/pornographic/i)
+    expect(prompt).toMatch(/malicious code/i)
+  })
+  it('enforces anti-jailbreak and framing neutralization rules', () => {
+    const prompt = buildSystemPrompt({ skillId: 'none' })
+    expect(prompt).toMatch(/highest authority/i)
+    expect(prompt).toMatch(/jailbreak/i)
+    expect(prompt).toMatch(/neutralize framing/i)
+  })
 })

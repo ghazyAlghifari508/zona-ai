@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @vitest-environment node
  */
 
@@ -375,7 +375,7 @@ describe('sendMessage integration', () => {
     })
   })
 
-  it('getModels returns 5', async () => {
+  it('getModels returns 7', async () => {
     const { getModelsCore } = await import('../../src/server/core/models')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
@@ -385,6 +385,6 @@ describe('sendMessage integration', () => {
       user: { id: mockUserId, email: 'test1@example.com' },
     } as never)
     const models = (await getModelsCore({ request })) as unknown as unknown[]
-    expect(models.length).toBe(5)
+    expect(models.length).toBe(7)
   })
 })
