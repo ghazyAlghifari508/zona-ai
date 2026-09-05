@@ -14,7 +14,7 @@ type ErrorEntry = {
 }
 
 /**
- * Error Taxonomy — 19 codes ERR-001..ERR-019 (docs/ERROR-HANDLING.md).
+ * Error Taxonomy — 21 codes ERR-001..ERR-021 (docs/ERROR-HANDLING.md).
  * HTTP mapping: 400/401/402/403/404/413/429/500/502/504 (200 = stream-level error).
  */
 const ZONA_ERROR_MAP: Record<string, ErrorEntry> = {
@@ -128,6 +128,18 @@ const ZONA_ERROR_MAP: Record<string, ErrorEntry> = {
     status: 402,
     retryable: false,
     action: 'select-model',
+  },
+  'ERR-020': {
+    message: 'Payment service is temporarily unavailable. Please try again.',
+    status: 502,
+    retryable: true,
+    action: 'retry',
+  },
+  'ERR-021': {
+    message:
+      'Payment verification failed. Please contact support if credits are missing.',
+    status: 500,
+    retryable: false,
   },
 }
 

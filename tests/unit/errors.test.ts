@@ -38,9 +38,9 @@ describe('errors', () => {
     }
   })
 
-  it('all 19 codes defined (ERR-001..ERR-019)', () => {
-    expect(ZONA_ERROR_CODES).toHaveLength(19)
-    for (let i = 1; i <= 19; i++) {
+  it('all 21 codes defined (ERR-001..ERR-021)', () => {
+    expect(ZONA_ERROR_CODES).toHaveLength(21)
+    for (let i = 1; i <= 21; i++) {
       const code = `ERR-${String(i).padStart(3, '0')}`
       expect(getZonaError(code)).toBeDefined()
       expect(getZonaError(code).code).toBe(code)
