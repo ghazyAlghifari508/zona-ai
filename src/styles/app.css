@@ -48,10 +48,6 @@ body {
   color: var(--color-ink);
 }
 
-html {
-  scrollbar-gutter: stable;
-}
-
 /* Accessibility — visible focus ring (WCAG 2.1 AA, 2.4.7). */
 @layer base {
   *:focus-visible {
