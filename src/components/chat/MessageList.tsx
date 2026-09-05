@@ -12,6 +12,7 @@ import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import type { PrdPhase, PrdSection } from '@/lib/ai/prd-stream'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
@@ -36,6 +37,14 @@ export type ChatMessage = {
   errorCode?: string
   errorMessage?: string
   onRetry?: () => void
+  prdStatus?: PrdPhase
+  prdSection?: PrdSection
+  prdArtifact?: {
+    attachmentId: string
+    fileName: string
+    fileSize: number
+    mimeType: string
+  }
   compareGenerations?: Array<{
     id: string
     modelId: string

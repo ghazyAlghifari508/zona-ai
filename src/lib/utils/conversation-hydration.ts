@@ -4,10 +4,18 @@ type PersistedMessage = {
   id: string
   role: string
   content: string
+  attachments?: Array<{
+    id: string
+    fileName: string
+    fileSize: number
+    mimeType: string
+    processingStatus?: string
+  }>
   generationRuns: Array<{
     id: string
     modelId: string
     routerModelId: string
+    skillId?: string | null
     status: string
     content?: string | null
     reasoningContent?: string | null
@@ -56,6 +64,12 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
 
     const run = message.generationRuns[0]
     const compRunId = run?.comparisonRunId
+    const prdAttachment = message.attachments?.find(
+      (a) => a.mimeType === 'text/markdown' || a.fileName.endsWith('.md'),
+    )
+    const isPrd =
+      (run?.skillId === 'prd-plan' || Boolean(prdAttachment)) &&
+      Boolean(prdAttachment)
 
     if (!compRunId) {
       result.push({
@@ -67,6 +81,17 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
               modelId: run.modelId,
               routerModelId: run.routerModelId,
               webSources: run.webSources ?? undefined,
+            }
+          : {}),
+        ...(isPrd && prdAttachment
+          ? {
+              prdStatus: 'completed' as const,
+              prdArtifact: {
+                attachmentId: prdAttachment.id,
+                fileName: prdAttachment.fileName,
+                fileSize: prdAttachment.fileSize,
+                mimeType: prdAttachment.mimeType,
+              },
             }
           : {}),
       })

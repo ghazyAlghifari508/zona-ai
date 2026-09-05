@@ -141,4 +141,55 @@ describe('conversation reload hydration', () => {
       modelId: 'gemini-3.7-flash-high',
     })
   })
+
+  it('hydrates prdArtifact from persisted attachments for PRD Plan assistant messages', () => {
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-user-prd',
+        role: 'user',
+        content: 'buatkan PRD fitur login',
+        generationRuns: [],
+      },
+      {
+        id: 'msg-asst-prd',
+        role: 'assistant',
+        content: 'PRD selesai dibuat.',
+        attachments: [
+          {
+            id: 'att-prd-1',
+            fileName: 'PRD-Fitur-Login.md',
+            fileSize: 18432,
+            mimeType: 'text/markdown',
+            processingStatus: 'completed',
+          },
+        ],
+        generationRuns: [
+          {
+            id: 'gen-prd-1',
+            modelId: 'gpt-5.6-sol',
+            routerModelId: 'openai/gpt-4o',
+            skillId: 'prd-plan',
+            status: 'completed',
+            content: 'PRD selesai dibuat.',
+            comparisonRunId: null,
+            messageId: 'msg-asst-prd',
+          },
+        ],
+      },
+    ])
+
+    expect(hydrated).toHaveLength(2)
+    expect(hydrated[1]).toMatchObject({
+      id: 'msg-asst-prd',
+      role: 'assistant',
+      content: 'PRD selesai dibuat.',
+      prdStatus: 'completed',
+      prdArtifact: {
+        attachmentId: 'att-prd-1',
+        fileName: 'PRD-Fitur-Login.md',
+        fileSize: 18432,
+        mimeType: 'text/markdown',
+      },
+    })
+  })
 })

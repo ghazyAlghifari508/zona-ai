@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db'
 import {
+  attachments,
   conversations,
   generationRuns,
   messages,
@@ -32,39 +33,51 @@ export async function getMessagesCore({
   if (conversation.userId !== session.user.id)
     throw new AppError('Forbidden', 403)
 
-  const [messageRows, runRows, webSourceRows] = await Promise.all([
-    db
-      .select()
-      .from(messages)
-      .where(eq(messages.conversationId, data.conversationId))
-      .orderBy(asc(messages.createdAt), asc(messages.id)),
-    db
-      .select({
-        id: generationRuns.id,
-        messageId: generationRuns.messageId,
-        comparisonRunId: generationRuns.comparisonRunId,
-        modelId: generationRuns.modelId,
-        routerModelId: generationRuns.routerModelId,
-        skillId: generationRuns.skillId,
-        status: generationRuns.status,
-        content: generationRuns.content,
-        reasoningContent: generationRuns.reasoningContent,
-        promptTokens: generationRuns.promptTokens,
-        completionTokens: generationRuns.completionTokens,
-        totalTokens: generationRuns.totalTokens,
-        latencyMs: generationRuns.latencyMs,
-        timeToFirstTokenMs: generationRuns.timeToFirstTokenMs,
-        startedAt: generationRuns.startedAt,
-        completedAt: generationRuns.completedAt,
-        error: generationRuns.error,
-      })
-      .from(generationRuns)
-      .where(eq(generationRuns.conversationId, data.conversationId)),
-    db
-      .select()
-      .from(webSources)
-      .where(eq(webSources.conversationId, data.conversationId)),
-  ])
+  const [messageRows, runRows, webSourceRows, attachmentRows] =
+    await Promise.all([
+      db
+        .select()
+        .from(messages)
+        .where(eq(messages.conversationId, data.conversationId))
+        .orderBy(asc(messages.createdAt), asc(messages.id)),
+      db
+        .select({
+          id: generationRuns.id,
+          messageId: generationRuns.messageId,
+          comparisonRunId: generationRuns.comparisonRunId,
+          modelId: generationRuns.modelId,
+          routerModelId: generationRuns.routerModelId,
+          skillId: generationRuns.skillId,
+          status: generationRuns.status,
+          content: generationRuns.content,
+          reasoningContent: generationRuns.reasoningContent,
+          promptTokens: generationRuns.promptTokens,
+          completionTokens: generationRuns.completionTokens,
+          totalTokens: generationRuns.totalTokens,
+          latencyMs: generationRuns.latencyMs,
+          timeToFirstTokenMs: generationRuns.timeToFirstTokenMs,
+          startedAt: generationRuns.startedAt,
+          completedAt: generationRuns.completedAt,
+          error: generationRuns.error,
+        })
+        .from(generationRuns)
+        .where(eq(generationRuns.conversationId, data.conversationId)),
+      db
+        .select()
+        .from(webSources)
+        .where(eq(webSources.conversationId, data.conversationId)),
+      db
+        .select({
+          id: attachments.id,
+          messageId: attachments.messageId,
+          fileName: attachments.fileName,
+          fileSize: attachments.fileSize,
+          mimeType: attachments.mimeType,
+          processingStatus: attachments.processingStatus,
+        })
+        .from(attachments)
+        .where(eq(attachments.conversationId, data.conversationId)),
+    ])
   const sourcesByGeneration = new Map<string, typeof webSourceRows>()
   for (const src of webSourceRows) {
     const arr = sourcesByGeneration.get(src.generationRunId) ?? []
@@ -86,8 +99,17 @@ export async function getMessagesCore({
     runs.push(withSources)
     runsByMessage.set(run.messageId, runs)
   }
+  const attachmentsByMessage = new Map<string, typeof attachmentRows>()
+  for (const att of attachmentRows) {
+    if (att.messageId) {
+      const arr = attachmentsByMessage.get(att.messageId) ?? []
+      arr.push(att)
+      attachmentsByMessage.set(att.messageId, arr)
+    }
+  }
   return messageRows.map((message) => ({
     ...message,
     generationRuns: runsByMessage.get(message.id) ?? [],
+    attachments: attachmentsByMessage.get(message.id) ?? [],
   }))
 }
