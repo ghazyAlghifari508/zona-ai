@@ -1,6 +1,5 @@
-import { Copy01Icon, ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
+import { ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
@@ -13,6 +12,7 @@ import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
+import { CopyButton } from './CopyButton'
 import { InlineError } from './InlineError'
 import { ReasoningSection } from './ReasoningSection'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
@@ -40,22 +40,15 @@ type Props = {
 }
 
 export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
-  const [copied, setCopied] = useState(false)
   const catalog = useModelCatalog()
   const entry = findCatalogEntry(catalog, generation.modelId)
 
-  const handleCopy = async () => {
-    if (generation.content) {
-      const display = resolveChecklistDisplay(generation.content, false)
-      const text =
-        display?.status === 'ready'
-          ? getChecklistCopyText(display.checklist)
-          : generation.content
-      await navigator.clipboard.writeText(text).catch(() => {})
-      onCopy?.(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
+  const getCopyText = () => {
+    if (!generation.content) return ''
+    const display = resolveChecklistDisplay(generation.content, false)
+    return display?.status === 'ready'
+      ? getChecklistCopyText(display.checklist)
+      : generation.content
   }
 
   const displayError = humanizeGenerationError(generation.error)
@@ -102,17 +95,13 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
             </button>
           )}
           {generation.status === 'completed' && generation.content && (
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-stone hover:bg-ink/5 hover:text-ink"
-              aria-label="Copy"
-              data-testid={`copy-${generation.id}`}
-            >
-              <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />
-            </button>
+            <CopyButton
+              content={getCopyText()}
+              onCopied={onCopy}
+              testId={`copy-${generation.id}`}
+              className="h-7 w-7 min-h-0 justify-center rounded-md p-0 text-stone hover:bg-ink/5 hover:text-ink"
+            />
           )}
-          {copied && <span className="text-xs text-stone">Tersalin</span>}
         </div>
       </div>
 

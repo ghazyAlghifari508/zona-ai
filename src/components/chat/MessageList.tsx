@@ -1,5 +1,3 @@
-import { Copy01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { type ReactNode, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -14,6 +12,7 @@ import {
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { CompareGrid } from './CompareGrid'
+import { CopyButton } from './CopyButton'
 import { InlineError } from './InlineError'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
@@ -52,6 +51,13 @@ export type ChatMessage = {
       score?: number | null
     }>
   }>
+}
+
+function getCopyTextForMessage(content: string): string {
+  const display = resolveChecklistDisplay(content, false)
+  return display?.status === 'ready'
+    ? getChecklistCopyText(display.checklist)
+    : content
 }
 
 export function MessageList({
@@ -261,25 +267,11 @@ function MessageItem({
           )}
           {!message.streaming && message.content && (
             <div className="flex items-center gap-1 pt-1">
-              <button
-                type="button"
-                aria-label="Salin"
-                onClick={() => {
-                  const display = resolveChecklistDisplay(
-                    message.content,
-                    false,
-                  )
-                  const text =
-                    display?.status === 'ready'
-                      ? getChecklistCopyText(display.checklist)
-                      : message.content
-                  void navigator.clipboard.writeText(text)
-                }}
-                className="flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[12px] text-stone transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
-              >
-                <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />
-                Salin
-              </button>
+              <CopyButton
+                content={getCopyTextForMessage(message.content)}
+                label
+                testId={`copy-${message.id}`}
+              />
             </div>
           )}
         </div>
