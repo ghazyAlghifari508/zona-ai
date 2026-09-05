@@ -96,7 +96,7 @@ export function MessageList({
       aria-label="Chat messages"
       data-testid="message-list"
       data-message-count={messages.length}
-      className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto w-full"
+      className="zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto w-full"
     >
       <div className="mx-auto w-full max-w-[860px] px-4 pt-2 pb-44 lg:px-6">
         {shouldVirtualize ? (

@@ -322,7 +322,7 @@ export function Sidebar({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div className="zona-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {!collapsed && (
           <>
             <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
