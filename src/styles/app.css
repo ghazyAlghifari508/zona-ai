@@ -80,6 +80,26 @@ textarea::-webkit-scrollbar-button {
   height: 0;
 }
 
+/* Restrained minimal scrollbar for reasoning output panel */
+.reasoning-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.reasoning-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reasoning-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+}
+.reasoning-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+.reasoning-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Accessibility — respect prefers-reduced-motion (WCAG 2.1 AA, 2.3.3) */
 @media (prefers-reduced-motion: reduce) {
   *,
