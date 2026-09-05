@@ -4,6 +4,7 @@ import {
   UserIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { Link } from '@tanstack/react-router'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +16,14 @@ import {
 import { authClient } from '@/lib/auth/auth-client'
 
 type Props = {
-  user: { name?: string | null; email?: string | null } | null | undefined
+  user:
+    | {
+        name?: string | null
+        email?: string | null
+        image?: string | null
+      }
+    | null
+    | undefined
 }
 
 export function ProfileMenu({ user }: Props) {
@@ -34,20 +42,42 @@ export function ProfileMenu({ user }: Props) {
           type="button"
           data-testid="profile-menu-trigger"
           aria-label="Profil"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-tint text-[12px] font-semibold text-notion-blue transition-colors duration-200 hover:bg-sky-tint/70"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-tint text-[12px] font-semibold text-notion-blue transition-colors duration-200 hover:bg-sky-tint/70 overflow-hidden border border-hairline"
         >
-          {initials}
+          {user?.image ? (
+            <img
+              src={user.image}
+              alt={user.name ?? 'Avatar'}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          ) : (
+            initials
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-[220px]">
         <DropdownMenuLabel className="flex items-center gap-2.5 px-2.5 py-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-tint text-[11px] font-semibold text-notion-blue">
-            <HugeiconsIcon
-              icon={UserIcon}
-              size={15}
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-tint text-[11px] font-semibold text-notion-blue overflow-hidden border border-hairline">
+            {user?.image ? (
+              <img
+                src={user.image}
+                alt={user.name ?? 'Avatar'}
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            ) : (
+              <HugeiconsIcon
+                icon={UserIcon}
+                size={15}
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            )}
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-[13px] font-medium text-ink">
@@ -60,10 +90,10 @@ export function ProfileMenu({ user }: Props) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <button
-            type="button"
+          <Link
+            to="/settings"
             data-testid="profile-settings"
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-ink"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-ink cursor-pointer transition-colors duration-200 hover:bg-ink/5 focus:bg-ink/5"
           >
             <HugeiconsIcon
               icon={Settings01Icon}
@@ -72,7 +102,7 @@ export function ProfileMenu({ user }: Props) {
               aria-hidden="true"
             />
             Pengaturan
-          </button>
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           asChild

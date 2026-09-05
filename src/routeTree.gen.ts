@@ -14,6 +14,7 @@ import { Route as BantuanRouteImport } from './routes/bantuan'
 import { Route as ErrorRouteImport } from './routes/error'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
@@ -48,6 +49,11 @@ const FaqRoute = FaqRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/error': typeof ErrorRoute
   '/faq': typeof FaqRoute
   '/pricing': typeof PricingRoute
+  '/settings': typeof SettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/error': typeof ErrorRoute
   '/faq': typeof FaqRoute
   '/pricing': typeof PricingRoute
+  '/settings': typeof SettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/error': typeof ErrorRoute
   '/faq': typeof FaqRoute
   '/pricing': typeof PricingRoute
+  '/settings': typeof SettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/error'
     | '/faq'
     | '/pricing'
+    | '/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/error'
     | '/faq'
     | '/pricing'
+    | '/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/error'
     | '/faq'
     | '/pricing'
+    | '/settings'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
@@ -214,6 +226,7 @@ export interface RootRouteChildren {
   ErrorRoute: typeof ErrorRoute
   FaqRoute: typeof FaqRoute
   PricingRoute: typeof PricingRoute
+  SettingsRoute: typeof SettingsRoute
   AuthSignInRoute: typeof AuthSignInRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
   ChatConversationIdRoute: typeof ChatConversationIdRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/sign-in': {
@@ -342,6 +362,7 @@ const rootRouteChildren: RootRouteChildren = {
   ErrorRoute: ErrorRoute,
   FaqRoute: FaqRoute,
   PricingRoute: PricingRoute,
+  SettingsRoute: SettingsRoute,
   AuthSignInRoute: AuthSignInRoute,
   AuthSignUpRoute: AuthSignUpRoute,
   ChatConversationIdRoute: ChatConversationIdRoute,

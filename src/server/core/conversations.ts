@@ -165,3 +165,13 @@ export async function deleteConversationCore({
     .where(and(eq(conversations.id, data.id), eq(conversations.userId, userId)))
   return { success: true as const }
 }
+
+export async function deleteAllConversationsCore({
+  request,
+}: {
+  request: Request
+}) {
+  const userId = await sessionUserId(request)
+  await db.delete(conversations).where(eq(conversations.userId, userId))
+  return { success: true as const }
+}

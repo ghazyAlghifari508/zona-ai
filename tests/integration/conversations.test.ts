@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @vitest-environment node
  */
 import { eq, inArray } from 'drizzle-orm'
@@ -210,5 +210,33 @@ describe('conversation persistence', () => {
         request: requestFor(otherId),
       }),
     ).rejects.toMatchObject({ status: 403 })
+  })
+
+  it('deleteAllConversationsCore deletes all conversations of the user without touching others', async () => {
+    const { deleteAllConversationsCore, getConversationsCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    await db.insert(conversations).values([
+      { userId: ownerId, title: 'Owner chat 1' },
+      { userId: ownerId, title: 'Owner chat 2' },
+      { userId: otherId, title: 'Other chat 1' },
+    ])
+
+    const res = await deleteAllConversationsCore({
+      request: requestFor(ownerId),
+    })
+    expect(res).toEqual({ success: true })
+
+    const ownerChats = await getConversationsCore({
+      data: { limit: 10 },
+      request: requestFor(ownerId),
+    })
+    expect(ownerChats.conversations).toHaveLength(0)
+
+    const otherChats = await getConversationsCore({
+      data: { limit: 10 },
+      request: requestFor(otherId),
+    })
+    expect(otherChats.conversations.length).toBeGreaterThanOrEqual(1)
   })
 })

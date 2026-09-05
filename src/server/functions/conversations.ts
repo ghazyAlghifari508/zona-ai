@@ -13,6 +13,7 @@ import {
 } from '../../lib/utils/validation'
 import {
   createConversationCore,
+  deleteAllConversationsCore,
   deleteConversationCore,
   getConversationCore,
   getConversationsCore,
@@ -48,3 +49,9 @@ export const deleteConversation = createServerFn({ method: 'POST' })
   .handler(({ data }) =>
     deleteConversationCore({ data, request: getRequest() as Request }),
   )
+
+export const deleteAllConversations = createServerFn({
+  method: 'POST',
+}).handler(() =>
+  deleteAllConversationsCore({ request: getRequest() as Request }),
+)
