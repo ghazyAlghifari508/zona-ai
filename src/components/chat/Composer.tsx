@@ -495,7 +495,7 @@ export function Composer({
     >
       <div
         className={`mx-auto w-full space-y-2 ${
-          compareEnabled ? 'max-w-[1400px]' : 'max-w-[860px]'
+          compareEnabled ? 'max-w-[1240px]' : 'max-w-[860px]'
         }`}
       >
         {compareEnabled && compareModelIds.length >= 2 && (

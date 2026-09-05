@@ -58,7 +58,10 @@ export function CompareGrid({
           </div>
         </div>
       )}
-      <div data-testid="compare-grid" className={`grid gap-4 ${gridColsClass}`}>
+      <div
+        data-testid="compare-grid"
+        className={`grid gap-4 sm:gap-5 ${gridColsClass}`}
+      >
         {generations.map((g) => (
           <ModelColumn
             key={g.id}

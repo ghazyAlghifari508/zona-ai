@@ -147,9 +147,11 @@ export function MessageList({
       }
     >
       <div
-        className={`mx-auto w-full px-4 pt-2 lg:px-6 ${
-          scrollRef ? 'pb-36' : 'pb-6'
-        } ${isCompare ? 'max-w-[1400px]' : 'max-w-[860px]'}`}
+        className={`mx-auto w-full pt-2 ${
+          isCompare
+            ? 'max-w-[1240px] px-6 lg:px-8'
+            : 'max-w-[860px] px-4 lg:px-6'
+        } ${scrollRef ? 'pb-36' : 'pb-6'}`}
       >
         {shouldVirtualize ? (
           <div
