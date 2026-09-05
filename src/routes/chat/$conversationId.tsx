@@ -960,7 +960,7 @@ function ChatThread() {
 
         <div
           data-testid="chat-composer-container"
-          className="shrink-0 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6"
+          className="shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
         >
           <div className="mx-auto max-w-[860px]">
             <Composer

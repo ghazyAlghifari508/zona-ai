@@ -21,7 +21,7 @@ describe('Chat Layout Structure & Composer Positioning', () => {
         </div>
         <div
           data-testid="chat-composer-container"
-          className="shrink-0 bg-gradient-to-t from-pure-white via-pure-white/95 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 lg:px-6"
+          className="shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
         >
           <div data-testid="composer-mock">Composer here</div>
         </div>
@@ -52,6 +52,7 @@ describe('Chat Layout Structure & Composer Positioning', () => {
     // Must NOT contain border-top or divider lines
     expect(composerContainer.className).not.toContain('border-t')
     expect(composerContainer.className).not.toContain('border-b')
-    expect(composerContainer.className).toContain('bg-gradient-to-t')
+    // Must NOT contain background gradient overlay
+    expect(composerContainer.className).not.toContain('bg-gradient-to-t')
   })
 })
