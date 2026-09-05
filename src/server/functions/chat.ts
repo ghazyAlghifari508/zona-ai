@@ -9,6 +9,18 @@ import {
   sendMessageCore,
   stopGenerationCore,
 } from '../core/chat'
+import { generatePrdArtifactCore } from '../core/prd'
+
+export const generatePrdArtifact = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => chatSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return generatePrdArtifactCore({
+      data: data as z.infer<typeof chatSchema>,
+      request,
+    })
+  })
+
 export const sendMessage = createServerFn({ method: 'POST' })
   .validator((data: unknown) => chatSchema.parse(data))
   .handler(async ({ data }) => {
