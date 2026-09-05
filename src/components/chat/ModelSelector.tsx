@@ -241,28 +241,32 @@ export function ModelSelector({
                     {m.id !== 'auto' && (
                       <span
                         className="flex items-end gap-[2.5px]"
-                        title={`Tingkat kecerdasan ${m.intelligenceLevel}/4`}
+                        title={`Tingkat kecerdasan ${m.intelligenceBars ?? m.intelligenceLevel}/4 (Skor: ${m.intelligenceScore ?? m.intelligenceLevel * 25}/100)`}
                       >
-                        {[1, 2, 3, 4].map((slot) => (
-                          <span
-                            key={slot}
-                            className="w-1 rounded-[1.5px]"
-                            style={{
-                              height: 11,
-                              background:
-                                slot <= m.intelligenceLevel
-                                  ? m.intelligenceLevel === 4
-                                    ? 'var(--color-coral)'
-                                    : m.intelligenceLevel === 3
-                                      ? 'var(--color-marigold)'
-                                      : 'var(--color-sky-wash)'
-                                  : 'var(--color-hairline-strong)',
-                            }}
-                          />
-                        ))}
+                        {[1, 2, 3, 4].map((slot) => {
+                          const level =
+                            m.intelligenceBars ?? m.intelligenceLevel
+                          return (
+                            <span
+                              key={slot}
+                              className="w-1 rounded-[1.5px]"
+                              style={{
+                                height: 11,
+                                background:
+                                  slot <= level
+                                    ? level === 4
+                                      ? 'var(--color-coral)'
+                                      : level === 3
+                                        ? 'var(--color-marigold)'
+                                        : 'var(--color-sky-wash)'
+                                    : 'var(--color-hairline-strong)',
+                              }}
+                            />
+                          )
+                        })}
                       </span>
                     )}
-                    {m.capabilities.vision && (
+                    {m.id !== 'auto' && m.capabilities.vision && (
                       <span
                         className="flex items-center gap-1 text-[11.5px] text-stone"
                         title="Mendukung input gambar (vision)"

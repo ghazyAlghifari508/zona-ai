@@ -22,27 +22,66 @@ describe('registry', () => {
   it('maps correct 9router model IDs', () => {
     expect(getModelById('mimo-v2.5').routerModelId).toBe('bai/mimo-v2.5')
     expect(getModelById('hy3').routerModelId).toBe('bai/hy3')
-    expect(getModelById('glm-5.3-flash').routerModelId).toBe('bai/glm-5.3-flash')
+    expect(getModelById('glm-5.3-flash').routerModelId).toBe(
+      'bai/glm-5.3-flash',
+    )
     expect(getModelById('gpt-5.6-sol').routerModelId).toBe('cx/gpt-5.6-sol')
     expect(getModelById('gemini-3.7-flash-high').routerModelId).toBe(
       'ag/gemini-3.7-flash-high',
     )
-    expect(getModelById('qwen3.8-flash').routerModelId).toBe('bai/qwen3.8-flash')
+    expect(getModelById('qwen3.8-flash').routerModelId).toBe(
+      'bai/qwen3.8-flash',
+    )
   })
   it('verifies capabilities for new models', () => {
     const mimo = getModelById('mimo-v2.5')
     expect(mimo.capabilities.vision).toBe(true)
     expect(mimo.capabilities.reasoning).toBe(false)
     expect(mimo.capabilities.tools).toBe(true)
+    expect(mimo.capabilities.structuredOutput).toBe(true)
 
     const hy3 = getModelById('hy3')
     expect(hy3.capabilities.vision).toBe(false)
     expect(hy3.capabilities.reasoning).toBe(true)
     expect(hy3.capabilities.tools).toBe(true)
+    expect(hy3.capabilities.structuredOutput).toBe(true)
 
     const glm = getModelById('glm-5.3-flash')
     expect(glm.capabilities.vision).toBe(true)
     expect(glm.capabilities.reasoning).toBe(true)
     expect(glm.capabilities.tools).toBe(true)
+    expect(glm.capabilities.structuredOutput).toBe(true)
+
+    const qwen = getModelById('qwen3.8-flash')
+    expect(qwen.capabilities.vision).toBe(false)
+    expect(qwen.capabilities.reasoning).toBe(true)
+
+    const gpt = getModelById('gpt-5.6-sol')
+    expect(gpt.capabilities.vision).toBe(true)
+    expect(gpt.capabilities.reasoning).toBe(true)
+
+    const gemini = getModelById('gemini-3.7-flash-high')
+    expect(gemini.capabilities.vision).toBe(true)
+    expect(gemini.capabilities.reasoning).toBe(true)
+  })
+
+  it('assigns researched intelligence scores and normalized bars', () => {
+    expect(getModelById('gpt-5.6-sol').intelligenceScore).toBe(96)
+    expect(getModelById('gpt-5.6-sol').intelligenceBars).toBe(4)
+
+    expect(getModelById('gemini-3.7-flash-high').intelligenceScore).toBe(88)
+    expect(getModelById('gemini-3.7-flash-high').intelligenceBars).toBe(3)
+
+    expect(getModelById('glm-5.3-flash').intelligenceScore).toBe(81)
+    expect(getModelById('glm-5.3-flash').intelligenceBars).toBe(3)
+
+    expect(getModelById('hy3').intelligenceScore).toBe(78)
+    expect(getModelById('hy3').intelligenceBars).toBe(3)
+
+    expect(getModelById('qwen3.8-flash').intelligenceScore).toBe(72)
+    expect(getModelById('qwen3.8-flash').intelligenceBars).toBe(2)
+
+    expect(getModelById('mimo-v2.5').intelligenceScore).toBe(64)
+    expect(getModelById('mimo-v2.5').intelligenceBars).toBe(2)
   })
 })

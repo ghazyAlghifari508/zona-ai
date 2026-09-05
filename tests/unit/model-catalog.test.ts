@@ -8,12 +8,15 @@ describe('getModelCatalog', () => {
     for (const entry of catalog) {
       expect(Object.keys(entry).sort()).toEqual([
         'capabilities',
+        'confidence',
         'creditCost',
         'creditTier',
         'description',
         'displayName',
         'id',
+        'intelligenceBars',
         'intelligenceLevel',
+        'intelligenceScore',
         'isDefault',
         'provider',
         'vendor',
@@ -30,6 +33,10 @@ describe('getModelCatalog', () => {
         'Zhipu AI',
       ]).toContain(entry.vendor)
       expect([1, 2, 3, 4]).toContain(entry.intelligenceLevel)
+      expect([1, 2, 3, 4]).toContain(entry.intelligenceBars)
+      expect(entry.intelligenceScore).toBeGreaterThanOrEqual(0)
+      expect(entry.intelligenceScore).toBeLessThanOrEqual(100)
+      expect(['high', 'medium', 'low']).toContain(entry.confidence)
     }
   })
 

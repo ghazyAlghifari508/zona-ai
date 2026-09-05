@@ -18,11 +18,10 @@ import {
   getCompareSelectionHint,
 } from '@/lib/chat/compare-selection'
 import { useSelectedModel } from '@/lib/models/preference'
-import type { ModelRegistryEntry } from '@/lib/models/types'
-import { getModels } from '@/server/functions/models'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { ModelSelector } from './ModelSelector'
 import { SKILLS, SkillSelector } from './SkillSelector'
+import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 type Props = {
   onSend: (
@@ -91,7 +90,7 @@ export function Composer({
     onModelChange?.(id)
   }
   const [skillId, setSkillId] = useState(initialSkill)
-  const [registry, setRegistry] = useState<ModelRegistryEntry[]>([])
+  const catalog = useModelCatalog()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -131,12 +130,6 @@ export function Composer({
   useEffect(() => {
     if (autoFocusInput) textareaRef.current?.focus()
   }, [autoFocusInput])
-
-  useEffect(() => {
-    getModels()
-      .then((m) => setRegistry(m as ModelRegistryEntry[]))
-      .catch(() => setRegistry([]))
-  }, [])
 
   // Poll attachments processing status when any is pending/processing
   useEffect(() => {
@@ -185,7 +178,7 @@ export function Composer({
   }, [attachments, conversationId])
 
   const compareTotal = compareModelIds.reduce((sum, id) => {
-    const m = registry.find((x) => x.id === id)
+    const m = catalog.find((x) => x.id === id)
     if (!m) return sum
     const cost =
       typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max
@@ -213,6 +206,32 @@ export function Composer({
     if (attachments.length + files.length > 5) {
       setError('Maksimum 5 file per pesan')
       return
+    }
+    const hasImageUpload = files.some(
+      (f) =>
+        f.type.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(f.name),
+    )
+    if (hasImageUpload) {
+      if (compareEnabled) {
+        const nonVisionModels = compareModelIds
+          .map((id) => findCatalogEntry(catalog, id))
+          .filter((m) => m && !m.capabilities.vision)
+        if (nonVisionModels.length > 0) {
+          setError(
+            `Model ${nonVisionModels.map((m) => m?.displayName).join(', ')} tidak mendukung input gambar (vision). Hapus dari mode bandingkan atau pilih model dengan dukungan vision.`,
+          )
+          return
+        }
+      } else {
+        const currentModel = findCatalogEntry(catalog, modelId)
+        if (currentModel && !currentModel.capabilities.vision) {
+          setError(
+            `Model ${currentModel.displayName} tidak mendukung input gambar (vision). Pilih model dengan dukungan vision.`,
+          )
+          return
+        }
+      }
     }
     setError(null)
     for (const f of files) {
@@ -350,6 +369,32 @@ export function Composer({
   const handleSend = () => {
     const trimmed = content.trim()
     if ((!trimmed && attachmentIds.length === 0) || isStreaming) return
+    const hasImageAttachments = attachments.some(
+      (a) =>
+        a.mimeType.startsWith('image/') ||
+        /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(a.fileName),
+    )
+    if (hasImageAttachments) {
+      if (compareEnabled) {
+        const nonVisionModels = compareModelIds
+          .map((id) => findCatalogEntry(catalog, id))
+          .filter((m) => m && !m.capabilities.vision)
+        if (nonVisionModels.length > 0) {
+          setError(
+            `Model ${nonVisionModels.map((m) => m?.displayName).join(', ')} tidak mendukung input gambar (vision). Hapus dari mode bandingkan atau gunakan model dengan dukungan vision.`,
+          )
+          return
+        }
+      } else {
+        const currentModel = findCatalogEntry(catalog, modelId)
+        if (currentModel && !currentModel.capabilities.vision) {
+          setError(
+            `Model ${currentModel.displayName} tidak mendukung input gambar (vision). Pilih model dengan dukungan vision.`,
+          )
+          return
+        }
+      }
+    }
     if (compareEnabled) {
       if (!canSendCompare) return
       if (onSendCompare)

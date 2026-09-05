@@ -5,6 +5,11 @@ export interface ModelRegistryEntry {
   provider: string
   vendor: string
   intelligenceLevel: 1 | 2 | 3 | 4
+  intelligenceScore: number
+  intelligenceBars: 1 | 2 | 3 | 4
+  confidence: 'high' | 'medium' | 'low'
+  evaluationNotes?: string
+  lastEvaluated?: string
   description: string
   enabled: boolean
   isDefault?: boolean
@@ -16,6 +21,7 @@ export interface ModelRegistryEntry {
     files: boolean
     tools: boolean
     reasoning: boolean
+    structuredOutput: boolean
   }
   metadata: {
     contextWindow: number | null
@@ -36,6 +42,9 @@ export interface ModelCatalogEntry {
   provider: string
   vendor: string
   intelligenceLevel: ModelRegistryEntry['intelligenceLevel']
+  intelligenceScore: number
+  intelligenceBars: ModelRegistryEntry['intelligenceBars']
+  confidence: ModelRegistryEntry['confidence']
   description: string
   isDefault: boolean
   creditTier: ModelRegistryEntry['creditTier']
