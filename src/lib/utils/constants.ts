@@ -47,4 +47,7 @@ export const RATE_LIMIT_UPLOAD_PER_MINUTE = Number(
 export const RATE_LIMIT_SEARCH_PER_MINUTE = Number(
   getEnv(['RATE_LIMIT', 'SEARCH', 'PER', 'MINUTE'].join('_')) ?? 30,
 )
+export const RATE_LIMIT_PRD_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'PRD', 'PER', 'MINUTE'].join('_')) ?? 5,
+)
 export const RATE_LIMIT_WINDOW_MS = 60_000
