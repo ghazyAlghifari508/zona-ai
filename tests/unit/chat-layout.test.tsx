@@ -7,23 +7,25 @@ describe('Chat Layout Structure & Composer Positioning', () => {
     vi.restoreAllMocks()
   })
 
-  it('maintains independent scroll container for messages and fixed container for composer without extra border-top', () => {
+  it('maintains full-height scroll container with sticky header and fixed bottom composer without gap', () => {
     const { container } = render(
       <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
-          <span data-testid="topbar-compare-label">Mode banding</span>
-        </header>
         <div
           data-testid="chat-messages-scroll-area"
-          className="zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+          className="zona-scroll flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
         >
+          <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
+            <span data-testid="topbar-compare-label">Mode banding</span>
+          </header>
           <div data-testid="message-list-mock">Messages here</div>
         </div>
         <div
           data-testid="chat-composer-container"
-          className="shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
+          className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
         >
-          <div data-testid="composer-mock">Composer here</div>
+          <div className="pointer-events-auto mx-auto max-w-[860px]">
+            <div data-testid="composer-mock">Composer here</div>
+          </div>
         </div>
       </div>,
     )
@@ -38,21 +40,28 @@ describe('Chat Layout Structure & Composer Positioning', () => {
     expect(scrollArea).not.toBeNull()
     expect(composerContainer).not.toBeNull()
 
-    // Composer must be a sibling to the scroll container, NOT inside it
-    expect(scrollArea.contains(composerContainer)).toBe(false)
-    expect(composerContainer.parentElement).toBe(scrollArea.parentElement)
+    // Header must be inside the scroll container at the top so scrollbar starts at top: 0
+    const header = scrollArea.querySelector('header')
+    expect(header).not.toBeNull()
+    expect(header?.className).toContain('sticky')
+    expect(header?.className).toContain('top-0')
 
-    // Scroll area must have flex-1 and overflow-y-auto to absorb vertical scroll
+    // Scroll container must be full-height (h-full) and absorb vertical scroll without top/bottom gap
     expect(scrollArea.className).toContain('overflow-y-auto')
     expect(scrollArea.className).toContain('flex-1')
+    expect(scrollArea.className).toContain('h-full')
 
-    // Composer container must have shrink-0 so it remains anchored at bottom
-    expect(composerContainer.className).toContain('shrink-0')
+    // Composer must be outside the scroll container, anchored at bottom: 0
+    expect(scrollArea.contains(composerContainer)).toBe(false)
+    expect(composerContainer.className).toContain('absolute')
+    expect(composerContainer.className).toContain('bottom-0')
 
-    // Must NOT contain border-top or divider lines
+    // Composer container must have pointer-events-none to prevent blocking right scrollbar track
+    expect(composerContainer.className).toContain('pointer-events-none')
+
+    // Must NOT contain border-top, divider lines, or background gradient overlay
     expect(composerContainer.className).not.toContain('border-t')
     expect(composerContainer.className).not.toContain('border-b')
-    // Must NOT contain background gradient overlay
     expect(composerContainer.className).not.toContain('bg-gradient-to-t')
   })
 })

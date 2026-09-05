@@ -41,7 +41,7 @@ export function WorkspaceShell({
   const effectiveAuthState =
     authState ?? (guest ? 'unauthenticated' : 'authenticated')
   return (
-    <div className="flex h-screen overflow-hidden bg-pure-white">
+    <div className="flex h-screen h-[100dvh] overflow-hidden bg-pure-white">
       <button
         type="button"
         data-testid="hamburger"
@@ -60,7 +60,7 @@ export function WorkspaceShell({
       {effectiveAuthState === 'loading' ? (
         <aside
           data-testid="loading-sidebar"
-          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
             collapsed ? 'w-[76px]' : 'w-[280px]'
           }`}
         >
@@ -109,7 +109,7 @@ export function WorkspaceShell({
       ) : effectiveAuthState === 'unauthenticated' ? (
         <aside
           data-testid="guest-sidebar"
-          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
             collapsed ? 'w-[76px]' : 'w-[280px]'
           }`}
         >

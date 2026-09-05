@@ -925,23 +925,23 @@ function ChatThread() {
             Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        <header className="flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
-          {compareEnabled && (
-            <span
-              data-testid="topbar-compare-label"
-              className="text-[14px] font-medium text-stone"
-            >
-              Mode banding · {compareModelIds.length} model
-            </span>
-          )}
-          <span className="flex-1" />
-        </header>
-
         <div
           ref={scrollRef}
           data-testid="chat-messages-scroll-area"
-          className="zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
+          className="zona-scroll flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
         >
+          <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
+            {compareEnabled && (
+              <span
+                data-testid="topbar-compare-label"
+                className="text-[14px] font-medium text-stone"
+              >
+                Mode banding · {compareModelIds.length} model
+              </span>
+            )}
+            <span className="flex-1" />
+          </header>
+
           <MessageList
             messages={messages}
             onRetryGeneration={handleRetry}
@@ -952,9 +952,9 @@ function ChatThread() {
 
         <div
           data-testid="chat-composer-container"
-          className="shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
+          className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
         >
-          <div className="mx-auto max-w-[860px]">
+          <div className="pointer-events-auto mx-auto max-w-[860px]">
             <Composer
               onSend={handleSend}
               onSendCompare={handleSendCompare}
