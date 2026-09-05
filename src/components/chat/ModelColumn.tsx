@@ -5,9 +5,11 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { InlineError } from './InlineError'
+import { ReasoningSection } from './ReasoningSection'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
@@ -47,6 +49,15 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
     }
   }
 
+  const displayError = humanizeGenerationError(generation.error)
+  const contentAsError =
+    displayError.technicalDetail === null && generation.content?.trim()
+      ? humanizeGenerationError(generation.content)
+      : null
+  const userMessage = contentAsError?.userMessage ?? displayError.userMessage
+  const technicalDetail =
+    displayError.technicalDetail ?? contentAsError?.technicalDetail ?? null
+
   return (
     <div
       data-testid="model-column"
@@ -65,17 +76,6 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {generation.status === 'failed' && onRetry && (
-            <button
-              type="button"
-              data-testid={`retry-${generation.id}`}
-              onClick={() => onRetry(generation.id)}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-notion-blue hover:bg-ink/5"
-            >
-              <HugeiconsIcon icon={ReloadIcon} size={14} strokeWidth={1.75} />{' '}
-              Coba lagi
-            </button>
-          )}
           {generation.status === 'streaming' && onStop && (
             <button
               type="button"
@@ -109,32 +109,24 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
 
       <div className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
         {generation.status === 'failed' ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+          <div className="flex min-w-0 flex-col items-center justify-center gap-3 py-8 text-center">
             <InlineError
               code={
                 typeof generation.error === 'object' &&
                 generation.error !== null &&
-                'code' in generation.error
-                  ? String(
-                      (generation.error as { code?: unknown }).code ??
-                        'ERR-001',
-                    )
-                  : 'ERR-001'
+                'code' in generation.error &&
+                typeof (generation.error as { code?: unknown }).code ===
+                  'string'
+                  ? (generation.error as { code: string }).code
+                  : undefined
               }
-              message={
-                (typeof generation.error === 'object' &&
-                  generation.error !== null &&
-                  'message' in generation.error &&
-                  typeof (generation.error as { message?: unknown }).message ===
-                    'string' &&
-                  (generation.error as { message: string }).message) ||
-                generation.content?.trim() ||
-                'Model gagal merespons.'
-              }
+              message={userMessage}
+              technicalDetail={technicalDetail}
             />
             {onRetry && (
               <button
                 type="button"
+                data-testid={`retry-${generation.id}`}
                 onClick={() => onRetry(generation.id)}
                 className="inline-flex items-center gap-1 rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-sm text-ink hover:bg-ink/5"
               >
@@ -155,17 +147,8 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
           </div>
         ) : (
           <>
+            <ReasoningSection content={generation.reasoningContent} />
             <div className="prose prose-sm max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
-              {generation.reasoningContent && (
-                <details className="mb-2 rounded-md border border-hairline bg-paper p-2">
-                  <summary className="cursor-pointer text-xs text-stone">
-                    Reasoning
-                  </summary>
-                  <div className="mt-1 text-sm text-ink">
-                    {generation.reasoningContent}
-                  </div>
-                </details>
-              )}
               {generation.content ? (
                 <ReactMarkdown
                   rehypePlugins={[rehypeSanitize, rehypeHighlight]}
