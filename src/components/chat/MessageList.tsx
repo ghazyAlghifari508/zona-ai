@@ -83,26 +83,17 @@ export function MessageList({
   onRetryGeneration,
   onStopGeneration,
   scrollRef,
-  compareEnabled,
 }: {
   messages: ChatMessage[]
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
-  compareEnabled?: boolean
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const catalog = useModelCatalog()
   const shouldVirtualize = messages.length > 50
   const lastMessage = messages.at(-1)
   const [scrollMargin, setScrollMargin] = useState(0)
-
-  const isCompare = Boolean(
-    compareEnabled ||
-      messages.some(
-        (m) => m.compareGenerations && m.compareGenerations.length > 0,
-      ),
-  )
 
   useLayoutEffect(() => {
     if (!scrollRef) return
@@ -147,11 +138,7 @@ export function MessageList({
       }
     >
       <div
-        className={`mx-auto w-full pt-2 ${
-          isCompare
-            ? 'max-w-[1240px] px-6 lg:px-8'
-            : 'max-w-[860px] px-4 lg:px-6'
-        } ${scrollRef ? 'pb-36' : 'pb-6'}`}
+        className={`mx-auto w-full max-w-[860px] px-4 pt-2 lg:px-6 ${scrollRef ? 'pb-36' : 'pb-6'}`}
       >
         {shouldVirtualize ? (
           <div

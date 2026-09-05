@@ -493,11 +493,7 @@ export function Composer({
           : 'w-full'
       }
     >
-      <div
-        className={`mx-auto w-full space-y-2 ${
-          compareEnabled ? 'max-w-[1240px]' : 'max-w-[860px]'
-        }`}
-      >
+      <div className="mx-auto max-w-[860px] space-y-2">
         {compareEnabled && compareModelIds.length >= 2 && (
           <div className="flex items-center justify-between rounded-md border border-hairline bg-sky-tint px-3 py-2 text-[13px] text-ink">
             <span data-testid="composer-compare-banner">
