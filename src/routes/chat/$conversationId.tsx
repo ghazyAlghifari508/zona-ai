@@ -94,6 +94,7 @@ function ChatThread() {
   const { persistedMessages, creditBalance, user } = Route.useLoaderData()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
+  const scrollRef = useRef<HTMLDivElement>(null)
   const refreshConversationList = () => {
     void queryClient.invalidateQueries({ queryKey: ['conversations'] })
   }

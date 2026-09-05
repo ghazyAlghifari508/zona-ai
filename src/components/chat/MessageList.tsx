@@ -1,5 +1,12 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { type ReactNode, useEffect, useRef } from 'react'
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
@@ -64,29 +71,46 @@ export function MessageList({
   messages,
   onRetryGeneration,
   onStopGeneration,
+  scrollRef,
 }: {
   messages: ChatMessage[]
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
+  scrollRef?: RefObject<HTMLDivElement | null>
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const catalog = useModelCatalog()
   const shouldVirtualize = messages.length > 50
   const lastMessage = messages.at(-1)
+  const [scrollMargin, setScrollMargin] = useState(0)
+
+  useLayoutEffect(() => {
+    if (!scrollRef) return
+    const scrollEl = scrollRef.current
+    const listEl = parentRef.current
+    if (!scrollEl || !listEl) return
+    const top =
+      listEl.getBoundingClientRect().top -
+      scrollEl.getBoundingClientRect().top +
+      scrollEl.scrollTop
+    setScrollMargin(top)
+  }, [scrollRef])
+
   const virtualizer = useVirtualizer({
     count: messages.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollRef?.current ?? parentRef.current,
     estimateSize: () => 80,
     overscan: 5,
     initialRect: { width: 800, height: 600 },
+    scrollMargin,
   })
 
   useEffect(() => {
     void lastMessage?.content
-    const container = parentRef.current
+    const container = scrollRef?.current ?? parentRef.current
     if (!container) return
     container.scrollTop = container.scrollHeight
-  }, [lastMessage?.content])
+  }, [lastMessage?.content, scrollRef])
 
   return (
     <div
@@ -96,9 +120,13 @@ export function MessageList({
       aria-label="Chat messages"
       data-testid="message-list"
       data-message-count={messages.length}
-      className="zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto w-full"
+      className={
+        scrollRef
+          ? 'min-h-0 min-w-0 flex-1 w-full'
+          : 'zona-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto w-full'
+      }
     >
-      <div className="mx-auto w-full max-w-[860px] px-4 pt-2 pb-44 lg:px-6">
+      <div className="mx-auto w-full max-w-[860px] px-4 pt-2 pb-6 lg:px-6">
         {shouldVirtualize ? (
           <div
             style={{
