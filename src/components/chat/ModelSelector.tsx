@@ -55,11 +55,6 @@ export function ModelSelector({
     ? catalog.filter((m) => m.id !== 'auto')
     : catalog
   const selected = findCatalogEntry(catalog, value)
-  const triggerIconProvider =
-    compareEnabled && compareModelIds.length > 0
-      ? (findCatalogEntry(catalog, compareModelIds[0])?.provider ??
-        'zona-router')
-      : (selected?.provider ?? 'zona-router')
 
   const costLabel = (m: {
     creditCost: number | { min: number; max: number }
@@ -95,9 +90,35 @@ export function ModelSelector({
           aria-label="Pilih model"
           className="flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
         >
-          <span className="flex h-4 w-4 items-center justify-center text-ink">
-            <ProviderIcon provider={triggerIconProvider} size={14} />
-          </span>
+          {compareEnabled && compareModelIds.length > 0 ? (
+            <div
+              data-testid="compare-stacked-icons"
+              className="flex items-center -space-x-1.5"
+            >
+              {compareModelIds.map((id, index) => {
+                const entry = findCatalogEntry(catalog, id)
+                const provider = entry?.provider ?? 'zona-router'
+                return (
+                  <span
+                    key={id}
+                    data-testid={`stacked-icon-${id}`}
+                    title={entry?.displayName ?? id}
+                    style={{ zIndex: index + 1 }}
+                    className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-pure-white bg-paper text-ink ring-1 ring-hairline"
+                  >
+                    <ProviderIcon provider={provider} size={12} />
+                  </span>
+                )
+              })}
+            </div>
+          ) : (
+            <span className="flex h-4 w-4 items-center justify-center text-ink">
+              <ProviderIcon
+                provider={selected?.provider ?? 'zona-router'}
+                size={14}
+              />
+            </span>
+          )}
           {compareEnabled ? (
             <span
               data-testid="compare-trigger-label"
