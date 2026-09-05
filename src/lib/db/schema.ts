@@ -236,6 +236,31 @@ export const creditTransactions = pgTable(
   ],
 )
 
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    planId: text('plan_id').notNull(),
+    billingPeriod: text('billing_period').notNull(),
+    amountIdr: integer('amount_idr').notNull(),
+    creditsGranted: integer('credits_granted').notNull(),
+    status: text('status').notNull().default('creating'),
+    orderId: text('order_id').notNull().unique(),
+    snapToken: text('snap_token'),
+    midtransTransactionId: text('midtrans_transaction_id'),
+    paymentType: text('payment_type'),
+    settledAt: timestamp('settled_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('payments_user_id_idx').on(table.userId),
+    index('payments_status_idx').on(table.status),
+  ],
+)
+
 export const usageRecords = pgTable(
   'usage_records',
   {

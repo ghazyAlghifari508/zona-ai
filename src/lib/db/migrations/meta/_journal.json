@@ -71,6 +71,13 @@
       "when": 1788086808745,
       "tag": "0009_drop_conversations_is_archived",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788638942891,
+      "tag": "0010_tough_leo",
+      "breakpoints": true
     }
   ]
 }
