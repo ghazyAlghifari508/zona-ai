@@ -12,6 +12,7 @@ import { Composer } from '@/components/chat/Composer'
 import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { authClient } from '@/lib/auth/auth-client'
+import { isCompareSelectionValid } from '@/lib/chat/compare-selection'
 import {
   saveGuestDraft,
   savePendingMessage,
@@ -205,6 +206,7 @@ function ChatHome() {
     _attachmentIds?: string[],
     enableWebSearch = false,
   ) => {
+    if (!isCompareSelectionValid(modelIds)) return
     if (!activeSession?.user) {
       await signIn(content)
       return

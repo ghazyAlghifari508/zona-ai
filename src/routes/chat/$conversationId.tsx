@@ -6,6 +6,7 @@ import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
+import { isCompareSelectionValid } from '@/lib/chat/compare-selection'
 import {
   type PendingMessage,
   takePendingMessageForConversation,
@@ -267,6 +268,7 @@ function ChatThread() {
     attachmentIds?: string[],
     enableWebSearch?: boolean,
   ) => {
+    if (!isCompareSelectionValid(modelIds)) return
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -694,7 +696,7 @@ function ChatThread() {
           </div>
         )}
         <header className="flex h-12 shrink-0 items-center justify-between px-4 lg:px-6">
-          {compareEnabled && compareModelIds.length >= 2 && (
+          {compareEnabled && (
             <span
               data-testid="topbar-compare-label"
               className="text-[14px] font-medium text-stone"

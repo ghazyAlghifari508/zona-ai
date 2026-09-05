@@ -11,9 +11,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  isCompareModelBlocked,
+  toggleCompareModel,
+} from '@/lib/chat/compare-selection'
 import { resolveModelFallback } from '@/lib/models/preference'
 import { cn } from '@/lib/utils'
-import { COMPARE_MAX_MODELS } from '@/lib/utils/constants'
+import { COMPARE_MAX_MODELS, COMPARE_MIN_MODELS } from '@/lib/utils/constants'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 type Props = {
@@ -78,13 +82,8 @@ export function ModelSelector({
     if (!next) onCompareModelIdsChange([])
   }
 
-  const toggleCompareModel = (id: string) => {
-    if (compareModelIds.includes(id)) {
-      onCompareModelIdsChange(compareModelIds.filter((x) => x !== id))
-      return
-    }
-    if (compareModelIds.length >= COMPARE_MAX_MODELS) return
-    onCompareModelIdsChange([...compareModelIds, id])
+  const toggleCompareModelById = (id: string) => {
+    onCompareModelIdsChange(toggleCompareModel(compareModelIds, id))
   }
 
   return (
@@ -132,7 +131,13 @@ export function ModelSelector({
       >
         <div className="flex items-center justify-between px-2 py-1">
           <span className="text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
-            {compareEnabled ? 'PILIH 2–4 MODEL' : 'PILIH MODEL AI'}
+            {compareEnabled
+              ? 'PILIH ' +
+                COMPARE_MIN_MODELS +
+                '–' +
+                COMPARE_MAX_MODELS +
+                ' MODEL'
+              : 'PILIH MODEL AI'}
           </span>
           {compareEnabled && (
             <span
@@ -172,9 +177,7 @@ export function ModelSelector({
             const insufficient = isInsufficient(m.id)
             const blocked =
               insufficient ||
-              (compareEnabled &&
-                !isSelected &&
-                compareModelIds.length >= COMPARE_MAX_MODELS)
+              (compareEnabled && isCompareModelBlocked(compareModelIds, m.id))
             return (
               <button
                 key={m.id}
@@ -182,7 +185,7 @@ export function ModelSelector({
                 data-testid={`model-option-${m.id}`}
                 onClick={() => {
                   if (blocked) return
-                  if (compareEnabled) toggleCompareModel(m.id)
+                  if (compareEnabled) toggleCompareModelById(m.id)
                   else {
                     onChange(m.id)
                     setOpen(false)

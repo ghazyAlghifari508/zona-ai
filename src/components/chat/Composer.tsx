@@ -13,6 +13,10 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  canSendCompareWith,
+  getCompareSelectionHint,
+} from '@/lib/chat/compare-selection'
 import { useSelectedModel } from '@/lib/models/preference'
 import type { ModelRegistryEntry } from '@/lib/models/types'
 import { getModels } from '@/server/functions/models'
@@ -189,14 +193,15 @@ export function Composer({
   }, 0)
   const compareInsufficient = credits < compareTotal
   const hasContent = content.trim().length > 0 || attachmentIds.length > 0
-  const canSendCompare =
-    hasContent &&
-    compareModelIds.length >= 2 &&
-    compareModelIds.length <= 4 &&
-    !compareInsufficient &&
-    !isStreaming &&
-    !uploading
+  const canSendCompare = canSendCompareWith(compareModelIds, {
+    hasContent,
+    enoughCredits: !compareInsufficient,
+    idle: !isStreaming && !uploading,
+  })
   const canSendNormal = hasContent && !isStreaming && !uploading
+  const compareSelectionHint = compareEnabled
+    ? getCompareSelectionHint(compareModelIds)
+    : null
 
   async function handleFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList as FileList)
@@ -345,8 +350,7 @@ export function Composer({
   const handleSend = () => {
     const trimmed = content.trim()
     if ((!trimmed && attachmentIds.length === 0) || isStreaming) return
-    const isCompare = compareEnabled && compareModelIds.length >= 2
-    if (isCompare) {
+    if (compareEnabled) {
       if (!canSendCompare) return
       if (onSendCompare)
         onSendCompare(
@@ -440,6 +444,15 @@ export function Composer({
               </span>
             )}
           </div>
+        )}
+        {compareSelectionHint && (
+          <p
+            data-testid="compare-selection-hint"
+            role="status"
+            className="px-2 text-[13px] text-stone"
+          >
+            {compareSelectionHint}
+          </p>
         )}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: composer drag container */}
         <div
@@ -592,11 +605,7 @@ export function Composer({
                 type="button"
                 data-testid="send-button"
                 onClick={handleSend}
-                disabled={
-                  compareEnabled && compareModelIds.length >= 2
-                    ? !canSendCompare
-                    : !canSendNormal
-                }
+                disabled={compareEnabled ? !canSendCompare : !canSendNormal}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-notion-blue text-pure-white transition-all duration-200 hover:bg-blue-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
               >
