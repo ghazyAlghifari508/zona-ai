@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/popover'
 import {
   isCompareModelBlocked,
+  isCompareSelectionValid,
   toggleCompareModel,
 } from '@/lib/chat/compare-selection'
 import { resolveModelFallback } from '@/lib/models/preference'
@@ -163,7 +164,12 @@ export function ModelSelector({
           {compareEnabled && (
             <span
               data-testid="compare-counter"
-              className="text-xs font-bold text-ink"
+              className={cn(
+                'text-xs font-bold',
+                isCompareSelectionValid(compareModelIds)
+                  ? 'text-ink'
+                  : 'text-coral',
+              )}
             >
               {compareModelIds.length}/{COMPARE_MAX_MODELS}
             </span>
