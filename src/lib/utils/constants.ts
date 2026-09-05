@@ -50,4 +50,16 @@ export const RATE_LIMIT_SEARCH_PER_MINUTE = Number(
 export const RATE_LIMIT_PRD_PER_MINUTE = Number(
   getEnv(['RATE_LIMIT', 'PRD', 'PER', 'MINUTE'].join('_')) ?? 5,
 )
+export const RATE_LIMIT_PAYMENT_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'PAYMENT', 'PER', 'MINUTE'].join('_')) ?? 5,
+)
+export const RATE_LIMIT_PAYMENT_STATUS_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'PAYMENT', 'STATUS', 'PER', 'MINUTE'].join('_')) ?? 30,
+)
 export const RATE_LIMIT_WINDOW_MS = 60_000
+
+export const PAYMENT_ORDER_ID_PREFIX = 'zona-'
+export const PAYMENT_ORDER_ID_MAX_LENGTH = 50
+export const PAYMENT_RECONCILE_MAX_ROWS = 10
+export const PAYMENT_POLL_INTERVAL_MS = 2500
+export const PAYMENT_POLL_MAX_ATTEMPTS = 8

@@ -105,3 +105,38 @@ export function formatPrice(idr: number): string {
     maximumFractionDigits: 0,
   }).format(idr)
 }
+
+export type PurchasablePlanId = 'pro' | 'ultra'
+export type BillingPeriod = 'monthly' | 'yearly'
+
+const PURCHASABLE_PLAN_IDS: readonly string[] = ['pro', 'ultra']
+const BILLING_PERIODS: readonly string[] = ['monthly', 'yearly']
+
+export function isPurchasablePlan(planId: string): planId is PurchasablePlanId {
+  return PURCHASABLE_PLAN_IDS.includes(planId)
+}
+
+export function isBillingPeriod(value: string): value is BillingPeriod {
+  return BILLING_PERIODS.includes(value)
+}
+
+export interface ResolvedPurchase {
+  planId: PurchasablePlanId
+  billingPeriod: BillingPeriod
+  amountIdr: number
+  creditsGranted: number
+}
+
+export function resolvePurchase(
+  planId: PurchasablePlanId,
+  billingPeriod: BillingPeriod,
+): ResolvedPurchase {
+  const plan = getPlanById(planId)
+  const yearly = billingPeriod === 'yearly'
+  return {
+    planId,
+    billingPeriod,
+    amountIdr: yearly ? plan.priceYearly : plan.priceMonthly,
+    creditsGranted: yearly ? plan.credits * 12 : plan.credits,
+  }
+}
