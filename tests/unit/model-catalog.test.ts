@@ -20,9 +20,15 @@ describe('getModelCatalog', () => {
       ])
       expect(entry).not.toHaveProperty('routerModelId')
       expect(entry).not.toHaveProperty('routingRules')
-      expect(['Zona', 'Google', 'OpenAI', 'DeepSeek', 'Qwen']).toContain(
-        entry.vendor,
-      )
+      expect([
+        'Zona',
+        'Google',
+        'OpenAI',
+        'Qwen',
+        'Xiaomi',
+        'Tencent',
+        'Zhipu AI',
+      ]).toContain(entry.vendor)
       expect([1, 2, 3, 4]).toContain(entry.intelligenceLevel)
     }
   })

@@ -164,7 +164,7 @@ export function ModelSelector({
             />
           </button>
         </div>
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 max-h-[380px] space-y-1 overflow-y-auto pr-0.5">
           {selectable.map((m) => {
             const isSelected = compareEnabled
               ? compareModelIds.includes(m.id)

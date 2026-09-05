@@ -79,7 +79,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'umum',
     title: 'Model AI apa saja yang tersedia di Zona.ai?',
     content:
-      'Zona.ai menyediakan beragam model terkemuka seperti OpenAI (GPT-4o), Anthropic (Claude), Google (Gemini), DeepSeek, dan model open-source lainnya. Daftar model diperbarui secara dinamis.',
+      'Zona.ai menyediakan beragam model terkemuka seperti OpenAI, Google (Gemini), Qwen, MiMo, GLM, dan model unggulan lainnya. Daftar model diperbarui secara dinamis.',
   },
   {
     id: '9',
