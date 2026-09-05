@@ -15,6 +15,7 @@ import { CodeBlock } from './CodeBlock'
 import { CopyButton } from './CopyButton'
 import { InlineError } from './InlineError'
 import { ReasoningSection } from './ReasoningSection'
+import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 type Generation = {
@@ -59,6 +60,13 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   const userMessage = contentAsError?.userMessage ?? displayError.userMessage
   const technicalDetail =
     displayError.technicalDetail ?? contentAsError?.technicalDetail ?? null
+
+  const hasVisibleContent = Boolean(
+    generation.content && generation.content.trim().length > 0,
+  )
+  const isWaiting =
+    (generation.status === 'streaming' || generation.status === 'queued') &&
+    !hasVisibleContent
 
   return (
     <div
@@ -138,11 +146,6 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               </button>
             )}
           </div>
-        ) : generation.status === 'queued' ? (
-          <div className="space-y-2">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-paper motion-reduce:animate-none" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-paper motion-reduce:animate-none" />
-          </div>
         ) : (
           <>
             <ReasoningSection content={generation.reasoningContent} />
@@ -152,25 +155,29 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               storageKey={`gen:${generation.id}`}
               renderMarkdown={(text) => (
                 <div className="prose prose-sm max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
-                  <ReactMarkdown
-                    rehypePlugins={[rehypeSanitize, rehypeHighlight]}
-                    components={{
-                      code: ({ children, className }) => {
-                        const isBlock =
-                          String(children).includes('\n') || Boolean(className)
-                        if (isBlock)
-                          return <CodeBlock>{String(children)}</CodeBlock>
-                        return (
-                          <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
-                            {children}
-                          </code>
-                        )
-                      },
-                      pre: ({ children }) => <>{children}</>,
-                    }}
-                  >
-                    {text}
-                  </ReactMarkdown>
+                  {text ? (
+                    <ReactMarkdown
+                      rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                      components={{
+                        code: ({ children, className }) => {
+                          const isBlock =
+                            String(children).includes('\n') ||
+                            Boolean(className)
+                          if (isBlock)
+                            return <CodeBlock>{String(children)}</CodeBlock>
+                          return (
+                            <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
+                              {children}
+                            </code>
+                          )
+                        },
+                        pre: ({ children }) => <>{children}</>,
+                      }}
+                    >
+                      {text}
+                    </ReactMarkdown>
+                  ) : null}
+                  {isWaiting && <TypingDots />}
                 </div>
               )}
             />
