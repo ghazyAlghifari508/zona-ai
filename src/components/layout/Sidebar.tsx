@@ -1,4 +1,4 @@
-﻿import {
+import {
   Clock01Icon,
   Delete02Icon,
   Loading03Icon,
@@ -16,7 +16,7 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { authClient } from '../../lib/auth/auth-client'
 import { modelRegistry } from '../../lib/models/registry'
@@ -113,6 +113,7 @@ export function Sidebar({
   user,
 }: Props) {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const catalog = useModelCatalog()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -421,6 +422,12 @@ export function Sidebar({
                         <button
                           type="button"
                           title={conversation.title ?? 'New Chat'}
+                          onMouseEnter={() => {
+                            void router.preloadRoute({
+                              to: '/chat/$conversationId',
+                              params: { conversationId: conversation.id },
+                            })
+                          }}
                           onClick={() => {
                             onMobileClose?.()
                             if (onSelectConversation)

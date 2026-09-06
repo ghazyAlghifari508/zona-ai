@@ -5,6 +5,9 @@ import { WorkspaceShell } from '../../src/components/layout/WorkspaceShell'
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
+  useRouter: () => ({
+    preloadRoute: vi.fn().mockResolvedValue(undefined),
+  }),
 }))
 
 vi.mock('../../src/server/functions/conversations', () => ({

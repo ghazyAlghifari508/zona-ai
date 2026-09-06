@@ -18,10 +18,14 @@ const serverMocks = vi.hoisted(() => ({
 
 const routerMocks = vi.hoisted(() => ({
   navigate: vi.fn(),
+  preloadRoute: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => routerMocks.navigate,
+  useRouter: () => ({
+    preloadRoute: routerMocks.preloadRoute,
+  }),
 }))
 
 vi.mock('../../src/server/functions/conversations', () => ({
@@ -375,6 +379,31 @@ describe('Sidebar persistence', () => {
     // 5. Legacy without models -> slot exists for alignment, but no icon container inside
     expect(screen.getByTestId('conversation-slot-conv-legacy')).toBeTruthy()
     expect(screen.queryByTestId('conversation-model-icons-conv-legacy')).toBeNull()
+  })
+
+  it('preloads conversation route on hover (mouse enter)', async () => {
+    serverMocks.getConversations.mockResolvedValueOnce({
+      conversations: [
+        {
+          id: 'conv-prefetch',
+          title: 'Prefetch Test',
+          mode: 'normal',
+          modelId: 'gemini-3.7-flash-high',
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      nextCursor: undefined,
+    })
+
+    renderSidebar()
+
+    const item = await screen.findByText('Prefetch Test')
+    fireEvent.mouseEnter(item)
+
+    expect(routerMocks.preloadRoute).toHaveBeenCalledWith({
+      to: '/chat/$conversationId',
+      params: { conversationId: 'conv-prefetch' },
+    })
   })
 })
 

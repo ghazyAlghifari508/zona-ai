@@ -48,6 +48,7 @@ import { getMessages } from '@/server/functions/messages'
 import { getCurrentSession } from '@/server/functions/session'
 
 export const Route = createFileRoute('/chat/$conversationId')({
+  staleTime: 30_000,
   beforeLoad: async () => {
     try {
       const session = await getCurrentSession()
