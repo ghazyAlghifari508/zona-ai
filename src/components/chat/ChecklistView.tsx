@@ -1,4 +1,4 @@
-import { CheckIcon } from '@hugeicons/core-free-icons'
+﻿import { CheckIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo, useState } from 'react'
 import type { Checklist } from '@/lib/chat/checklist'
@@ -69,7 +69,7 @@ export function ChecklistView({
                   type="checkbox"
                   checked={item.completed}
                   onChange={(e) => toggle(item.id, e.target.checked)}
-                  className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-[5px] border border-hairline-strong bg-pure-white transition-colors duration-200 checked:border-notion-blue checked:bg-notion-blue hover:not-checked:border-ink/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-notion-blue"
+                  className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-[5px] border border-hairline-strong bg-pure-white transition-colors duration-200 checked:border-accent checked:bg-accent hover:not-checked:border-ink/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-notion-blue"
                 />
                 <HugeiconsIcon
                   icon={CheckIcon}

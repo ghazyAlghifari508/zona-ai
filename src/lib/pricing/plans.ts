@@ -57,7 +57,7 @@ export const pricingPlans: PricingPlan[] = [
     popular: true,
     highlight: {
       card: 'bg-pure-white ring-2 ring-notion-blue',
-      button: 'bg-notion-blue text-pure-white hover:bg-blue-hover',
+      button: 'bg-accent text-white hover:bg-accent-hover',
       icon: 'bg-sky-tint text-notion-blue',
     },
     features: [

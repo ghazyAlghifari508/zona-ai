@@ -1,4 +1,4 @@
-import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
+﻿import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -115,7 +115,7 @@ export function FaqSection() {
             onClick={() => setSelectedCategory(cat.id)}
             className={`rounded-md border px-3.5 py-1.5 text-xs font-medium transition-colors duration-200 ${
               selectedCategory === cat.id
-                ? 'border-notion-blue bg-notion-blue text-pure-white'
+                ? 'border-accent bg-accent text-white'
                 : 'border-hairline bg-pure-white text-stone hover:text-ink'
             }`}
           >
@@ -138,7 +138,7 @@ export function FaqSection() {
       <div className="mt-8 flex justify-center">
         <Link
           to="/pricing"
-          className="inline-flex items-center gap-2 rounded-full bg-notion-blue px-5 py-2.5 text-[13px] font-semibold text-pure-white transition-all duration-200 hover:bg-blue-hover active:scale-95"
+          className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-all duration-200 hover:bg-accent-hover active:scale-95"
         >
           Lihat Paket & Harga
           <HugeiconsIcon

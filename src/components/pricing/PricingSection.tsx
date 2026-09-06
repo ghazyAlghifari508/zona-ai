@@ -1,4 +1,4 @@
-import {
+﻿import {
   BoltIcon,
   Clock01Icon,
   CpuIcon,
@@ -90,7 +90,7 @@ function PlanCard({
       )}
     >
       {plan.popular && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-notion-blue px-3 py-1 text-[11px] font-semibold text-pure-white">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-white">
           Populer
         </span>
       )}

@@ -205,7 +205,7 @@ export function ModelSelector({
             onClick={toggleCompare}
             className={cn(
               'relative h-5 w-9 rounded-full transition-colors duration-200',
-              compareEnabled ? 'bg-notion-blue' : 'bg-hairline-strong',
+              compareEnabled ? 'bg-accent' : 'bg-hairline-strong',
             )}
           >
             <span
@@ -355,7 +355,7 @@ export function ModelSelector({
                       'flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-[5px] border transition-colors duration-150',
                       m.id === 'auto' && 'mt-1',
                       isSelected
-                        ? 'border-notion-blue bg-notion-blue'
+                        ? 'border-accent bg-accent'
                         : 'border-hairline-strong bg-pure-white',
                     )}
                   >
@@ -364,7 +364,7 @@ export function ModelSelector({
                         icon={Tick01Icon}
                         size={12}
                         strokeWidth={2.25}
-                        className="text-pure-white"
+                        className="text-white"
                       />
                     )}
                   </span>

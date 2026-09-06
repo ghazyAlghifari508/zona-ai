@@ -1,4 +1,4 @@
-import {
+﻿import {
   GitCompareIcon,
   Login03Icon,
   Menu01Icon,
@@ -174,7 +174,7 @@ export function WorkspaceShell({
                 setSidebarOpen(false)
                 onNewChat?.()
               }}
-              className={`mt-4 flex min-h-[42px] w-full items-center gap-2.5 rounded-md bg-notion-blue text-[13px] font-semibold text-pure-white transition-colors duration-200 hover:bg-blue-hover ${
+              className={`mt-4 flex min-h-[42px] w-full items-center gap-2.5 rounded-md bg-accent text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-accent-hover ${
                 collapsed ? 'justify-center px-0' : 'px-3'
               }`}
             >
@@ -234,7 +234,7 @@ export function WorkspaceShell({
                   data-testid="guest-sign-in"
                   onClick={onSignIn}
                   disabled={signingIn}
-                  className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-notion-blue px-4 text-[14px] font-medium text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
+                  className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-accent px-4 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-accent-hover disabled:opacity-60"
                 >
                   <HugeiconsIcon
                     icon={Login03Icon}

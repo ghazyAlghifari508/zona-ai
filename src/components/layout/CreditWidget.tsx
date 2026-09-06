@@ -1,4 +1,4 @@
-import { GemIcon } from '@hugeicons/core-free-icons'
+﻿import { GemIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useState } from 'react'
 
@@ -41,7 +41,7 @@ export function CreditWidget({ credits }: Props) {
         <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-paper">
           <div
             className={`h-full rounded-full transition-all duration-500 ease-out ${
-              isLow ? 'bg-coral' : 'bg-notion-blue'
+              isLow ? 'bg-coral' : 'bg-accent'
             }`}
             style={{ width: `${percentage}%` }}
           />

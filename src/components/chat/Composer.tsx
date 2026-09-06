@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowUp02Icon,
   Attachment01Icon,
   GlobalSearchIcon,
@@ -498,7 +498,7 @@ export function Composer({
         {compareEnabled && compareModelIds.length >= 2 && (
           <div className="flex items-center justify-between rounded-md border border-hairline bg-sky-tint px-3 py-2 text-[13px] text-ink">
             <span data-testid="composer-compare-banner">
-              Compare mode: {compareModelIds.length} model • Total:{' '}
+              Compare mode: {compareModelIds.length} model â€¢ Total:{' '}
               {compareTotal} Kredit
             </span>
             {compareInsufficient && (
@@ -639,7 +639,7 @@ export function Composer({
                 }`}
                 title={
                   enableWebSearch
-                    ? 'Pencarian web aktif — model akan mencari informasi terkini'
+                    ? 'Pencarian web aktif â€” model akan mencari informasi terkini'
                     : 'Aktifkan pencarian web via Tavily'
                 }
                 aria-label={
@@ -676,7 +676,7 @@ export function Composer({
                 data-testid="send-button"
                 onClick={handleSend}
                 disabled={compareEnabled ? !canSendCompare : !canSendNormal}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-notion-blue text-pure-white transition-all duration-200 hover:bg-blue-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-all duration-200 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Send message"
               >
                 <HugeiconsIcon icon={ArrowUp02Icon} size={16} strokeWidth={2} />
@@ -693,7 +693,7 @@ export function Composer({
         ) : (
           isPremium && (
             <p className="px-2 text-[13px] text-stone">
-              GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
+              GPT-5.6 Sol memakai kredit lebih cepat â€” pakai Auto â†’
             </p>
           )
         )}

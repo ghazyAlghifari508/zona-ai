@@ -1,4 +1,4 @@
-import { ArrowLeft01Icon, Login03Icon } from '@hugeicons/core-free-icons'
+﻿import { ArrowLeft01Icon, Login03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
@@ -79,7 +79,7 @@ export function GlobalNav({
           data-testid="site-sign-in"
           onClick={onSignIn}
           disabled={signingIn}
-          className="ml-1 flex h-8 items-center gap-1.5 rounded-full bg-notion-blue px-4 text-[13px] font-semibold text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:opacity-60"
+          className="ml-1 flex h-8 items-center gap-1.5 rounded-full bg-accent px-4 text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-accent-hover disabled:opacity-60"
         >
           <HugeiconsIcon
             icon={Login03Icon}

@@ -15,6 +15,8 @@
   --sky-tint: #e6f3fe;
   --notion-blue: #0075de;
   --blue-hover: #0068c5;
+  --accent: #0075de;
+  --accent-hover: #0068c5;
   --marigold: #ffb110;
   --coral: #f64932;
   --sky-wash: #62aef0;
@@ -57,6 +59,8 @@
   --sky-tint: rgba(107, 171, 242, 0.14);
   --notion-blue: #6babf2;
   --blue-hover: #5b9ce8;
+  --accent: #0075de;
+  --accent-hover: #0068c5;
   --marigold: #ffb110;
   --coral: #ff6b54;
   --sky-wash: #62aef0;
@@ -90,6 +94,8 @@
   /* Colors — Notion style (DESIGN.md) */
   --color-notion-blue: var(--notion-blue);
   --color-blue-hover: var(--blue-hover);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-paper: var(--paper);
   --color-sidebar: var(--sidebar);
   --color-pure-white: var(--pure-white);

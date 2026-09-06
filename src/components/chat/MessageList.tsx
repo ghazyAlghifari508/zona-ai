@@ -18,6 +18,7 @@ import {
   getChecklistCopyText,
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
+import { COMPARE_MAX_WIDTH_CLASS } from '@/lib/chat/compare-card-width'
 import type { ArtifactKind } from '@/lib/chat/skills'
 import {
   chatHighlightOptions,
@@ -174,9 +175,11 @@ export function MessageList({
       }
     >
       <div
-        className={`mx-auto w-full transition-[max-width] duration-200 ${
-          hasUsedCompareMode ? 'max-w-[1360px]' : 'max-w-[860px]'
-        } px-4 pt-2 lg:px-6 ${scrollRef ? 'pb-36' : 'pb-6'}`}
+        className={`mx-auto w-full transition-[max-width,padding] duration-200 ${
+          hasUsedCompareMode
+            ? `${COMPARE_MAX_WIDTH_CLASS} px-3 sm:px-4 lg:px-5`
+            : 'max-w-[860px] px-4 lg:px-6'
+        } pt-2 ${scrollRef ? 'pb-36' : 'pb-6'}`}
       >
         {shouldVirtualize ? (
           <div

@@ -297,7 +297,7 @@ export function Sidebar({
           }}
           disabled={createMutation.isPending}
           data-testid="new-chat-button"
-          className={`mt-4 flex min-h-[42px] w-full items-center gap-2.5 rounded-md bg-notion-blue text-[13px] font-semibold text-pure-white transition-colors duration-200 hover:bg-blue-hover disabled:cursor-wait disabled:opacity-60 ${
+          className={`mt-4 flex min-h-[42px] w-full items-center gap-2.5 rounded-md bg-accent text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-accent-hover disabled:cursor-wait disabled:opacity-60 ${
             collapsed ? 'justify-center px-0' : 'px-3'
           }`}
         >

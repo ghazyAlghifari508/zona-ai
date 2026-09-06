@@ -1,4 +1,4 @@
-import {
+﻿import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -39,7 +39,7 @@ export function InsufficientCreditsDialog({
             type="button"
             data-testid="insufficient-credits-view-plans"
             onClick={onViewPlans}
-            className="flex h-10 items-center justify-center rounded-md bg-notion-blue px-4 text-[14px] font-medium text-pure-white transition-colors duration-200 hover:bg-blue-hover"
+            className="flex h-10 items-center justify-center rounded-md bg-accent px-4 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-accent-hover"
           >
             Lihat Paket
           </button>
