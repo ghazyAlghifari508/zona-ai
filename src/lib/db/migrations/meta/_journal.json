@@ -78,6 +78,13 @@
       "when": 1788638942891,
       "tag": "0010_tough_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788688707636,
+      "tag": "0011_giant_sprite",
+      "breakpoints": true
     }
   ]
 }

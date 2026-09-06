@@ -41,11 +41,17 @@ export const getConversationSchema = z.object({ id: z.string().uuid() })
 export const createConversationSchema = z.object({
   title: z.string().trim().max(CONVERSATION_TITLE_MAX_LENGTH).optional(),
   mode: z.enum(['normal', 'compare']).default('normal'),
+  modelId: z.string().trim().min(1).max(120).optional(),
 })
 
 export const updateConversationSchema = z.object({
   id: z.string().uuid(),
   title: z.string().trim().min(1).max(CONVERSATION_TITLE_MAX_LENGTH),
+})
+
+export const setConversationModelSchema = z.object({
+  id: z.string().uuid(),
+  modelId: z.string().trim().min(1).max(120),
 })
 
 export const deleteConversationSchema = z.object({

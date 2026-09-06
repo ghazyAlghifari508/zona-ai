@@ -9,6 +9,7 @@ import {
   deleteConversationSchema,
   getConversationSchema,
   getConversationsSchema,
+  setConversationModelSchema,
   updateConversationSchema,
 } from '../../lib/utils/validation'
 import {
@@ -17,6 +18,7 @@ import {
   deleteConversationCore,
   getConversationCore,
   getConversationsCore,
+  setConversationModelCore,
   updateConversationCore,
 } from '../core/conversations'
 
@@ -42,6 +44,12 @@ export const updateConversation = createServerFn({ method: 'POST' })
   .validator((data: unknown) => updateConversationSchema.parse(data))
   .handler(({ data }) =>
     updateConversationCore({ data, request: getRequest() as Request }),
+  )
+
+export const setConversationModel = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => setConversationModelSchema.parse(data))
+  .handler(({ data }) =>
+    setConversationModelCore({ data, request: getRequest() as Request }),
   )
 
 export const deleteConversation = createServerFn({ method: 'POST' })
