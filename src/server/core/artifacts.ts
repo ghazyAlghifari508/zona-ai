@@ -1,6 +1,6 @@
 import type { ModelMessage } from 'ai'
 import { streamText } from 'ai'
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { nineRouter } from '../../lib/ai/9router'
 import {
   type ArtifactStreamEvent,
@@ -32,6 +32,7 @@ import {
 import type { ArtifactInput } from '../../lib/utils/validation'
 import { ARTIFACT_PROFILES, type ArtifactProfile } from './artifact-profiles'
 import { autoTitleConversation, controllers } from './chat'
+import { buildModelHistory } from './history'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/artifacts.ts is server-only')
@@ -729,11 +730,7 @@ export async function generateArtifactCore({
     throw e
   }
 
-  const history = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, convId))
-    .orderBy(asc(messages.createdAt))
+  const aiMessages: ModelMessage[] = await buildModelHistory(convId)
 
   let ragSuffix = ''
   if (input.attachmentIds?.length) {
@@ -757,13 +754,6 @@ export async function generateArtifactCore({
     ragSuffix,
   })
 
-  const aiMessages: ModelMessage[] = history.map(
-    (m) =>
-      ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }) as ModelMessage,
-  )
   if (fileParts.length) {
     for (let i = aiMessages.length - 1; i >= 0; i--) {
       if (aiMessages[i].role === 'user') {
@@ -879,18 +869,7 @@ export async function retryArtifactGenerationCore({
     .limit(1)
   const userContent = recentUser[0]?.content ?? ''
 
-  const history = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, gen.conversationId))
-    .orderBy(asc(messages.createdAt))
-  const aiMessages: ModelMessage[] = history.map(
-    (m) =>
-      ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }) as ModelMessage,
-  )
+  const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
 
   return executeArtifactStream({
     profile,

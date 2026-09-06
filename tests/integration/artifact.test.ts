@@ -18,6 +18,7 @@ import {
   users,
 } from '../../src/lib/db/schema'
 import { resetRateLimitForTest } from '../../src/lib/security/rate-limit'
+import { buildModelHistory } from '../../src/server/core/history'
 
 vi.mock('../../src/lib/r2/client', () => ({
   putObject: vi.fn(async () => {}),
@@ -50,17 +51,41 @@ function __setNextArtifactOutput(text: string) {
 
 const mockStreamText = vi.fn((opts: Record<string, unknown>) => {
   const onChunk = opts.onChunk as (() => void) | undefined
+  const onFinish = opts.onFinish as ((o: unknown) => Promise<void>) | undefined
   if (onChunk) onChunk()
+  if (onFinish) {
+    setTimeout(() => {
+      void onFinish({
+        text: 'Hello mocked response',
+        usage: nextUsage,
+        finishReason: 'stop',
+        reasoningText: undefined,
+      })
+    }, 20)
+  }
   const textStream = new ReadableStream<string>({
     start(controller) {
       controller.enqueue(nextOutput)
       controller.close()
     },
   })
+  const chatStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue('Hello mocked ')
+      controller.enqueue('response')
+      controller.close()
+    },
+  })
+  ;(globalThis as unknown as Record<string, unknown>).__lastStreamMessages =
+    opts.messages
   return {
     text: Promise.resolve(nextOutput),
+    stream: chatStream,
     textStream,
     usage: Promise.resolve(nextUsage),
+    toUIMessageStreamResponse: (init?: { headers?: Record<string, string> }) =>
+      new Response('Hello mocked response', { headers: init?.headers }),
+    toTextStreamResponse: () => new Response('Hello mocked response'),
   }
 })
 
@@ -107,6 +132,11 @@ const ARTIFACT_USERS = [
   'artifact-user-3',
   'artifact-user-4',
   'artifact-user-5',
+  'artifact-user-6',
+  'artifact-user-7',
+  'artifact-user-8',
+  'artifact-user-9',
+  'artifact-user-10',
 ]
 
 async function cleanUser(userId: string) {
@@ -402,5 +432,260 @@ describe('artifact generation', () => {
       .where(eq(attachments.conversationId, convId))
     expect(attRows.length).toBe(1)
     expect(attRows[0].mimeType).toBe('text/markdown')
+  })
+})
+
+describe('artifact conversation history', () => {
+  const HISTORY_USERS = ['artifact-user-6', 'artifact-user-7']
+
+  beforeEach(async () => {
+    resetRateLimitForTest()
+    for (const id of HISTORY_USERS) {
+      await cleanUser(id)
+    }
+    for (const id of HISTORY_USERS) {
+      await db.insert(users).values({
+        id,
+        email: `${id}@example.com`,
+        name: id,
+        credits: 1000,
+      })
+    }
+    vi.clearAllMocks()
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.putObject).mockResolvedValue(undefined)
+    vi.mocked(r2.deleteObject).mockResolvedValue(undefined)
+  })
+
+  afterAll(async () => {
+    for (const id of HISTORY_USERS) {
+      await cleanUser(id)
+    }
+  })
+
+  it('substitutes completed artifact source for follow-up generations', async () => {
+    const USER = 'artifact-user-6'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    const { sendMessageCore } = await import('../../src/server/core/chat')
+    __setNextArtifactOutput(FRONTEND_SKILL)
+    const first = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'agent-skill',
+        content: 'Buatkan skill untuk frontend design',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    const convId = first.headers.get('X-Conversation-Id') as string
+    const events = await readArtifactEvents(first)
+    const done = events.find((e) => e.type === 'artifact-done')
+    if (done?.type !== 'artifact-done') throw new Error('missing done')
+    expect(done.status).toBe('completed')
+
+    const [assistantMsg] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, done.messageId))
+    expect(assistantMsg.content.startsWith('Skill `')).toBe(true)
+    expect(assistantMsg.content).not.toContain('name: frontend-design')
+
+    const followUp = (await sendMessageCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'none',
+        content: 'jelaskan bagian verifikasi',
+        conversationId: convId,
+      },
+      request: userRequest(USER),
+    })) as unknown as Response
+    await followUp.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 200))
+
+    const seen = (globalThis as unknown as Record<string, unknown>)
+      .__lastStreamMessages as Array<{ role: string; content: unknown }>
+    expect(Array.isArray(seen)).toBe(true)
+    const assistantEntries = seen.filter((m) => m.role === 'assistant')
+    expect(
+      assistantEntries.some(
+        (m) =>
+          typeof m.content === 'string' &&
+          (m.content as string).includes('name: frontend-design'),
+      ),
+    ).toBe(true)
+
+    const [persisted] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, done.messageId))
+    expect(persisted.content.startsWith('Skill `')).toBe(true)
+    expect(persisted.content).not.toContain('name: frontend-design')
+  })
+
+  it('falls back to summaries beyond the byte budget', async () => {
+    const USER = 'artifact-user-7'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    __setNextArtifactOutput(FRONTEND_SKILL)
+    const first = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'agent-skill',
+        content: 'Buatkan skill untuk frontend design',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    const convId = first.headers.get('X-Conversation-Id') as string
+    await readArtifactEvents(first)
+
+    const tiny = await buildModelHistory(convId, 10)
+    const tinyAssistants = tiny.filter((m) => m.role === 'assistant')
+    expect(tinyAssistants.length).toBeGreaterThan(0)
+    for (const entry of tinyAssistants) {
+      expect(String(entry.content)).not.toContain('name: frontend-design')
+    }
+
+    const full = await buildModelHistory(convId)
+    expect(
+      full.some(
+        (m) =>
+          m.role === 'assistant' &&
+          typeof m.content === 'string' &&
+          m.content.includes('name: frontend-design'),
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('stop generation ownership', () => {
+  const STOP_USERS = ['artifact-user-8', 'artifact-user-9', 'artifact-user-10']
+
+  beforeEach(async () => {
+    resetRateLimitForTest()
+    for (const id of STOP_USERS) {
+      await cleanUser(id)
+    }
+    for (const id of STOP_USERS) {
+      await db.insert(users).values({
+        id,
+        email: `${id}@example.com`,
+        name: id,
+        credits: 1000,
+      })
+    }
+    vi.clearAllMocks()
+  })
+
+  afterAll(async () => {
+    for (const id of STOP_USERS) {
+      await cleanUser(id)
+    }
+  })
+
+  async function seedStreamingRun(
+    userId: string,
+    modelId = 'auto',
+  ): Promise<{ convId: string; genId: string }> {
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId, title: 'Stop test', mode: 'normal' })
+      .returning()
+    const [userMsg] = await db
+      .insert(messages)
+      .values({ conversationId: conv.id, role: 'user', content: 'halo' })
+      .returning()
+    void userMsg
+    const [assistantMsg] = await db
+      .insert(messages)
+      .values({ conversationId: conv.id, role: 'assistant', content: '' })
+      .returning()
+    const genId = crypto.randomUUID()
+    await db.insert(generationRuns).values({
+      id: genId,
+      messageId: assistantMsg.id,
+      conversationId: conv.id,
+      modelId,
+      routerModelId: modelId,
+      skillId: 'none',
+      status: 'streaming',
+      startedAt: new Date(),
+    })
+    return { convId: conv.id, genId }
+  }
+
+  it('rejects cancel for a generation owned by another user', async () => {
+    const { stopGenerationCore } = await import('../../src/server/core/chat')
+    const { genId } = await seedStreamingRun('artifact-user-8')
+    await expect(
+      stopGenerationCore({
+        generationId: genId,
+        request: userRequest('artifact-user-9'),
+      }),
+    ).rejects.toMatchObject({ status: 403, code: 'ERR-003' })
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    expect(run.status).toBe('streaming')
+  })
+
+  it('owner stop cancels once with exactly one refund row', async () => {
+    const USER = 'artifact-user-10'
+    const { deductCredits } = await import('../../src/lib/ai/credits')
+    const { getModelById } = await import('../../src/lib/models/registry')
+    const { stopGenerationCore } = await import('../../src/server/core/chat')
+    const { genId } = await seedStreamingRun(USER)
+    const entry = getModelById('auto')
+    const cost =
+      typeof entry.creditCost === 'number'
+        ? entry.creditCost
+        : entry.creditCost.max
+    const before = await getCredits(USER)
+    await deductCredits({
+      userId: USER,
+      generationRunId: genId,
+      modelId: 'auto',
+      amount: cost,
+    })
+    expect(await getCredits(USER)).toBe(before - cost)
+
+    const res = await stopGenerationCore({
+      generationId: genId,
+      request: userRequest(USER),
+    })
+    expect(res.ok).toBe(true)
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    expect(run.status).toBe('cancelled')
+    expect(await getCredits(USER)).toBe(before)
+
+    const refundRows = (
+      await db
+        .select()
+        .from(creditTransactions)
+        .where(eq(creditTransactions.generationRunId, genId))
+    ).filter((r) => r.type === 'refund')
+    expect(refundRows.length).toBe(1)
+    expect(refundRows[0].amount).toBe(cost)
+
+    const res2 = await stopGenerationCore({
+      generationId: genId,
+      request: userRequest(USER),
+    })
+    expect(res2.ok).toBe(true)
+    const refundRows2 = (
+      await db
+        .select()
+        .from(creditTransactions)
+        .where(eq(creditTransactions.generationRunId, genId))
+    ).filter((r) => r.type === 'refund')
+    expect(refundRows2.length).toBe(1)
+    expect(await getCredits(USER)).toBe(before)
   })
 })

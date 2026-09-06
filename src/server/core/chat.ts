@@ -42,6 +42,8 @@ import {
 } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
+import { finalizeTerminalRun, retryArtifactGenerationCore } from './artifacts'
+import { buildModelHistory } from './history'
 
 export async function autoTitleConversation(
   convId: string,
@@ -251,11 +253,7 @@ export async function sendMessageCore({
     throw e
   }
 
-  const history = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, convId))
-    .orderBy(asc(messages.createdAt))
+  const aiMessages: ModelMessage[] = await buildModelHistory(convId)
 
   let ragContext: string[] = []
   try {
@@ -328,13 +326,6 @@ export async function sendMessageCore({
   const abortController = new AbortController()
   controllers.set(genId, abortController)
 
-  const aiMessages: ModelMessage[] = history.map(
-    (m) =>
-      ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }) as ModelMessage,
-  )
   if (fileParts.length) {
     for (let i = aiMessages.length - 1; i >= 0; i--) {
       if (aiMessages[i].role === 'user') {
@@ -1254,6 +1245,9 @@ export async function retryGenerationCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   if (gen.status !== 'failed')
     throw new AppError('Only failed generations can be retried', 400, 'ERR-003')
+  if (isArtifactSkill(gen.skillId ?? 'none')) {
+    return retryArtifactGenerationCore({ generationId, request })
+  }
   const modelEntry = getModelById(gen.modelId)
   const cost =
     typeof modelEntry.creditCost === 'number'
@@ -1300,11 +1294,7 @@ export async function retryGenerationCore({
   })
 
   // For simplicity, reuse sendCompare single logic with streamText
-  const history = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, gen.conversationId))
-    .orderBy(asc(messages.createdAt))
+  const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
   const abortController = new AbortController()
   controllers.set(newGenId, abortController)
   const startTime = Date.now()
@@ -1312,13 +1302,7 @@ export async function retryGenerationCore({
   const result = streamText({
     model: nineRouter(gen.routerModelId),
     system: buildSystemPrompt({ skillId: gen.skillId ?? 'none' }),
-    messages: history.map(
-      (m) =>
-        ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-        }) as ModelMessage,
-    ),
+    messages: aiMessages,
     abortSignal: abortController.signal,
     onChunk: () => {
       if (firstTokenAt === null) firstTokenAt = Date.now()
@@ -1439,13 +1423,37 @@ export async function stopGenerationCore({
   generationId: string
   request: Request
 }) {
-  await getAuthSession(request)
+  const session = await getAuthSession(request)
+  const [gen] = await db
+    .select()
+    .from(generationRuns)
+    .where(eq(generationRuns.id, generationId))
+  if (!gen) throw new AppError('Not Found', 404, 'ERR-003')
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, gen.conversationId))
+  if (!conv || conv.userId !== session.user.id)
+    throw new AppError('Forbidden', 403, 'ERR-003')
   const ctrl = controllers.get(generationId)
   if (ctrl) ctrl.abort()
-  await db
-    .update(generationRuns)
-    .set({ status: 'cancelled', completedAt: new Date() })
-    .where(eq(generationRuns.id, generationId))
+  const modelEntry = getModelById(gen.modelId)
+  const cost =
+    typeof modelEntry.creditCost === 'number'
+      ? modelEntry.creditCost
+      : modelEntry.creditCost.max
+  const won = await finalizeTerminalRun({
+    genId: generationId,
+    status: 'cancelled',
+  })
+  if (won) {
+    await refundCredits({
+      userId: session.user.id,
+      generationRunId: generationId,
+      modelId: gen.modelId,
+      amount: cost,
+    })
+  }
   controllers.delete(generationId)
   return { ok: true as const }
 }
