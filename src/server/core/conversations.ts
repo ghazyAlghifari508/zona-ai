@@ -2,11 +2,11 @@
  * Server-only conversation helpers.
  * NEVER import from client code — pulls db/postgres into the browser bundle.
  */
-import { and, asc, desc, eq, gt, ilike, lt, or } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, ilike, inArray, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db'
-import { conversations } from '../../lib/db/schema'
+import { conversations, generationRuns } from '../../lib/db/schema'
 import type {
   createConversationSchema,
   deleteConversationSchema,
@@ -98,8 +98,46 @@ export async function getConversationsCore({
   const hasMore = rows.length > data.limit
   const page = rows.slice(0, data.limit)
   const last = page.at(-1)
+
+  const pageIds = page.map((c) => c.id)
+  const modelsByConv = new Map<string, string[]>()
+
+  if (pageIds.length > 0) {
+    const runs = await db
+      .select({
+        conversationId: generationRuns.conversationId,
+        modelId: generationRuns.modelId,
+      })
+      .from(generationRuns)
+      .where(inArray(generationRuns.conversationId, pageIds))
+      .orderBy(asc(generationRuns.createdAt))
+
+    for (const run of runs) {
+      if (!run.modelId) continue
+      const existing = modelsByConv.get(run.conversationId) ?? []
+      if (!existing.includes(run.modelId)) {
+        existing.push(run.modelId)
+        modelsByConv.set(run.conversationId, existing)
+      }
+    }
+  }
+
+  const conversationsWithModels = page.map((conversation) => {
+    const fromRuns = modelsByConv.get(conversation.id)
+    const modelIds =
+      fromRuns && fromRuns.length > 0
+        ? fromRuns
+        : conversation.modelId
+          ? [conversation.modelId]
+          : []
+    return {
+      ...conversation,
+      modelIds,
+    }
+  })
+
   return {
-    conversations: page,
+    conversations: conversationsWithModels,
     nextCursor:
       hasMore && last?.updatedAt
         ? encodeCursor({ updatedAt: last.updatedAt, id: last.id })

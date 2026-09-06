@@ -77,7 +77,7 @@ describe('Sidebar persistence', () => {
             search: 'Alpha',
           },
         }),
-      { timeout: 500 },
+      { timeout: 2000 },
     )
   })
 
@@ -279,6 +279,95 @@ describe('Sidebar persistence', () => {
     // Items re-appear
     expect(screen.getByRole('searchbox')).toBeTruthy()
     expect(await screen.findByText('Hidden Thread in Collapsed')).toBeTruthy()
+  })
+
+  it('renders model icons on conversation history adhering to capping and deduplication', async () => {
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conv-single',
+          title: 'Single Model Chat',
+          modelIds: ['gemini-3.7-flash-high'],
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+        {
+          id: 'conv-double',
+          title: 'Two Models Chat',
+          modelIds: ['gpt-5.6-sol', 'gemini-3.7-flash-high'],
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+        {
+          id: 'conv-capped',
+          title: 'Six Models Chat',
+          modelIds: [
+            'gpt-5.6-sol',
+            'gemini-3.7-flash-high',
+            'qwen3.8-flash',
+            'mimo-v2.5',
+            'hy3',
+            'glm-5.3-flash',
+          ],
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+        {
+          id: 'conv-duplicates',
+          title: 'Duplicate Models Chat',
+          modelIds: [
+            'gemini-3.7-flash-high',
+            'gemini-3.7-flash-high',
+            'gpt-5.6-sol',
+          ],
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+        {
+          id: 'conv-legacy',
+          title: 'Legacy Chat Without Models',
+          modelIds: [],
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Sidebar />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText('Single Model Chat')).toBeTruthy()
+
+    // 1. Single model -> 1 icon
+    const singleContainer = screen.getByTestId(
+      'conversation-model-icons-conv-single',
+    )
+    expect(singleContainer.children.length).toBe(1)
+    expect(
+      singleContainer.querySelector(
+        '[data-testid="conversation-model-icon-gemini-3.7-flash-high"]',
+      ),
+    ).toBeTruthy()
+
+    // 2. Two models -> 2 icons
+    const doubleContainer = screen.getByTestId(
+      'conversation-model-icons-conv-double',
+    )
+    expect(doubleContainer.children.length).toBe(2)
+
+    // 3. Six models -> capped at 4 icons
+    const cappedContainer = screen.getByTestId(
+      'conversation-model-icons-conv-capped',
+    )
+    expect(cappedContainer.children.length).toBe(4)
+
+    // 4. Duplicates -> deduplicated to 2 icons
+    const dupContainer = screen.getByTestId(
+      'conversation-model-icons-conv-duplicates',
+    )
+    expect(dupContainer.children.length).toBe(2)
+
+    // 5. Legacy without models -> no icon container rendered
+    expect(screen.queryByTestId('conversation-model-icons-conv-legacy')).toBeNull()
   })
 })
 

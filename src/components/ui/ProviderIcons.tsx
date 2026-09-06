@@ -16,7 +16,7 @@ export function ProviderIcon({
   size?: number
   inverted?: boolean
 }) {
-  if (provider === 'codex') {
+  if (provider === 'codex' || provider === 'openai') {
     return (
       <svg
         viewBox="0 0 24 24"
@@ -30,7 +30,11 @@ export function ProviderIcon({
       </svg>
     )
   }
-  if (provider === 'antigravity') {
+  if (
+    provider === 'antigravity' ||
+    provider === 'google' ||
+    provider === 'gemini'
+  ) {
     return (
       <img
         src="/assets/google-gemini.svg"

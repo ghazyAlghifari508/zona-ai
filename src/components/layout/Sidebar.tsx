@@ -19,6 +19,8 @@ import {
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { authClient } from '../../lib/auth/auth-client'
+import { modelRegistry } from '../../lib/models/registry'
+import type { ModelCatalogEntry } from '../../lib/models/types'
 import { CONVERSATIONS_PAGE_SIZE } from '../../lib/utils/constants'
 import {
   createConversation,
@@ -26,6 +28,7 @@ import {
   getConversations,
   updateConversation,
 } from '../../server/functions/conversations'
+import { findCatalogEntry, useModelCatalog } from '../chat/useModelCatalog'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -42,7 +45,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { ProviderIcon } from '../ui/ProviderIcons'
 import { CreditWidget } from './CreditWidget'
+
+function getModelDisplayInfo(
+  catalog: ModelCatalogEntry[],
+  modelId: string,
+): { provider: string; displayName: string } {
+  const entry =
+    findCatalogEntry(catalog, modelId) ??
+    modelRegistry.find((m) => m.id === modelId)
+  return {
+    provider: entry?.provider ?? 'zona-router',
+    displayName: entry?.displayName ?? modelId,
+  }
+}
 
 type Props = {
   credits?: number
@@ -96,6 +113,7 @@ export function Sidebar({
   user,
 }: Props) {
   const queryClient = useQueryClient()
+  const catalog = useModelCatalog()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -357,119 +375,165 @@ export function Sidebar({
               </div>
             ) : (
               <nav aria-label="Riwayat percakapan" className="space-y-0.5">
-                {conversationItems.map((conversation) => (
-                  <div
-                    key={conversation.id}
-                    className={`group flex items-center rounded-md transition-colors duration-200 ${
-                      activeConversationId === conversation.id
-                        ? 'bg-pure-white shadow-[inset_0_0_0_1px_var(--color-hairline)]'
-                        : 'hover:bg-ink/5'
-                    }`}
-                  >
-                    {editingId === conversation.id ? (
-                      <input
-                        ref={editingInputRef}
-                        aria-label={`Rename ${conversation.title ?? 'New Chat'}`}
-                        value={editTitle}
-                        maxLength={100}
-                        onChange={(event) => setEditTitle(event.target.value)}
-                        onBlur={() => submitRename(conversation.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter')
-                            submitRename(conversation.id)
-                          if (event.key === 'Escape') setEditingId(null)
-                        }}
-                        className="m-1 min-w-0 flex-1 rounded-md border border-hairline bg-pure-white px-2 py-1 text-[13px] text-ink outline-none focus-visible:border-notion-blue"
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        title={conversation.title ?? 'New Chat'}
-                        onClick={() => {
-                          onMobileClose?.()
-                          if (onSelectConversation)
-                            onSelectConversation(conversation.id)
-                          else
-                            window.location.assign(`/chat/${conversation.id}`)
-                        }}
-                        className="flex min-w-0 flex-1 flex-col items-start px-2.5 py-1.5 text-left"
-                      >
-                        <span className="w-full truncate text-[13px] font-medium leading-[1.3] text-ink/80 group-hover:text-ink">
-                          {conversation.title ?? 'New Chat'}
-                        </span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-stone">
-                          <HugeiconsIcon
-                            icon={Clock01Icon}
-                            size={12}
-                            strokeWidth={1.75}
-                            className="shrink-0"
-                            aria-hidden="true"
-                          />
-                          <span>
-                            {conversation.updatedAt
-                              ? new Date(
-                                  conversation.updatedAt,
-                                ).toLocaleDateString('id-ID')
-                              : ''}
-                          </span>
-                        </span>
-                      </button>
-                    )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                {conversationItems.map((conversation) => {
+                  const rawModelIds =
+                    'modelIds' in conversation &&
+                    Array.isArray(conversation.modelIds)
+                      ? conversation.modelIds
+                      : conversation.modelId
+                        ? [conversation.modelId]
+                        : []
+                  const uniqueModelIds = Array.from(
+                    new Set(
+                      rawModelIds.filter(
+                        (id): id is string =>
+                          typeof id === 'string' && id.length > 0,
+                      ),
+                    ),
+                  )
+                  const visibleModelIds = uniqueModelIds.slice(0, 4)
+
+                  return (
+                    <div
+                      key={conversation.id}
+                      className={`group flex items-center rounded-md transition-colors duration-200 ${
+                        activeConversationId === conversation.id
+                          ? 'bg-pure-white shadow-[inset_0_0_0_1px_var(--color-hairline)]'
+                          : 'hover:bg-ink/5'
+                      }`}
+                    >
+                      {editingId === conversation.id ? (
+                        <input
+                          ref={editingInputRef}
+                          aria-label={`Rename ${conversation.title ?? 'New Chat'}`}
+                          value={editTitle}
+                          maxLength={100}
+                          onChange={(event) => setEditTitle(event.target.value)}
+                          onBlur={() => submitRename(conversation.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter')
+                              submitRename(conversation.id)
+                            if (event.key === 'Escape') setEditingId(null)
+                          }}
+                          className="m-1 min-w-0 flex-1 rounded-md border border-hairline bg-pure-white px-2 py-1 text-[13px] text-ink outline-none focus-visible:border-notion-blue"
+                        />
+                      ) : (
                         <button
                           type="button"
-                          aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
-                          className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100"
-                        >
-                          <HugeiconsIcon
-                            icon={MoreHorizontalIcon}
-                            size={16}
-                            strokeWidth={1.75}
-                            aria-hidden="true"
-                          />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => {
-                            window.requestAnimationFrame(() => {
-                              setEditingId(conversation.id)
-                              setEditTitle(conversation.title ?? 'New Chat')
-                            })
+                          title={conversation.title ?? 'New Chat'}
+                          onClick={() => {
+                            onMobileClose?.()
+                            if (onSelectConversation)
+                              onSelectConversation(conversation.id)
+                            else
+                              window.location.assign(`/chat/${conversation.id}`)
                           }}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-1.5 text-left"
                         >
-                          <HugeiconsIcon
-                            icon={PencilEdit01Icon}
-                            size={14}
-                            strokeWidth={1.75}
-                            className="mr-2"
-                            aria-hidden="true"
-                          />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            setDeleteTarget({
-                              id: conversation.id,
-                              title: conversation.title ?? 'New Chat',
-                            })
-                          }
-                          className="text-coral focus:text-coral"
-                        >
-                          <HugeiconsIcon
-                            icon={Delete02Icon}
-                            size={14}
-                            strokeWidth={1.75}
-                            className="mr-2"
-                            aria-hidden="true"
-                          />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ))}
+                          {visibleModelIds.length > 0 && (
+                            <div
+                              data-testid={`conversation-model-icons-${conversation.id}`}
+                              className="flex shrink-0 items-center -space-x-1.5"
+                            >
+                              {visibleModelIds.map((modelId, index) => {
+                                const { provider, displayName } =
+                                  getModelDisplayInfo(catalog, modelId)
+                                return (
+                                  <span
+                                    key={modelId}
+                                    data-testid={`conversation-model-icon-${modelId}`}
+                                    title={displayName}
+                                    style={{ zIndex: index + 1 }}
+                                    className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-pure-white bg-paper text-ink ring-1 ring-hairline"
+                                  >
+                                    <ProviderIcon
+                                      provider={provider}
+                                      size={11}
+                                    />
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          )}
+                          <div className="flex min-w-0 flex-1 flex-col items-start">
+                            <span className="w-full truncate text-[13px] font-medium leading-[1.3] text-ink/80 group-hover:text-ink">
+                              {conversation.title ?? 'New Chat'}
+                            </span>
+                            <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-stone">
+                              <HugeiconsIcon
+                                icon={Clock01Icon}
+                                size={12}
+                                strokeWidth={1.75}
+                                className="shrink-0"
+                                aria-hidden="true"
+                              />
+                              <span>
+                                {conversation.updatedAt
+                                  ? new Date(
+                                      conversation.updatedAt,
+                                    ).toLocaleDateString('id-ID')
+                                  : ''}
+                              </span>
+                            </span>
+                          </div>
+                        </button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
+                            className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100"
+                          >
+                            <HugeiconsIcon
+                              icon={MoreHorizontalIcon}
+                              size={16}
+                              strokeWidth={1.75}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              window.requestAnimationFrame(() => {
+                                setEditingId(conversation.id)
+                                setEditTitle(conversation.title ?? 'New Chat')
+                              })
+                            }}
+                          >
+                            <HugeiconsIcon
+                              icon={PencilEdit01Icon}
+                              size={14}
+                              strokeWidth={1.75}
+                              className="mr-2"
+                              aria-hidden="true"
+                            />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              setDeleteTarget({
+                                id: conversation.id,
+                                title: conversation.title ?? 'New Chat',
+                              })
+                            }
+                            className="text-coral focus:text-coral"
+                          >
+                            <HugeiconsIcon
+                              icon={Delete02Icon}
+                              size={14}
+                              strokeWidth={1.75}
+                              className="mr-2"
+                              aria-hidden="true"
+                            />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )
+                })}
               </nav>
             )}
             {conversationsQuery.hasNextPage && (

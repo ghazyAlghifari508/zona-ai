@@ -239,4 +239,55 @@ describe('conversation persistence', () => {
     })
     expect(otherChats.conversations.length).toBeGreaterThanOrEqual(1)
   })
+
+  it('includes modelIds in conversations in chronological order of first use without duplicates', async () => {
+    const { getConversationsCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: ownerId, title: 'Multi-model Chat' })
+      .returning()
+
+    const [msg] = await db
+      .insert(messages)
+      .values({ conversationId: conv.id, role: 'assistant', content: 'test' })
+      .returning()
+
+    await db.insert(generationRuns).values([
+      {
+        messageId: msg.id,
+        conversationId: conv.id,
+        modelId: 'gemini-3.7-flash-high',
+        routerModelId: 'test/gemini',
+        status: 'completed',
+        createdAt: new Date('2026-08-29T01:00:00Z'),
+      },
+      {
+        messageId: msg.id,
+        conversationId: conv.id,
+        modelId: 'gpt-5.6-sol',
+        routerModelId: 'test/gpt',
+        status: 'completed',
+        createdAt: new Date('2026-08-29T02:00:00Z'),
+      },
+      {
+        messageId: msg.id,
+        conversationId: conv.id,
+        modelId: 'gemini-3.7-flash-high',
+        routerModelId: 'test/gemini',
+        status: 'completed',
+        createdAt: new Date('2026-08-29T03:00:00Z'),
+      },
+    ])
+
+    const res = await getConversationsCore({
+      data: { limit: 10 },
+      request: requestFor(ownerId),
+    })
+    const found = res.conversations.find((c) => c.id === conv.id)
+    expect(found).toBeDefined()
+    expect(found?.modelIds).toEqual(['gemini-3.7-flash-high', 'gpt-5.6-sol'])
+  })
 })
+
