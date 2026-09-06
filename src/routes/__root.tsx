@@ -25,13 +25,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   },
 )
 
+// Blocking theme bootstrap — keep the storage key in sync with
+// src/lib/ui/theme.ts. Contains no HTML-special characters, so it is
+// rendered as plain script children and still executes before first paint.
+const THEME_BOOTSTRAP = `(function(){try{if(localStorage.getItem('zona-ai:theme')==='dark'){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark'}}catch(e){}})()`
+
 function Root() {
   const { queryClient } = Route.useRouteContext()
   return (
-    <html lang="id">
+    <html lang="id" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* eslint-disable-next-line -- static string, no user content */}
+        <script>{THEME_BOOTSTRAP}</script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
