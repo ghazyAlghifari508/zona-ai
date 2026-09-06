@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
+import { InsufficientCreditsDialog } from '@/components/chat/InsufficientCreditsDialog'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
@@ -110,6 +111,7 @@ function ChatThread() {
   const [webSearchToast, setWebSearchToast] = useState(false)
   const [credits, setCredits] = useState(creditBalance)
   const [resettingCredits, setResettingCredits] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const handleResetCredits = async () => {
     if (resettingCredits) return
@@ -322,6 +324,7 @@ function ChatThread() {
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
       if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -503,6 +506,7 @@ function ChatThread() {
     } catch (e) {
       const err = e as Error & { status?: number; code?: string }
       if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -835,6 +839,9 @@ function ChatThread() {
         err.status === 402 || err.code === 'ERR-019'
           ? 'Kredit tidak mencukupi'
           : `Error: ${err.message}`
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
+      }
       setMessages((prev) =>
         prev.map((m) =>
           m.id === compareAssistantId
@@ -1160,6 +1167,14 @@ function ChatThread() {
           </div>
         </div>
       </div>
+      <InsufficientCreditsDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        onViewPlans={() => {
+          setUpgradeOpen(false)
+          void navigate({ to: '/pricing' })
+        }}
+      />
     </WorkspaceShell>
   )
 }
