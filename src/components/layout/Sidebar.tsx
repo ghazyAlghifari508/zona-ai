@@ -432,7 +432,7 @@ export function Sidebar({
                         >
                           <div
                             data-testid={`conversation-slot-${conversation.id}`}
-                            className="flex h-[18px] w-[38px] shrink-0 items-center"
+                            className="flex h-[18px] w-[38px] shrink-0 items-center justify-center"
                           >
                             {visibleModelIds.length > 0 && (
                               <div
