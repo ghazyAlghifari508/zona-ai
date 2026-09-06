@@ -330,7 +330,8 @@ function ChatThread() {
             m.id === assistantId
               ? {
                   ...m,
-                  content: 'Kredit tidak mencukupi. Silakan reset kredit.',
+                  content:
+                    'Kredit tidak mencukupi. Silakan top up paket untuk lanjut.',
                   streaming: false,
                   prdStatus: undefined,
                 }
@@ -512,7 +513,8 @@ function ChatThread() {
             m.id === assistantId
               ? {
                   ...m,
-                  content: 'Kredit tidak mencukupi. Silakan reset kredit.',
+                  content:
+                    'Kredit tidak mencukupi. Silakan top up paket untuk lanjut.',
                   streaming: false,
                 }
               : m,
