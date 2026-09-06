@@ -53,7 +53,7 @@ export function CompareGrid({
       )}
       <div
         data-testid="compare-grid"
-        className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5"
+        className="flex flex-col md:flex-row flex-wrap justify-center items-stretch gap-4 md:gap-5"
       >
         {generations.map((g) => (
           <ModelColumn

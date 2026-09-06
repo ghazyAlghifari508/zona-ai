@@ -190,4 +190,98 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     const columns = screen.getAllByTestId('model-column')
     expect(columns.length).toBe(2)
   })
+
+  it('assigns compact width variant to short responses like "42" and 1-2 sentences', () => {
+    const shortGen = {
+      id: 'gen-short-1',
+      modelId: 'gemini-3.7-flash-high',
+      status: 'completed',
+      content: '42',
+    }
+
+    render(<ModelColumn generation={shortGen} />)
+    const card = screen.getByTestId('model-column')
+    expect(card.getAttribute('data-width-variant')).toBe('compact')
+  })
+
+  it('assigns expanded width variant to long responses or code blocks', () => {
+    const longGen = {
+      id: 'gen-long-1',
+      modelId: 'gpt-5.6-sol',
+      status: 'completed',
+      content:
+        'Penjelasan detail arsitektur aplikasi TanStack Start dengan Drizzle ORM dan PostgreSQL, dilengkapi sistem multi-model streaming yang mendukung berbagai provider proxy lokal dan eksternal secara aman, modular, dan terstruktur.',
+    }
+
+    render(<ModelColumn generation={longGen} />)
+    const card = screen.getByTestId('model-column')
+    expect(card.getAttribute('data-width-variant')).toBe('expanded')
+  })
+
+  it('allows independent width variants for multiple models side-by-side', () => {
+    const generations = [
+      {
+        id: 'gen-compact',
+        modelId: 'gemini-3.7-flash-high',
+        status: 'completed',
+        content: '42',
+      },
+      {
+        id: 'gen-expanded',
+        modelId: 'gpt-5.6-sol',
+        status: 'completed',
+        content:
+          'Berikut adalah analisis komparatif mendalam mengenai perbedaan performa konkurensi antara PostgreSQL pgvector dan dedicated vector database dalam skenario beban produksi tinggi dengan jutaan record embedding.',
+      },
+    ]
+
+    render(<CompareGrid generations={generations} />)
+    const columns = screen.getAllByTestId('model-column')
+    expect(columns.length).toBe(2)
+    expect(columns[0].getAttribute('data-width-variant')).toBe('compact')
+    expect(columns[1].getAttribute('data-width-variant')).toBe('expanded')
+  })
+
+  it('latches to expanded width during streaming and does not revert to compact', () => {
+    const { rerender } = render(
+      <ModelColumn
+        generation={{
+          id: 'gen-stream-1',
+          modelId: 'gemini-3.7-flash-high',
+          status: 'streaming',
+          content: 'Hai',
+        }}
+      />,
+    )
+
+    const card = screen.getByTestId('model-column')
+    expect(card.getAttribute('data-width-variant')).toBe('compact')
+
+    // Stream content grows past threshold -> transitions to expanded
+    rerender(
+      <ModelColumn
+        generation={{
+          id: 'gen-stream-1',
+          modelId: 'gemini-3.7-flash-high',
+          status: 'streaming',
+          content:
+            'Penjelasan detail arsitektur aplikasi TanStack Start dengan Drizzle ORM dan PostgreSQL, dilengkapi sistem multi-model streaming yang mendukung berbagai provider proxy lokal dan eksternal secara aman, modular, dan terstruktur.',
+        }}
+      />,
+    )
+    expect(card.getAttribute('data-width-variant')).toBe('expanded')
+
+    // Temporary shorter content or stream completion does NOT revert to compact
+    rerender(
+      <ModelColumn
+        generation={{
+          id: 'gen-stream-1',
+          modelId: 'gemini-3.7-flash-high',
+          status: 'completed',
+          content: 'Selesai.',
+        }}
+      />,
+    )
+    expect(card.getAttribute('data-width-variant')).toBe('expanded')
+  })
 })
