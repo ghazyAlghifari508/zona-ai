@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../../components/chat/MessageList'
+import { artifactKindForSkill } from '../chat/skills'
 
 type PersistedMessage = {
   id: string
@@ -64,19 +65,18 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
 
     const run = message.generationRuns[0]
     const compRunId = run?.comparisonRunId
-    const prdAttachment = message.attachments?.find(
+    const markdownAttachment = message.attachments?.find(
       (a) => a.mimeType === 'text/markdown' || a.fileName.endsWith('.md'),
     )
-    const isPrd =
-      (run?.skillId === 'prd-plan' || Boolean(prdAttachment)) &&
-      Boolean(prdAttachment)
+    const artifactKind = artifactKindForSkill(run?.skillId ?? 'none')
+    const hasArtifact = Boolean(markdownAttachment) && artifactKind !== null
 
     if (!compRunId) {
       const rawContent = message.content ?? run?.content ?? ''
       const hasContent = Boolean(rawContent && rawContent.trim().length > 0)
       const isFailed =
         run?.status === 'failed' ||
-        (!hasContent && !isPrd && run?.status === 'completed')
+        (!hasContent && !hasArtifact && run?.status === 'completed')
 
       result.push({
         id: message.id,
@@ -89,7 +89,7 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
               webSources: run.webSources ?? undefined,
             }
           : {}),
-        ...(isFailed && !isPrd
+        ...(isFailed && !hasArtifact
           ? {
               errorCode:
                 typeof run?.error === 'object' &&
@@ -105,14 +105,16 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
                   : 'Model tidak menghasilkan jawaban akhir. Coba lagi.',
             }
           : {}),
-        ...(isPrd && prdAttachment
+        ...(hasArtifact && markdownAttachment && artifactKind
           ? {
-              prdStatus: 'completed' as const,
-              prdArtifact: {
-                attachmentId: prdAttachment.id,
-                fileName: prdAttachment.fileName,
-                fileSize: prdAttachment.fileSize,
-                mimeType: prdAttachment.mimeType,
+              artifactStatus: 'completed' as const,
+              artifactKind,
+              artifact: {
+                kind: artifactKind,
+                attachmentId: markdownAttachment.id,
+                fileName: markdownAttachment.fileName,
+                fileSize: markdownAttachment.fileSize,
+                mimeType: markdownAttachment.mimeType,
               },
             }
           : {}),

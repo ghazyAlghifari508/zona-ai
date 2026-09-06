@@ -5,6 +5,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
+import { ARTIFACT_SKILL_IDS } from '../../lib/chat/skills'
 import { db } from '../../lib/db'
 import {
   attachments,
@@ -84,11 +85,17 @@ export async function getMessagesCore({
     arr.push(src)
     sourcesByGeneration.set(src.generationRunId, arr)
   }
+  const redactedRunRows = runRows.map((run) =>
+    run.status === 'completed' &&
+    (ARTIFACT_SKILL_IDS as readonly string[]).includes(run.skillId ?? '')
+      ? { ...run, content: null }
+      : run,
+  )
   const runsByMessage = new Map<
     string,
     Array<(typeof runRows)[number] & { webSources: typeof webSourceRows }>
   >()
-  for (const run of runRows) {
+  for (const run of redactedRunRows) {
     const withSources = {
       ...run,
       webSources: (sourcesByGeneration.get(run.id) ?? []).sort(

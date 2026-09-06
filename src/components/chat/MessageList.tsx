@@ -12,11 +12,13 @@ import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
 import type { PrdPhase, PrdSection } from '@/lib/ai/prd-stream'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
+import type { ArtifactKind } from '@/lib/chat/skills'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { CompareGrid } from './CompareGrid'
@@ -42,6 +44,16 @@ export type ChatMessage = {
   prdStatus?: PrdPhase
   prdSection?: PrdSection
   prdArtifact?: {
+    attachmentId: string
+    fileName: string
+    fileSize: number
+    mimeType: string
+  }
+  artifactStatus?: ArtifactPhase
+  artifactSection?: string
+  artifactKind?: ArtifactKind
+  artifact?: {
+    kind: ArtifactKind
     attachmentId: string
     fileName: string
     fileSize: number

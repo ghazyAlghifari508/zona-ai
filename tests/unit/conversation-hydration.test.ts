@@ -142,7 +142,7 @@ describe('conversation reload hydration', () => {
     })
   })
 
-  it('hydrates prdArtifact from persisted attachments for PRD Plan assistant messages', () => {
+  it('hydrates artifact from persisted attachments for PRD Plan assistant messages', () => {
     const hydrated = hydrateMessages([
       {
         id: 'msg-user-prd',
@@ -183,13 +183,101 @@ describe('conversation reload hydration', () => {
       id: 'msg-asst-prd',
       role: 'assistant',
       content: 'PRD selesai dibuat.',
-      prdStatus: 'completed',
-      prdArtifact: {
+      artifactStatus: 'completed',
+      artifactKind: 'prd',
+      artifact: {
+        kind: 'prd',
         attachmentId: 'att-prd-1',
         fileName: 'PRD-Fitur-Login.md',
         fileSize: 18432,
         mimeType: 'text/markdown',
       },
     })
+  })
+
+  it('hydrates agent-skill markdown attachments with agent-skill kind, never PRD kind', () => {
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-user-skill',
+        role: 'user',
+        content: 'buatkan skill untuk review kode',
+        generationRuns: [],
+      },
+      {
+        id: 'msg-asst-skill',
+        role: 'assistant',
+        content: 'Skill selesai dibuat.',
+        attachments: [
+          {
+            id: 'att-skill-1',
+            fileName: 'code-review.md',
+            fileSize: 9216,
+            mimeType: 'text/markdown',
+            processingStatus: 'completed',
+          },
+        ],
+        generationRuns: [
+          {
+            id: 'gen-skill-1',
+            modelId: 'gpt-5.6-sol',
+            routerModelId: 'openai/gpt-4o',
+            skillId: 'agent-skill',
+            status: 'completed',
+            content: 'Skill selesai dibuat.',
+            comparisonRunId: null,
+            messageId: 'msg-asst-skill',
+          },
+        ],
+      },
+    ])
+
+    expect(hydrated).toHaveLength(2)
+    expect(hydrated[1]).toMatchObject({
+      id: 'msg-asst-skill',
+      role: 'assistant',
+      content: 'Skill selesai dibuat.',
+      artifactStatus: 'completed',
+      artifactKind: 'agent-skill',
+      artifact: {
+        kind: 'agent-skill',
+        attachmentId: 'att-skill-1',
+        fileName: 'code-review.md',
+        fileSize: 9216,
+        mimeType: 'text/markdown',
+      },
+    })
+    const artifact = hydrated[1].artifact
+    expect(artifact?.kind).not.toBe('prd')
+  })
+
+  it('keeps historical agent-skill text without an attachment as ordinary content', () => {
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-asst-legacy',
+        role: 'assistant',
+        content: 'Berikut draf skill yang diminta.',
+        generationRuns: [
+          {
+            id: 'gen-legacy-1',
+            modelId: 'gpt-5.6-sol',
+            routerModelId: 'openai/gpt-4o',
+            skillId: 'agent-skill',
+            status: 'completed',
+            content: 'Berikut draf skill yang diminta.',
+            comparisonRunId: null,
+            messageId: 'msg-asst-legacy',
+          },
+        ],
+      },
+    ])
+
+    expect(hydrated).toHaveLength(1)
+    expect(hydrated[0]).toMatchObject({
+      id: 'msg-asst-legacy',
+      role: 'assistant',
+      content: 'Berikut draf skill yang diminta.',
+    })
+    expect(hydrated[0]).not.toHaveProperty('artifact')
+    expect(hydrated[0]).not.toHaveProperty('artifactStatus')
   })
 })
