@@ -17,7 +17,11 @@ import {
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
-import { artifactKindForSkill, isArtifactSkill } from '@/lib/chat/skills'
+import {
+  artifactKindForSkill,
+  buildArtifactAck,
+  isArtifactSkill,
+} from '@/lib/chat/skills'
 import { getDefaultModelPreference } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
@@ -165,6 +169,7 @@ function ChatThread() {
     enableWebSearch?: boolean,
   ) => {
     const kind = artifactKindForSkill(skillId) ?? 'prd'
+    const ack = buildArtifactAck(kind, content)
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -179,6 +184,7 @@ function ChatThread() {
       streaming: true,
       artifactStatus: 'preparing',
       artifactKind: kind,
+      artifactAck: ack,
     }
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
@@ -198,7 +204,14 @@ function ChatThread() {
       const genId = response.headers.get('X-Generation-Id')
       const routerModelId = response.headers.get('X-Router-Model-Id')
       const routingReason = response.headers.get('X-Routing-Reason')
-      if (genId) setGenerationId(genId)
+      if (genId) {
+        setGenerationId(genId)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, generationRunId: genId } : m,
+          ),
+        )
+      }
 
       refreshConversationList()
       setTimeout(refreshConversationList, 3000)
@@ -289,7 +302,7 @@ function ChatThread() {
                   ? {
                       ...m,
                       artifactStatus: 'error',
-                      errorMessage: event.code,
+                      errorMessage: event.message ?? event.code,
                       streaming: false,
                     }
                   : m,
@@ -1093,6 +1106,172 @@ function ChatThread() {
     }
   }
 
+  const handleRetryArtifact = async (failedGenId: string) => {
+    if (isStreaming) return
+    const retryAckId = crypto.randomUUID()
+    const failedMsg = messages.find((m) => m.generationRunId === failedGenId)
+    const kind = failedMsg?.artifactKind ?? 'prd'
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: retryAckId,
+        role: 'assistant',
+        content: '',
+        modelId: failedMsg?.modelId,
+        streaming: true,
+        artifactStatus: 'preparing',
+        artifactKind: kind,
+        generationRunId: failedGenId,
+        artifactAck: 'Baik, saya coba buat ulang.',
+      } satisfies ChatMessage,
+    ])
+    setIsStreaming(true)
+    setGenerationId(failedGenId)
+    try {
+      const response = (await retryGeneration({
+        data: { generationId: failedGenId },
+      })) as Response
+      const routerModelId = response.headers.get('X-Router-Model-Id')
+      if (routerModelId) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === retryAckId ? { ...m, routerModelId } : m)),
+        )
+      }
+      const reader = response.body?.getReader()
+      if (!reader) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === retryAckId
+              ? {
+                  ...m,
+                  artifactStatus: 'error',
+                  errorMessage: 'Gagal menjalankan ulang pembuatan.',
+                  streaming: false,
+                }
+              : m,
+          ),
+        )
+        return
+      }
+      const decoder = new TextDecoder()
+      const parser = createArtifactSseParser({
+        onEvent: (event) => {
+          if (event.type === 'artifact-status') {
+            if (event.phase === 'error' || event.phase === 'cancelled') {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === retryAckId
+                    ? {
+                        ...m,
+                        artifactStatus:
+                          event.phase === 'error' ? 'error' : 'cancelled',
+                        errorMessage: event.message,
+                        streaming: false,
+                      }
+                    : m,
+                ),
+              )
+            } else {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === retryAckId
+                    ? { ...m, artifactStatus: event.phase }
+                    : m,
+                ),
+              )
+            }
+          } else if (event.type === 'artifact-created') {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === retryAckId
+                  ? {
+                      ...m,
+                      artifactKind: event.kind,
+                      artifact: { kind: event.kind, ...event.artifact },
+                      content: event.summary,
+                    }
+                  : m,
+              ),
+            )
+          } else if (event.type === 'artifact-error') {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === retryAckId
+                  ? {
+                      ...m,
+                      artifactStatus: 'error',
+                      errorMessage: event.message ?? event.code,
+                      streaming: false,
+                    }
+                  : m,
+              ),
+            )
+          } else if (event.type === 'artifact-done') {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === retryAckId
+                  ? {
+                      ...m,
+                      artifactStatus:
+                        event.status === 'failed' ? 'error' : event.status,
+                      streaming: false,
+                    }
+                  : m,
+              ),
+            )
+          }
+        },
+        onError: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === retryAckId
+                ? {
+                    ...m,
+                    artifactStatus: 'error' as const,
+                    errorMessage: 'Koneksi terputus saat membuat ulang.',
+                    streaming: false,
+                  }
+                : m,
+            ),
+          )
+        },
+      })
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.push(decoder.decode(value, { stream: true }))
+      }
+      parser.flush()
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      refreshConversationList()
+      void refreshCredits()
+    } catch (e) {
+      const err = e as Error & { status?: number; code?: string }
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === retryAckId
+            ? {
+                ...m,
+                artifactStatus: 'error',
+                errorMessage:
+                  err.message || 'Gagal menjalankan ulang pembuatan.',
+                streaming: false,
+              }
+            : m,
+        ),
+      )
+    } finally {
+      setIsStreaming(false)
+      setGenerationId(null)
+    }
+  }
+
   return (
     <WorkspaceShell
       credits={credits}
@@ -1163,6 +1342,7 @@ function ChatThread() {
             messages={messages}
             onRetryGeneration={handleRetry}
             onStopGeneration={handleStopPerModel}
+            onRetryArtifact={handleRetryArtifact}
             scrollRef={scrollRef}
           />
         </div>

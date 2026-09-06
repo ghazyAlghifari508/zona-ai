@@ -8,6 +8,7 @@ export type ArtifactProgressProps = {
   phase: ArtifactPhase
   section?: string
   errorMessage?: string
+  ack?: string
 }
 
 export function getArtifactStatusText(
@@ -73,6 +74,7 @@ export function ArtifactProgress({
   phase,
   section,
   errorMessage,
+  ack,
 }: ArtifactProgressProps) {
   const isError = phase === 'error'
   const isCompleted = phase === 'completed'
@@ -82,51 +84,61 @@ export function ArtifactProgress({
       : getArtifactStatusText(kind, phase, section)
 
   return (
-    <div
-      data-testid="artifact-progress"
-      data-phase={phase}
-      data-section={section ?? ''}
-      data-kind={kind}
-      className="my-2 inline-flex max-w-full items-center gap-3 rounded-xl border border-hairline bg-pure-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
-    >
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-paper">
-        {isError ? (
-          <HugeiconsIcon
-            icon={AlertCircleIcon}
-            size={16}
-            strokeWidth={2}
-            className="text-coral"
-            aria-hidden="true"
-          />
-        ) : isCompleted ? (
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-        ) : (
-          <HugeiconsIcon
-            icon={Loading03Icon}
-            size={16}
-            strokeWidth={2}
-            className="animate-spin text-ink/70"
-            aria-hidden="true"
-          />
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p
-            data-testid="artifact-progress-text"
-            className={`text-[14px] font-medium leading-tight ${isError ? 'text-coral' : 'text-ink'}`}
-          >
-            {statusText}
-          </p>
-          {phase === 'generating' && section && (
-            <span
-              data-testid="artifact-progress-badge"
-              className="rounded bg-paper px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-stone uppercase"
-            >
-              {section}
-            </span>
+    <div className="my-2 min-w-0 space-y-2">
+      {ack && (
+        <p
+          data-testid="artifact-ack"
+          className="text-[15px] leading-[1.6] text-ink"
+        >
+          {ack}
+        </p>
+      )}
+      <div
+        data-testid="artifact-progress"
+        data-phase={phase}
+        data-section={section ?? ''}
+        data-kind={kind}
+        className="inline-flex max-w-full items-center gap-3 rounded-xl border border-hairline bg-pure-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+      >
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-paper">
+          {isError ? (
+            <HugeiconsIcon
+              icon={AlertCircleIcon}
+              size={16}
+              strokeWidth={2}
+              className="text-coral"
+              aria-hidden="true"
+            />
+          ) : isCompleted ? (
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          ) : (
+            <HugeiconsIcon
+              icon={Loading03Icon}
+              size={16}
+              strokeWidth={2}
+              className="animate-spin text-ink/70"
+              aria-hidden="true"
+            />
           )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p
+              data-testid="artifact-progress-text"
+              className={`text-[14px] font-medium leading-tight ${isError ? 'text-coral' : 'text-ink'}`}
+            >
+              {statusText}
+            </p>
+            {phase === 'generating' && section && (
+              <span
+                data-testid="artifact-progress-badge"
+                className="rounded bg-paper px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-stone uppercase"
+              >
+                {section}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

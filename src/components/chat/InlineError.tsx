@@ -43,9 +43,10 @@ export function InlineError({
           <button
             type="button"
             onClick={onRetry}
+            data-testid="inline-error-retry"
             className="ml-auto shrink-0 rounded-md px-3 py-1 text-xs font-medium text-notion-blue hover:bg-ink/5"
           >
-            Retry
+            Coba lagi
           </button>
         )}
       </div>

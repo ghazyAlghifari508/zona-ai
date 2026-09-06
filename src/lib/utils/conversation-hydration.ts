@@ -89,6 +89,7 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
               webSources: run.webSources ?? undefined,
             }
           : {}),
+        ...(run?.id ? { generationRunId: run.id } : {}),
         ...(isFailed && !hasArtifact
           ? {
               errorCode:

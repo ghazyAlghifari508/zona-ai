@@ -1,3 +1,5 @@
+import { ReloadIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   type ReactNode,
@@ -43,6 +45,8 @@ export type ChatMessage = {
   artifactStatus?: ArtifactPhase
   artifactSection?: string
   artifactKind?: ArtifactKind
+  artifactAck?: string
+  generationRunId?: string
   artifact?: {
     kind: ArtifactKind
     attachmentId: string
@@ -106,11 +110,13 @@ export function MessageList({
   messages,
   onRetryGeneration,
   onStopGeneration,
+  onRetryArtifact,
   scrollRef,
 }: {
   messages: ChatMessage[]
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
+  onRetryArtifact?: (generationId: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
@@ -192,6 +198,7 @@ export function MessageList({
                     catalog={catalog}
                     onRetryGeneration={onRetryGeneration}
                     onStopGeneration={onStopGeneration}
+                    onRetryArtifact={onRetryArtifact}
                   />
                 </div>
               )
@@ -206,6 +213,7 @@ export function MessageList({
                 catalog={catalog}
                 onRetryGeneration={onRetryGeneration}
                 onStopGeneration={onStopGeneration}
+                onRetryArtifact={onRetryArtifact}
               />
             ))}
           </div>
@@ -244,11 +252,13 @@ function MessageItem({
   catalog,
   onRetryGeneration,
   onStopGeneration,
+  onRetryArtifact,
 }: {
   message: ChatMessage
   catalog: ReturnType<typeof useModelCatalog>
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
+  onRetryArtifact?: (generationId: string) => void
 }) {
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
@@ -297,12 +307,38 @@ function MessageItem({
         <div className="min-w-0 space-y-2 pl-9">
           {isWaiting && <TypingDots />}
           {message.artifactStatus && message.artifactStatus !== 'completed' && (
-            <ArtifactProgress
-              kind={message.artifactKind ?? message.artifact?.kind ?? 'prd'}
-              phase={message.artifactStatus}
-              section={message.artifactSection}
-              errorMessage={message.errorMessage}
-            />
+            <>
+              <ArtifactProgress
+                kind={message.artifactKind ?? message.artifact?.kind ?? 'prd'}
+                phase={message.artifactStatus}
+                section={message.artifactSection}
+                errorMessage={message.errorMessage}
+                ack={message.artifactAck}
+              />
+              {message.artifactStatus === 'error' &&
+                message.generationRunId &&
+                onRetryArtifact && (
+                  <div className="pl-9">
+                    <button
+                      type="button"
+                      data-testid="artifact-retry-btn"
+                      onClick={() => {
+                        const genId = message.generationRunId
+                        if (genId) onRetryArtifact(genId)
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink transition-all duration-150 hover:bg-ink/5 active:scale-95"
+                    >
+                      <HugeiconsIcon
+                        icon={ReloadIcon}
+                        size={14}
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                      Coba lagi
+                    </button>
+                  </div>
+                )}
+            </>
           )}
           {hasVisibleContent &&
             (!message.artifactStatus ||
@@ -345,7 +381,16 @@ function MessageItem({
             <InlineError
               code={message.errorCode}
               message={message.errorMessage}
-              onRetry={message.onRetry}
+              onRetry={
+                message.artifactKind && message.generationRunId
+                  ? onRetryArtifact
+                    ? () => {
+                        const genId = message.generationRunId
+                        if (genId) onRetryArtifact(genId)
+                      }
+                    : undefined
+                  : message.onRetry
+              }
             />
           )}
           {message.webSources && message.webSources.length > 0 && (

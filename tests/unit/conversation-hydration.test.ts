@@ -39,6 +39,7 @@ describe('conversation reload hydration', () => {
         content: 'Persisted answer',
         modelId: 'auto',
         routerModelId: 'test/router',
+        generationRunId: '10000000-0000-4000-8000-000000000022',
       },
     ])
   })

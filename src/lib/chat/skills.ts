@@ -82,3 +82,19 @@ export function skillSupportsCompare(id: string): boolean {
 export function artifactKindForSkill(id: string): ArtifactKind | null {
   return getSkillDefinition(id).artifactKind
 }
+
+const ACK_SUBJECT_MAX_CHARS = 80
+
+export function buildArtifactAck(
+  kind: ArtifactKind,
+  userContent: string,
+): string {
+  const normalized = userContent.trim().replace(/\s+/g, ' ')
+  const subject =
+    normalized.length > ACK_SUBJECT_MAX_CHARS
+      ? `${normalized.slice(0, ACK_SUBJECT_MAX_CHARS)}…`
+      : normalized
+  return kind === 'agent-skill'
+    ? `Bisa. Saya buatkan skill dari permintaan: "${subject}". Saya siapkan SKILL.md-nya.`
+    : `Bisa. Saya susun PRD dari permintaan: "${subject}".`
+}
