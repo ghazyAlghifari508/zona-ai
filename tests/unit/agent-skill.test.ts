@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import {
   buildSkillFilename,
   buildSkillSummary,
@@ -143,5 +143,52 @@ describe('agent skill document profile', () => {
     const fenced = `\`\`\`markdown\n${FRONTEND_SKILL}\n\`\`\`\n`
     const result = validateSkillDocument(fenced)
     expect(result.valid).toBe(true)
+  })
+
+  it('ignores # lines inside code fences when counting H1 headings', () => {
+    const long =
+      'Comments inside fenced code are lines of literal program text, and the structural reader must treat them exactly that way instead of promoting them into document headings. '
+    const withCommentedCode = `---\nname: code-example\ndescription: Use when showing code examples with comments.\n---\n\n# Code Example Skill\n\n## Why\n${long}${long}This section carries enough substantive body text to pass the length gate comfortably in every run.\n\n## Example\n\n\`\`\`python\n# This function processes data\n# Another comment line that looks like a heading\n# Third comment to be sure\n\`\`\`\n\n## Verification\nCheck that heading counting is fence-aware. ${long}${long}The body here is long enough to pass the minimum character requirement with room to spare for the checker.\n`
+    const result = validateSkillDocument(withCommentedCode)
+    expect(result.valid).toBe(true)
+    if (!result.valid) return
+    expect(result.document.fileName).toBe('code-example.md')
+  })
+
+  it('still rejects a genuine second H1 outside code fences', () => {
+    const twoH1 = `---\nname: two-headings\ndescription: Use when a document truly contains two top level headings.\n---\n\n# First Heading\n\n## Alpha\nBody text that is long enough to pass the length gate comfortably here.\n\n## Beta\nMore body text that is long enough to pass the length gate comfortably here.\n\n# Second Heading\n\n## Gamma\nEven more body text that is long enough to pass the length gate comfortably here.\n`
+    const result = validateSkillDocument(twoH1)
+    expect(result.valid).toBe(false)
+    if (result.valid) return
+    expect(result.issues).toContain('multiple-h1')
+  })
+
+  it('recovers frontmatter written as a yaml code fence', () => {
+    const long =
+      'Body text that is long enough to pass the length gate comfortably here for this fixture and leaves no doubt about the minimum. '
+    const yamlFenced = `\`\`\`yaml\nname: yaml-fenced\ndescription: Use when a model wraps only the frontmatter mapping in a code fence.\n\`\`\`\n\n# YAML Fenced\n\n## Section One\n${long}${long}\n\n## Section Two\n${long}${long}\n\n## Section Three\n${long}${long}\n`
+    const result = validateSkillDocument(yamlFenced)
+    expect(result.valid).toBe(true)
+    if (!result.valid) return
+    expect(result.document.fileName).toBe('yaml-fenced.md')
+  })
+
+  it('unwraps a fully wrapped document containing python fences by keeping the first closing fence boundary', () => {
+    const long =
+      'Body text that is long enough to pass the length gate comfortably here for this fixture and leaves no doubt about the minimum. '
+    const wrapped = `\`\`\`markdown\n---\nname: wrapped-doc\ndescription: Use when the whole document is wrapped and contains inner code fences.\n---\n\n# Wrapped Doc\n\n## Inner Code\n\n\`\`\`python\n# comment inside inner fence\n\`\`\`\n\n## Section Two\n${long}${long}${long}\n\n## Section Three\n${long}${long}${long}\n\`\`\`\n`
+    const result = validateSkillDocument(wrapped)
+    expect(result.valid).toBe(true)
+    if (!result.valid) return
+    expect(result.document.fileName).toBe('wrapped-doc.md')
+    expect(result.document.markdown).not.toContain('```markdown')
+  })
+
+  it('rejects output without any frontmatter even when a yaml block exists later', () => {
+    const noFrontmatter = `# No Frontmatter Here\n\n## Alpha\nBody text that is long enough to pass the length gate comfortably here.\n\n\`\`\`yaml\nname: not-frontmatter\ndescription: This yaml block appears after body content and is not frontmatter.\n\`\`\`\n\n## Beta\nMore body text that is long enough to pass the length gate comfortably here.\n\n## Gamma\nEven more body text that is long enough to pass the length gate comfortably here.\n`
+    const result = validateSkillDocument(noFrontmatter)
+    expect(result.valid).toBe(false)
+    if (result.valid) return
+    expect(result.issues).toContain('missing-frontmatter')
   })
 })

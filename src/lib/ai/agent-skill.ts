@@ -14,6 +14,9 @@ const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/
 const H1_RE = /^#[ \t].*$/gm
 const H2_RE = /^##[ \t](.*)$/gm
 const SLUG_KEY_RE = /^[a-z0-9-]+$/
+const FENCE_LINE_RE = /^[ \t]*```.*$/
+const FENCE_DELIM_RE = /^[ \t]*```\s*$/
+const YAML_KEY_RE = /^(?:name|description|license)\s*:/i
 
 export type ValidatedSkillDocument = {
   name: string
@@ -45,15 +48,58 @@ export function slugifySkillName(raw: string): string {
 export function normalizeSkillMarkdown(raw: string): string {
   let text = raw.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   const trimmed = text.trim()
-  if (trimmed.startsWith('```')) {
-    const firstBreak = trimmed.indexOf('\n')
-    const lastFence = trimmed.lastIndexOf('```')
-    if (firstBreak !== -1 && lastFence > firstBreak) {
-      text = `${trimmed.slice(firstBreak + 1, lastFence).trim()}\n`
-    }
-  }
+  if (trimmed.startsWith('```')) text = unwrapLeadingCodeFence(trimmed)
   const lines = text.split('\n').map((line) => line.replace(/[ \t]+$/g, ''))
   return `${lines.join('\n').trim()}\n`
+}
+
+function lastBareFenceIndex(lines: string[]): number | null {
+  for (let i = lines.length - 1; i > 0; i--) {
+    if (FENCE_DELIM_RE.test(lines[i])) return i
+  }
+  return null
+}
+
+function unwrapLeadingCodeFence(trimmed: string): string {
+  const lines = trimmed.split('\n')
+  const inner = lines.slice(1)
+  const firstInnerLine = inner.find((line) => line.trim().length > 0) ?? ''
+  if (firstInnerLine.trimStart().startsWith('---')) {
+    const lastClose = lastBareFenceIndex(lines)
+    if (lastClose !== null && lastClose > 0) {
+      return lines.slice(1, lastClose).join('\n')
+    }
+    return inner.join('\n')
+  }
+  if (YAML_KEY_RE.test(firstInnerLine)) {
+    const closeIdx = inner.findIndex((line) => FENCE_DELIM_RE.test(line))
+    if (closeIdx !== -1) {
+      const mapping = inner.slice(0, closeIdx)
+      const rest = inner.slice(closeIdx + 1)
+      return ['---', ...mapping, '---', '', ...rest].join('\n')
+    }
+  }
+  return trimmed
+}
+
+function maskFencedCode(text: string): string {
+  const lines = text.split('\n')
+  const masked: string[] = []
+  let insideFence = false
+  for (const line of lines) {
+    if (!insideFence && FENCE_LINE_RE.test(line)) {
+      insideFence = true
+      masked.push(line.replace(/\S/g, ' '))
+      continue
+    }
+    if (insideFence && FENCE_DELIM_RE.test(line)) {
+      insideFence = false
+      masked.push(line.replace(/\S/g, ' '))
+      continue
+    }
+    masked.push(insideFence ? line.replace(/\S/g, ' ') : line)
+  }
+  return masked.join('\n')
 }
 
 const frontmatterValueSchema: z.ZodType<unknown> = z.lazy(() =>
@@ -166,19 +212,25 @@ export function validateSkillDocument(raw: string): SkillValidationResult {
   if (issues.length > 0) return { valid: false, issues }
 
   const body = normalized.slice(fenceMatch[0].length)
-  const h1Matches = body.match(H1_RE) ?? []
+  const maskedBody = maskFencedCode(body)
+  const h1Matches = [...maskedBody.matchAll(H1_RE)]
   if (h1Matches.length !== 1)
     return {
       valid: false,
       issues: [h1Matches.length === 0 ? 'missing-h1' : 'multiple-h1'],
     }
 
-  const headingMatches = [...body.matchAll(H2_RE)]
-  const sections = body.split(/^##[ \t].*$/gm).slice(1)
+  const headingMatches = [...maskedBody.matchAll(H2_RE)]
   const headings: string[] = []
   for (let i = 0; i < headingMatches.length; i++) {
+    const start = (headingMatches[i].index ?? 0) + headingMatches[i][0].length
+    const end =
+      i + 1 < headingMatches.length
+        ? (headingMatches[i + 1].index ?? body.length)
+        : body.length
     const title = stripInlineMarkdown(headingMatches[i][1] ?? '')
-    if (title && sectionIsSubstantive(sections[i] ?? '')) headings.push(title)
+    if (title && sectionIsSubstantive(body.slice(start, end)))
+      headings.push(title)
   }
   if (headings.length < SKILL_MIN_SECTIONS)
     return { valid: false, issues: ['too-few-sections'] }
@@ -188,7 +240,7 @@ export function validateSkillDocument(raw: string): SkillValidationResult {
     return { valid: false, issues: ['body-too-short'] }
 
   const displayName = stripInlineMarkdown(
-    (h1Matches[0].replace(/^#[ \t]/, '') ?? '').trim(),
+    (h1Matches[0][0].replace(/^#[ \t]/, '') ?? '').trim(),
   )
   const canonicalFrontmatter = stringifyYaml({
     name,
@@ -242,10 +294,12 @@ export function buildAgentSkillSystemPrompt(): string {
   return [
     'You generate exactly one portable Markdown skill document for an AI coding agent.',
     'Return ONLY the Markdown document: no preamble, no explanation, no JSON wrapper, no trailing commentary.',
+    'Start the response with a line containing exactly three hyphens (---) to open YAML frontmatter, then the metadata mapping, then another --- line. Never wrap the document or the frontmatter in backtick code fences.',
     'Match the language of the user request for the document body; frontmatter name stays an ASCII slug.',
     'Frontmatter must be a YAML mapping with required `name` (lowercase ASCII slug) and `description` (when to invoke this skill).',
     'Include `license` only when the user supplied or requested real license information. Never invent metadata.',
     'Use exactly one H1 title and at least three substantive H2 sections with real paragraphs, lists, or code.',
+    'Code examples are allowed inside fenced code blocks; keep heading-level `#` lines outside of them.',
     'Adapt the structure to the domain instead of reusing a fixed template: testing skills center red-green-refactor and test boundaries; debugging skills center evidence and hypothesis testing; migration skills center compatibility, rollback, and sequencing; design skills center visual direction, critique, and anti-generic checks.',
     'Write concrete decision rules and instructions, not filler or generic best-practice slogans.',
     'Consider purpose, usage boundaries, principles, workflow, constraints, examples when useful, anti-patterns, and verification; combine or rename sections when the domain is clearer another way.',
