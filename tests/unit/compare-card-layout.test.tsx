@@ -375,19 +375,33 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     ]
 
     // When hasUsedCompareMode is false: normal chat layout (no model-column card)
-    const { unmount } = render(
+    const { unmount, container: containerNormal } = render(
       <MessageList messages={messages} hasUsedCompareMode={false} />,
     )
     expect(screen.queryByTestId('model-column')).toBeNull()
     expect(screen.getByText('Gemini 3.7 Flash')).toBeTruthy()
     expect(screen.getByText('Google')).toBeTruthy()
+    const innerNormal = containerNormal.querySelector(
+      '[data-testid="message-list"] > div',
+    )
+    expect(innerNormal?.className).toContain('max-w-[860px]')
+    expect(innerNormal?.className).toContain('px-4')
+    expect(innerNormal?.className).toContain('lg:px-6')
     unmount()
 
     // When hasUsedCompareMode is true: compare card layout (model-column card present)
-    render(<MessageList messages={messages} hasUsedCompareMode={true} />)
+    const { container: containerCompare } = render(
+      <MessageList messages={messages} hasUsedCompareMode={true} />,
+    )
     expect(screen.getByTestId('model-column')).toBeTruthy()
     const header = screen.getByTestId('model-column-header')
     expect(header.textContent).toContain('Gemini 3.7 Flash')
     expect(header.textContent).toContain('Google')
+    const innerCompare = containerCompare.querySelector(
+      '[data-testid="message-list"] > div',
+    )
+    expect(innerCompare?.className).toContain('max-w-[1480px]')
+    expect(innerCompare?.className).toContain('px-3')
+    expect(innerCompare?.className).toContain('lg:px-5')
   })
 })
