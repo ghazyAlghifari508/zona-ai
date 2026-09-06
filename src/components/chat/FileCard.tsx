@@ -1,8 +1,10 @@
 import { Download01Icon, File01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import type { ArtifactKind } from '@/lib/chat/skills'
 
 export type FileCardProps = {
   artifact: {
+    kind: ArtifactKind
     attachmentId: string
     fileName: string
     fileSize: number
@@ -19,11 +21,15 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function FileCard({ artifact }: FileCardProps) {
-  const downloadUrl = `/api/attachments/${artifact.attachmentId}`
+  const downloadUrl = `/api/attachments/${artifact.attachmentId}?download=1`
+  const badgeLabel =
+    artifact.mimeType === 'text/markdown'
+      ? 'Markdown'
+      : (artifact.fileName.split('.').pop()?.toUpperCase() ?? 'File')
 
   return (
     <div
-      data-testid="prd-file-card"
+      data-testid="artifact-file-card"
       className="my-3 flex w-full max-w-md items-center justify-between gap-3 rounded-xl border border-hairline bg-pure-white p-3.5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] transition-all hover:border-hairline-strong"
     >
       <div className="flex min-w-0 items-center gap-3">
@@ -38,7 +44,7 @@ export function FileCard({ artifact }: FileCardProps) {
 
         <div className="min-w-0">
           <p
-            data-testid="prd-file-name"
+            data-testid="artifact-file-name"
             className="truncate text-[14px] font-semibold text-ink"
             title={artifact.fileName}
           >
@@ -46,10 +52,10 @@ export function FileCard({ artifact }: FileCardProps) {
           </p>
           <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone">
             <span className="rounded bg-paper px-1.5 py-0.2 font-mono text-[10px] font-medium uppercase text-stone">
-              Markdown
+              {badgeLabel}
             </span>
             <span>•</span>
-            <span data-testid="prd-file-size">
+            <span data-testid="artifact-file-size">
               {formatFileSize(artifact.fileSize)}
             </span>
           </div>
@@ -59,7 +65,7 @@ export function FileCard({ artifact }: FileCardProps) {
       <a
         href={downloadUrl}
         download={artifact.fileName}
-        data-testid="prd-download-btn"
+        data-testid="artifact-download-btn"
         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink transition-all duration-150 hover:bg-paper active:scale-95"
       >
         <HugeiconsIcon

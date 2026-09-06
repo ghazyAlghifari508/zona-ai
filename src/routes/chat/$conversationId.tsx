@@ -8,18 +8,19 @@ import { InsufficientCreditsDialog } from '@/components/chat/InsufficientCredits
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
+import { createArtifactSseParser } from '@/lib/ai/artifact-stream'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
-import { parsePrdStreamEvent } from '@/lib/ai/prd-stream'
 import { isCompareSelectionValid } from '@/lib/chat/compare-selection'
 import {
   type PendingMessage,
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
+import { artifactKindForSkill, isArtifactSkill } from '@/lib/chat/skills'
 import { getDefaultModelPreference } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
-  generatePrdArtifact,
+  generateArtifact,
   retryGeneration,
   sendCompareMessage,
   sendMessage,
@@ -155,12 +156,14 @@ function ChatThread() {
   const setCompareEnabled = (enabled: boolean) =>
     setMode(enabled ? 'compare' : 'normal')
 
-  const handleSendPrd = async (
+  const handleSendArtifact = async (
     content: string,
     modelId: string,
+    skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
   ) => {
+    const kind = artifactKindForSkill(skillId) ?? 'prd'
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -173,17 +176,18 @@ function ChatThread() {
       content: '',
       modelId,
       streaming: true,
-      prdStatus: 'preparing',
+      artifactStatus: 'preparing',
+      artifactKind: kind,
     }
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
 
     try {
-      const response = (await generatePrdArtifact({
+      const response = (await generateArtifact({
         data: {
           conversationId,
           modelId,
-          skillId: 'prd-plan',
+          skillId,
           content,
           attachmentIds,
           enableWebSearch: enableWebSearch ?? false,
@@ -221,99 +225,107 @@ function ChatThread() {
       }
 
       const decoder = new TextDecoder()
-      let buffer = ''
+      const parser = createArtifactSseParser({
+        onEvent: (event) => {
+          if (event.type === 'artifact-status') {
+            if (event.phase === 'error') {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        artifactStatus: 'error',
+                        errorMessage: event.message,
+                        streaming: false,
+                      }
+                    : m,
+                ),
+              )
+            } else if (event.phase === 'cancelled') {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        artifactStatus: 'cancelled' as const,
+                        streaming: false,
+                      }
+                    : m,
+                ),
+              )
+            } else {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        artifactStatus: event.phase,
+                        ...(event.phase === 'generating' && event.section
+                          ? { artifactSection: event.section }
+                          : {}),
+                      }
+                    : m,
+                ),
+              )
+            }
+          } else if (event.type === 'artifact-created') {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      artifactKind: event.kind,
+                      artifact: { kind: event.kind, ...event.artifact },
+                      content: event.summary,
+                    }
+                  : m,
+              ),
+            )
+          } else if (event.type === 'artifact-error') {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      artifactStatus: 'error',
+                      errorMessage: event.code,
+                      streaming: false,
+                    }
+                  : m,
+              ),
+            )
+          } else if (event.type === 'artifact-done') {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      artifactStatus:
+                        event.status === 'failed' ? 'error' : event.status,
+                      streaming: false,
+                    }
+                  : m,
+              ),
+            )
+          }
+        },
+        onError: () => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, artifactStatus: 'error' as const, streaming: false }
+                : m,
+            ),
+          )
+        },
+      })
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const parts = buffer.split('\n\n')
-        buffer = parts.pop() ?? ''
-
-        for (const part of parts) {
-          const lines = part.split('\n')
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue
-            const jsonStr = line.slice(5).trim()
-            if (!jsonStr || jsonStr === '[DONE]') continue
-            try {
-              const raw = JSON.parse(jsonStr)
-              const event = parsePrdStreamEvent(raw)
-
-              if (event.type === 'prd-status') {
-                if (event.phase === 'error') {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? {
-                            ...m,
-                            prdStatus: 'error',
-                            errorMessage: event.message,
-                            streaming: false,
-                          }
-                        : m,
-                    ),
-                  )
-                } else if (event.phase === 'generating') {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? {
-                            ...m,
-                            prdStatus: 'generating',
-                            prdSection: event.section,
-                          }
-                        : m,
-                    ),
-                  )
-                } else {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? {
-                            ...m,
-                            prdStatus: event.phase,
-                          }
-                        : m,
-                    ),
-                  )
-                }
-              } else if (event.type === 'prd-artifact') {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
-                          prdArtifact: {
-                            attachmentId: event.attachmentId,
-                            fileName: event.fileName,
-                            fileSize: event.fileSize,
-                            mimeType: event.mimeType,
-                          },
-                          content: 'PRD selesai dibuat.',
-                        }
-                      : m,
-                  ),
-                )
-              } else if (event.type === 'prd-done') {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantId
-                      ? {
-                          ...m,
-                          prdStatus: 'completed',
-                          streaming: false,
-                        }
-                      : m,
-                  ),
-                )
-              }
-            } catch (err) {
-              console.error('Error parsing PRD event:', err)
-            }
-          }
-        }
+        parser.push(decoder.decode(value, { stream: true }))
       }
+      parser.flush()
 
       const persisted = await getMessages({ data: { conversationId } })
       setMessages(
@@ -333,7 +345,7 @@ function ChatThread() {
                   content:
                     'Kredit tidak mencukupi. Silakan top up paket untuk lanjut.',
                   streaming: false,
-                  prdStatus: undefined,
+                  artifactStatus: undefined,
                 }
               : m,
           ),
@@ -344,8 +356,12 @@ function ChatThread() {
             m.id === assistantId
               ? {
                   ...m,
-                  prdStatus: 'error',
-                  errorMessage: err.message || 'Pembuatan PRD gagal.',
+                  artifactStatus: 'error',
+                  errorMessage:
+                    err.message ||
+                    (kind === 'agent-skill'
+                      ? 'Pembuatan skill gagal.'
+                      : 'Pembuatan PRD gagal.'),
                   streaming: false,
                 }
               : m,
@@ -365,8 +381,14 @@ function ChatThread() {
     attachmentIds?: string[],
     enableWebSearch?: boolean,
   ) => {
-    if (skillId === 'prd-plan') {
-      return handleSendPrd(content, modelId, attachmentIds, enableWebSearch)
+    if (isArtifactSkill(skillId)) {
+      return handleSendArtifact(
+        content,
+        modelId,
+        skillId,
+        attachmentIds,
+        enableWebSearch,
+      )
     }
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),

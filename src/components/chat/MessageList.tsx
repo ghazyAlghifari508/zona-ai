@@ -13,19 +13,18 @@ import rehypeSanitize from 'rehype-sanitize'
 import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
-import type { PrdPhase, PrdSection } from '@/lib/ai/prd-stream'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
 import type { ArtifactKind } from '@/lib/chat/skills'
+import { ArtifactProgress } from './ArtifactProgress'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
 import { CompareGrid } from './CompareGrid'
 import { CopyButton } from './CopyButton'
 import { FileCard } from './FileCard'
 import { InlineError } from './InlineError'
-import { PrdProgress } from './PrdProgress'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
@@ -41,14 +40,6 @@ export type ChatMessage = {
   errorCode?: string
   errorMessage?: string
   onRetry?: () => void
-  prdStatus?: PrdPhase
-  prdSection?: PrdSection
-  prdArtifact?: {
-    attachmentId: string
-    fileName: string
-    fileSize: number
-    mimeType: string
-  }
   artifactStatus?: ArtifactPhase
   artifactSection?: string
   artifactKind?: ArtifactKind
@@ -277,15 +268,17 @@ function MessageItem({
           </span>
         </div>
         <div className="min-w-0 space-y-2 pl-9">
-          {message.prdStatus && message.prdStatus !== 'completed' && (
-            <PrdProgress
-              phase={message.prdStatus}
-              section={message.prdSection}
+          {message.artifactStatus && message.artifactStatus !== 'completed' && (
+            <ArtifactProgress
+              kind={message.artifactKind ?? message.artifact?.kind ?? 'prd'}
+              phase={message.artifactStatus}
+              section={message.artifactSection}
               errorMessage={message.errorMessage}
             />
           )}
           {message.content &&
-            (!message.prdStatus || message.prdStatus === 'completed') && (
+            (!message.artifactStatus ||
+              message.artifactStatus === 'completed') && (
               <ChecklistAwareContent
                 content={message.content}
                 isStreaming={Boolean(message.streaming)}
@@ -320,8 +313,8 @@ function MessageItem({
                 )}
               />
             )}
-          {message.prdArtifact && <FileCard artifact={message.prdArtifact} />}
-          {message.errorMessage && !message.prdStatus && (
+          {message.artifact && <FileCard artifact={message.artifact} />}
+          {message.errorMessage && !message.artifactStatus && (
             <InlineError
               code={message.errorCode}
               message={message.errorMessage}
@@ -331,7 +324,7 @@ function MessageItem({
           {message.webSources && message.webSources.length > 0 && (
             <CitationDrawer sources={message.webSources} />
           )}
-          {!message.streaming && message.content && !message.prdArtifact && (
+          {!message.streaming && message.content && !message.artifact && (
             <div className="flex items-center gap-1 pt-1">
               <CopyButton
                 content={getCopyTextForMessage(message.content)}
