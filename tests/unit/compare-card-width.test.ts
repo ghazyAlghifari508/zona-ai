@@ -8,9 +8,9 @@ import {
 } from '../../src/lib/chat/compare-card-width'
 
 describe('compare grid layout constants & sizing', () => {
-  it('defines stable wide max-width container (1400px) and responsive 24-32px gutter', () => {
-    expect(COMPARE_MAX_WIDTH_CLASS).toBe('max-w-[1400px]')
-    expect(COMPARE_GUTTER_CLASS).toBe('px-4 sm:px-6 lg:px-8')
+  it('defines stable wide max-width container (1440px) and responsive 24px gutter', () => {
+    expect(COMPARE_MAX_WIDTH_CLASS).toBe('max-w-[1440px]')
+    expect(COMPARE_GUTTER_CLASS).toBe('px-4 sm:px-6 lg:px-6')
     expect(COMPARE_CONTAINER_CLASS).toContain(COMPARE_MAX_WIDTH_CLASS)
     expect(COMPARE_CONTAINER_CLASS).toContain('mx-auto')
     expect(COMPARE_CONTAINER_CLASS).toContain('w-full')
