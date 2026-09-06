@@ -47,6 +47,7 @@ export type ArtifactProfile = {
     userContent: string,
   ) => ValidatedArtifact | null
   validationErrorMessage: string
+  incompleteMessage: string
   cancelledMessage: string
   failureMessage: string
 }
@@ -77,6 +78,8 @@ export const prdProfile: ArtifactProfile = {
   },
   validationErrorMessage:
     'Format PRD tidak valid atau tidak lengkap dari model AI.',
+  incompleteMessage:
+    'PRD gagal dibuat. Hasil dari model belum bisa diproses dengan benar.',
   cancelledMessage: 'Pembuatan PRD dibatalkan.',
   failureMessage: 'Gagal menghasilkan PRD.',
 }
@@ -108,7 +111,9 @@ export const agentSkillProfile: ArtifactProfile = {
     }
   },
   validationErrorMessage:
-    'Format skill tidak valid atau belum lengkap dari model AI.',
+    'Skill gagal dibuat. Hasil dari model belum bisa diproses dengan benar.',
+  incompleteMessage:
+    'Skill gagal dibuat. Hasil dari model belum bisa diproses dengan benar.',
   cancelledMessage: 'Pembuatan skill dibatalkan.',
   failureMessage: 'Gagal menghasilkan skill.',
 }

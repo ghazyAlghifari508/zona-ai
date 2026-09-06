@@ -47,6 +47,7 @@ export const artifactErrorEventSchema = baseEventSchema.extend({
   type: z.literal('artifact-error'),
   code: z.string().min(1).max(32),
   retryable: z.boolean(),
+  message: z.string().min(1).max(500).optional(),
 })
 
 export const artifactDoneEventSchema = baseEventSchema.extend({

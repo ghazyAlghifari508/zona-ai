@@ -118,6 +118,19 @@ type ArtifactStreamContext = {
   startTime: number
 }
 
+// cast boundary: AI SDK StreamTextResult version variance — finishReason is a
+// promise on current SDK shapes; resolve defensively without failing the run.
+async function readFinishReason(result: unknown): Promise<string | null> {
+  const shaped = result as { finishReason?: Promise<unknown> }
+  if (!shaped?.finishReason) return null
+  try {
+    const value = await shaped.finishReason
+    return typeof value === 'string' && value.length > 0 ? value : null
+  } catch {
+    return null
+  }
+}
+
 async function executeArtifactStream(
   ctx: ArtifactStreamContext,
 ): Promise<Response> {
@@ -150,36 +163,51 @@ async function executeArtifactStream(
         } catch {}
       }
 
-      const failInvalid = async () => {
-        const won = await finalizeTerminalRun({
-          genId,
-          status: 'failed',
-          error: { message: profile.validationErrorMessage, code: 'ERR-016' },
-        })
-        if (won) {
-          await refundCredits({
-            userId,
-            generationRunId: genId,
-            modelId,
-            amount: cost,
+      const failInvalid = (reason: {
+        phase: 'validation' | 'incomplete' | 'oversize'
+        issues?: string[]
+        contentLength: number
+        finishReason?: string | null
+      }) => {
+        console.warn(
+          `[ARTIFACT_DIAG] stage=${reason.phase} kind=${profile.kind} modelId=${modelId} routerModelId=${routerModelId} genId=${genId} finishReason=${reason.finishReason ?? 'n/a'} contentLength=${reason.contentLength}${reason.issues ? ` issues=${reason.issues.join(',')}` : ''}`,
+        )
+        return (async () => {
+          const message =
+            reason.phase === 'validation'
+              ? profile.validationErrorMessage
+              : profile.incompleteMessage
+          const won = await finalizeTerminalRun({
+            genId,
+            status: 'failed',
+            error: { message, code: 'ERR-016' },
           })
-        }
-        sendEvent({
-          type: 'artifact-error',
-          generationId: genId,
-          kind: profile.kind,
-          code: 'ERR-016',
-          retryable: true,
-        })
-        sendEvent({
-          type: 'artifact-done',
-          generationId: genId,
-          kind: profile.kind,
-          status: 'failed',
-          messageId: assistantMsgId,
-          conversationId: convId,
-        })
-        controller.close()
+          if (won) {
+            await refundCredits({
+              userId,
+              generationRunId: genId,
+              modelId,
+              amount: cost,
+            })
+          }
+          sendEvent({
+            type: 'artifact-error',
+            generationId: genId,
+            kind: profile.kind,
+            code: 'ERR-016',
+            retryable: true,
+            message,
+          })
+          sendEvent({
+            type: 'artifact-done',
+            generationId: genId,
+            kind: profile.kind,
+            status: 'failed',
+            messageId: assistantMsgId,
+            conversationId: convId,
+          })
+          controller.close()
+        })()
       }
 
       sendEvent({
@@ -290,6 +318,11 @@ async function executeArtifactStream(
           return
         }
 
+        const finishReason = await readFinishReason(result)
+        console.info(
+          `[ARTIFACT_DIAG] stage=stream_end kind=${profile.kind} modelId=${modelId} routerModelId=${routerModelId} genId=${genId} finishReason=${finishReason ?? 'unknown'} contentLength=${fullText.length} byteLength=${Buffer.byteLength(fullText, 'utf8')}`,
+        )
+
         sendEvent({
           type: 'artifact-status',
           generationId: genId,
@@ -297,13 +330,25 @@ async function executeArtifactStream(
           phase: 'validating',
         })
 
-        // Validate generated content before creating file. Oversized output
-        // takes the same retryable path; raw provider text is never persisted.
-        const validation = oversize
-          ? { valid: false, issues: ['oversized'] }
-          : profile.validate(fullText)
+        // Validate generated content before creating file. Oversized or
+        // length-truncated output takes the same retryable path; raw provider
+        // text is never persisted.
+        if (oversize || finishReason === 'length') {
+          await failInvalid({
+            phase: oversize ? 'oversize' : 'incomplete',
+            contentLength: fullText.length,
+            finishReason,
+          })
+          return
+        }
+        const validation = profile.validate(fullText)
         if (!validation.valid) {
-          await failInvalid()
+          await failInvalid({
+            phase: 'validation',
+            issues: validation.issues,
+            contentLength: fullText.length,
+            finishReason,
+          })
           return
         }
 
@@ -316,7 +361,11 @@ async function executeArtifactStream(
 
         const built = profile.buildArtifact(fullText, userContent)
         if (!built) {
-          await failInvalid()
+          await failInvalid({
+            phase: 'validation',
+            contentLength: fullText.length,
+            finishReason,
+          })
           return
         }
 
@@ -404,6 +453,9 @@ async function executeArtifactStream(
             deleteR2: () => deleteObject(r2Key),
           })
         } catch (finalizeErr) {
+          console.error(
+            `[ARTIFACT_DIAG] stage=finalize_failed kind=${profile.kind} modelId=${modelId} routerModelId=${routerModelId} genId=${genId} errorName=${finalizeErr instanceof Error ? finalizeErr.name : 'unknown'}`,
+          )
           console.error('Artifact finalize failed:', finalizeErr)
           const wonFinalize = await finalizeTerminalRun({
             genId,
@@ -424,6 +476,7 @@ async function executeArtifactStream(
             kind: profile.kind,
             code: 'ERR-010',
             retryable: true,
+            message: profile.failureMessage,
           })
           sendEvent({
             type: 'artifact-done',
@@ -469,6 +522,11 @@ async function executeArtifactStream(
       } catch (err) {
         const isAbort =
           (err as Error).name === 'AbortError' || abortController.signal.aborted
+        if (!isAbort) {
+          console.error(
+            `[ARTIFACT_DIAG] stage=stream_error kind=${profile.kind} modelId=${modelId} routerModelId=${routerModelId} genId=${genId} errorName=${err instanceof Error ? err.name : 'unknown'} errorMessage=${err instanceof Error ? err.message.slice(0, 200) : 'unknown'}`,
+          )
+        }
         try {
           if (isAbort) {
             await refundOnce({
@@ -527,6 +585,7 @@ async function executeArtifactStream(
             kind: profile.kind,
             code: 'ERR-016',
             retryable: true,
+            message: profile.incompleteMessage,
           })
           sendEvent({
             type: 'artifact-done',
