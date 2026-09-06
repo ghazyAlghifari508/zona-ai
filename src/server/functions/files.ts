@@ -130,13 +130,18 @@ export async function getAttachmentCore({
   data,
   request,
 }: {
-  data: { id: string }
+  data: { id: string; download?: boolean }
   request: Request
 }) {
   const session = await getAuthSession(request)
   const userId = session.user.id
 
-  const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
+  const parsed = z
+    .object({
+      id: z.string().uuid(),
+      download: z.boolean().optional().default(false),
+    })
+    .safeParse(data)
   if (!parsed.success) throw httpError(400, 'Invalid id')
 
   const [att] = await db
@@ -147,11 +152,18 @@ export async function getAttachmentCore({
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
   const { body, contentType } = await getObject(att.r2Key)
-  return new Response(new Uint8Array(body), {
+  const buffer = body
+  const disposition = parsed.data.download ? 'attachment' : 'inline'
+  return new Response(new Uint8Array(buffer), {
     headers: {
-      'Content-Type': contentType || att.mimeType,
-      'Content-Disposition': `inline; filename="${att.fileName}"`,
+      'Content-Type':
+        att.mimeType === 'text/markdown'
+          ? 'text/markdown; charset=utf-8'
+          : contentType || att.mimeType,
+      'Content-Disposition': `${disposition}; filename="${att.fileName}"`,
+      'Content-Length': String(buffer.length),
       'Cache-Control': 'private, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
     },
   })
 }

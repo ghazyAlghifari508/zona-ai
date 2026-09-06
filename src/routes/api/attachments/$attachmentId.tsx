@@ -15,8 +15,10 @@ export const Route = createFileRoute('/api/attachments/$attachmentId')({
         params: { attachmentId: string }
       }) => {
         try {
+          const url = new URL(request.url)
+          const download = url.searchParams.get('download') === '1'
           const result = await getAttachmentCore({
-            data: { id: params.attachmentId },
+            data: { id: params.attachmentId, download },
             request,
           })
           return result
