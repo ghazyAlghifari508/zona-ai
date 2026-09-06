@@ -81,6 +81,27 @@ function getCopyTextForMessage(content: string): string {
     : content
 }
 
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function scrollToBottom(container: HTMLDivElement) {
+  const top = container.scrollHeight
+  let smooth = false
+  if (!prefersReducedMotion() && typeof container.scrollTo === 'function') {
+    try {
+      container.scrollTo({ top, behavior: 'smooth' })
+      smooth = true
+    } catch {
+      smooth = false
+    }
+  }
+  if (!smooth) container.scrollTop = top
+}
+
 export function MessageList({
   messages,
   onRetryGeneration,
@@ -123,7 +144,7 @@ export function MessageList({
     void lastMessage?.content
     const container = scrollRef?.current ?? parentRef.current
     if (!container) return
-    container.scrollTop = container.scrollHeight
+    scrollToBottom(container)
   }, [lastMessage?.content, scrollRef])
 
   return (
@@ -253,6 +274,12 @@ function MessageItem({
     )
   }
 
+  const hasVisibleContent = Boolean(
+    message.content && message.content.trim().length > 0,
+  )
+  const isWaiting =
+    Boolean(message.streaming) && !hasVisibleContent && !message.artifactStatus
+
   return (
     <div className="w-full py-5">
       <div className="min-w-0">
@@ -268,6 +295,7 @@ function MessageItem({
           </span>
         </div>
         <div className="min-w-0 space-y-2 pl-9">
+          {isWaiting && <TypingDots />}
           {message.artifactStatus && message.artifactStatus !== 'completed' && (
             <ArtifactProgress
               kind={message.artifactKind ?? message.artifact?.kind ?? 'prd'}
@@ -276,7 +304,7 @@ function MessageItem({
               errorMessage={message.errorMessage}
             />
           )}
-          {message.content &&
+          {hasVisibleContent &&
             (!message.artifactStatus ||
               message.artifactStatus === 'completed') && (
               <ChecklistAwareContent
@@ -308,7 +336,6 @@ function MessageItem({
                     >
                       {text}
                     </ReactMarkdown>
-                    {message.streaming && !message.content && <TypingDots />}
                   </div>
                 )}
               />
