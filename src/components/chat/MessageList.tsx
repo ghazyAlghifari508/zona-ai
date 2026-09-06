@@ -2,7 +2,6 @@ import { ReloadIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  type ReactNode,
   type RefObject,
   useEffect,
   useLayoutEffect,
@@ -20,6 +19,10 @@ import {
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
 import type { ArtifactKind } from '@/lib/chat/skills'
+import {
+  chatHighlightOptions,
+  extractRawText,
+} from '@/lib/chat/syntax-highlight'
 import { ArtifactProgress } from './ArtifactProgress'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
@@ -235,18 +238,6 @@ export function MessageList({
   )
 }
 
-function flattenReactNodes(node: ReactNode): string {
-  if (node == null || typeof node === 'boolean') return ''
-  if (typeof node === 'string' || typeof node === 'number') return String(node)
-  if (Array.isArray(node)) return node.map(flattenReactNodes).join('')
-  if (typeof node === 'object' && 'props' in node) {
-    return flattenReactNodes(
-      (node as { props: { children: ReactNode } }).props.children,
-    )
-  }
-  return ''
-}
-
 function MessageItem({
   message,
   catalog,
@@ -352,14 +343,19 @@ function MessageItem({
                 renderMarkdown={(text) => (
                   <div className="chat-prose max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
                     <ReactMarkdown
-                      rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                      rehypePlugins={[
+                        rehypeSanitize,
+                        [rehypeHighlight, chatHighlightOptions],
+                      ]}
                       components={{
                         code: ({ children, className }) => {
-                          const isBlock = Boolean(className)
+                          const isBlock =
+                            Boolean(className) ||
+                            extractRawText(children).includes('\n')
                           if (isBlock) {
                             return (
-                              <CodeBlock>
-                                {flattenReactNodes(children)}
+                              <CodeBlock className={className}>
+                                {children}
                               </CodeBlock>
                             )
                           }

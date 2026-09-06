@@ -10,6 +10,10 @@ import {
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
 import { shouldExpandCompareCard } from '@/lib/chat/compare-card-width'
+import {
+  chatHighlightOptions,
+  extractRawText,
+} from '@/lib/chat/syntax-highlight'
 import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
@@ -198,14 +202,21 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
                 <div className="chat-prose max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
                   {text ? (
                     <ReactMarkdown
-                      rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                      rehypePlugins={[
+                        rehypeSanitize,
+                        [rehypeHighlight, chatHighlightOptions],
+                      ]}
                       components={{
                         code: ({ children, className }) => {
                           const isBlock =
-                            String(children).includes('\n') ||
-                            Boolean(className)
+                            Boolean(className) ||
+                            extractRawText(children).includes('\n')
                           if (isBlock)
-                            return <CodeBlock>{String(children)}</CodeBlock>
+                            return (
+                              <CodeBlock className={className}>
+                                {children}
+                              </CodeBlock>
+                            )
                           return (
                             <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
                               {children}
