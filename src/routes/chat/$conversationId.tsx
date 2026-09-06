@@ -1358,15 +1358,21 @@ function ChatThread() {
           className="zona-scroll flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
         >
           <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white px-4 lg:px-6">
-            {compareEnabled && (
-              <span
-                data-testid="topbar-compare-label"
-                className="text-[14px] font-medium text-stone"
-              >
-                Mode banding · {compareModelIds.length} model
-              </span>
-            )}
-            <span className="flex-1" />
+            <div
+              className={`mx-auto flex w-full items-center justify-between transition-[max-width] duration-200 ${
+                hasUsedCompareMode ? 'max-w-[1360px]' : 'max-w-[860px]'
+              }`}
+            >
+              {compareEnabled && (
+                <span
+                  data-testid="topbar-compare-label"
+                  className="text-[14px] font-medium text-stone"
+                >
+                  Mode banding · {compareModelIds.length} model
+                </span>
+              )}
+              <span className="flex-1" />
+            </div>
           </header>
 
           <MessageList
@@ -1383,7 +1389,11 @@ function ChatThread() {
           data-testid="chat-composer-container"
           className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:px-6"
         >
-          <div className="pointer-events-auto mx-auto max-w-[860px]">
+          <div
+            className={`pointer-events-auto mx-auto w-full transition-[max-width] duration-200 ${
+              hasUsedCompareMode ? 'max-w-[1360px]' : 'max-w-[860px]'
+            }`}
+          >
             <Composer
               onSend={handleSend}
               onSendCompare={handleSendCompare}

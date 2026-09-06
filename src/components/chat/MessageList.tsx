@@ -174,7 +174,9 @@ export function MessageList({
       }
     >
       <div
-        className={`mx-auto w-full max-w-[1360px] px-4 pt-2 lg:px-6 ${scrollRef ? 'pb-36' : 'pb-6'}`}
+        className={`mx-auto w-full transition-[max-width] duration-200 ${
+          hasUsedCompareMode ? 'max-w-[1360px]' : 'max-w-[860px]'
+        } px-4 pt-2 lg:px-6 ${scrollRef ? 'pb-36' : 'pb-6'}`}
       >
         {shouldVirtualize ? (
           <div
@@ -261,11 +263,9 @@ function MessageItem({
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
     return (
-      <div className="mx-auto w-full max-w-[860px]">
-        <div className="flex justify-end py-3">
-          <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-notion-blue px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-pure-white shadow-sm shadow-notion-blue/20 whitespace-pre-wrap [overflow-wrap:anywhere]">
-            {message.content}
-          </div>
+      <div className="flex w-full justify-end py-3">
+        <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-accent px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-white shadow-sm shadow-black/10 whitespace-pre-wrap [overflow-wrap:anywhere]">
+          {message.content}
         </div>
       </div>
     )
@@ -325,7 +325,7 @@ function MessageItem({
     Boolean(message.streaming) && !hasVisibleContent && !message.artifactStatus
 
   return (
-    <div className="mx-auto w-full max-w-[860px] py-5">
+    <div className="w-full py-5">
       <div className="min-w-0">
         <div className="mb-2 flex items-center gap-2.5">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">

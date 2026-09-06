@@ -1,8 +1,4 @@
-import { useEffect, useState } from 'react'
-import {
-  getCompareGridClasses,
-  shouldExpandCompareCard,
-} from '@/lib/chat/compare-card-width'
+import { getCompareGridClasses } from '@/lib/chat/compare-card-width'
 import { ModelColumn } from './ModelColumn'
 
 type Generation = {
@@ -47,40 +43,13 @@ export function CompareGrid({
     comparisonRun?.content ??
     ''
 
-  const [expandedGenIds, setExpandedGenIds] = useState<Set<string>>(() => {
-    const initial = new Set<string>()
-    for (const g of generations) {
-      if (shouldExpandCompareCard(g.content)) {
-        initial.add(g.id)
-      }
-    }
-    return initial
-  })
-
-  useEffect(() => {
-    setExpandedGenIds((prev) => {
-      let changed = false
-      const next = new Set(prev)
-      for (const g of generations) {
-        if (!next.has(g.id) && shouldExpandCompareCard(g.content)) {
-          next.add(g.id)
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-  }, [generations])
-
-  const { containerClass, gridClass } = getCompareGridClasses(
-    generations,
-    expandedGenIds,
-  )
+  const { containerClass, gridClass } = getCompareGridClasses(generations)
 
   return (
     <div className={`space-y-4 ${containerClass}`}>
       {prompt && (
-        <div className="mx-auto flex w-full max-w-[860px] justify-end">
-          <div className="max-w-[70%] rounded-lg border border-hairline bg-pure-white px-3 py-2 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
+        <div className="flex w-full justify-end py-3">
+          <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-accent px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-white shadow-sm shadow-black/10 whitespace-pre-wrap [overflow-wrap:anywhere]">
             {prompt}
           </div>
         </div>

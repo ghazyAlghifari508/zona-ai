@@ -194,7 +194,7 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     expect(contents[3].textContent).toContain('Another long detailed')
   })
 
-  it('renders user prompt alongside CompareGrid without breaking grid columns', () => {
+  it('renders user prompt right-aligned in full width container with max-width limit', () => {
     const generations = [
       {
         id: 'gen-prompt-1',
@@ -217,12 +217,17 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
       />,
     )
 
-    expect(screen.getByText('Compare PostgreSQL vs MySQL')).toBeTruthy()
+    const promptText = screen.getByText('Compare PostgreSQL vs MySQL')
+    expect(promptText).toBeTruthy()
+    expect(promptText.className).toContain('max-w-[min(78%,680px)]')
+    const promptRow = promptText.parentElement
+    expect(promptRow?.className).toContain('w-full')
+    expect(promptRow?.className).toContain('justify-end')
     const columns = screen.getAllByTestId('model-column')
     expect(columns.length).toBe(2)
   })
 
-  it('assigns compact width variant to short responses like "42" and 1-2 sentences', () => {
+  it('enforces stable full-width column classes without content-based width variants', () => {
     const shortGen = {
       id: 'gen-short-1',
       modelId: 'gemini-3.7-flash-high',
@@ -230,12 +235,14 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
       content: '42',
     }
 
-    render(<ModelColumn generation={shortGen} />)
-    const card = screen.getByTestId('model-column')
-    expect(card.getAttribute('data-width-variant')).toBe('compact')
-  })
+    const { unmount } = render(<ModelColumn generation={shortGen} />)
+    const cardShort = screen.getByTestId('model-column')
+    expect(cardShort.getAttribute('data-width-variant')).toBeNull()
+    expect(cardShort.className).toContain('w-full')
+    expect(cardShort.className).toContain('min-w-0')
+    expect(cardShort.className).toContain('max-w-full')
+    unmount()
 
-  it('assigns expanded width variant to long responses or code blocks', () => {
     const longGen = {
       id: 'gen-long-1',
       modelId: 'gpt-5.6-sol',
@@ -245,75 +252,63 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     }
 
     render(<ModelColumn generation={longGen} />)
-    const card = screen.getByTestId('model-column')
-    expect(card.getAttribute('data-width-variant')).toBe('expanded')
+    const cardLong = screen.getByTestId('model-column')
+    expect(cardLong.getAttribute('data-width-variant')).toBeNull()
+    expect(cardLong.className).toContain('w-full')
+    expect(cardLong.className).toContain('min-w-0')
+    expect(cardLong.className).toContain('max-w-full')
   })
 
-  it('allows independent width variants for multiple models side-by-side', () => {
+  it('renders 2 models side-by-side in stable 2-column grid', () => {
     const generations = [
       {
-        id: 'gen-compact',
+        id: 'gen-1',
         modelId: 'gemini-3.7-flash-high',
         status: 'completed',
         content: '42',
       },
       {
-        id: 'gen-expanded',
+        id: 'gen-2',
         modelId: 'gpt-5.6-sol',
         status: 'completed',
-        content:
-          'Berikut adalah analisis komparatif mendalam mengenai perbedaan performa konkurensi antara PostgreSQL pgvector dan dedicated vector database dalam skenario beban produksi tinggi dengan jutaan record embedding.',
+        content: 'Detailed explanation '.repeat(10),
       },
     ]
 
     render(<CompareGrid generations={generations} />)
+    const grid = screen.getByTestId('compare-grid')
+    expect(grid.className).toContain('md:grid-cols-2')
     const columns = screen.getAllByTestId('model-column')
     expect(columns.length).toBe(2)
-    expect(columns[0].getAttribute('data-width-variant')).toBe('compact')
-    expect(columns[1].getAttribute('data-width-variant')).toBe('expanded')
   })
 
-  it('latches to expanded width during streaming and does not revert to compact', () => {
-    const { rerender } = render(
-      <ModelColumn
-        generation={{
-          id: 'gen-stream-1',
-          modelId: 'gemini-3.7-flash-high',
-          status: 'streaming',
-          content: 'Hai',
-        }}
-      />,
-    )
+  it('renders 3 models in stable 2-column grid where 3rd card occupies 1 column without stretching', () => {
+    const generations = [
+      {
+        id: 'gen-1',
+        modelId: 'gemini-3.7-flash-high',
+        status: 'completed',
+        content: 'A',
+      },
+      {
+        id: 'gen-2',
+        modelId: 'gpt-5.6-sol',
+        status: 'completed',
+        content: 'B',
+      },
+      {
+        id: 'gen-3',
+        modelId: 'qwen3.8-flash',
+        status: 'completed',
+        content: 'C',
+      },
+    ]
 
-    const card = screen.getByTestId('model-column')
-    expect(card.getAttribute('data-width-variant')).toBe('compact')
-
-    // Stream content grows past threshold -> transitions to expanded
-    rerender(
-      <ModelColumn
-        generation={{
-          id: 'gen-stream-1',
-          modelId: 'gemini-3.7-flash-high',
-          status: 'streaming',
-          content:
-            'Penjelasan detail arsitektur aplikasi TanStack Start dengan Drizzle ORM dan PostgreSQL, dilengkapi sistem multi-model streaming yang mendukung berbagai provider proxy lokal dan eksternal secara aman, modular, dan terstruktur.',
-        }}
-      />,
-    )
-    expect(card.getAttribute('data-width-variant')).toBe('expanded')
-
-    // Temporary shorter content or stream completion does NOT revert to compact
-    rerender(
-      <ModelColumn
-        generation={{
-          id: 'gen-stream-1',
-          modelId: 'gemini-3.7-flash-high',
-          status: 'completed',
-          content: 'Selesai.',
-        }}
-      />,
-    )
-    expect(card.getAttribute('data-width-variant')).toBe('expanded')
+    render(<CompareGrid generations={generations} />)
+    const grid = screen.getByTestId('compare-grid')
+    expect(grid.className).toContain('md:grid-cols-2')
+    const columns = screen.getAllByTestId('model-column')
+    expect(columns.length).toBe(3)
   })
 
   it('renders provider name under model name in card header', () => {
@@ -364,7 +359,7 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     const columns = screen.getAllByTestId('model-column')
     for (const col of columns) {
       expect(col.className).toContain('h-full')
-      expect(col.className).toContain('min-h-[260px]')
+      expect(col.className).toContain('min-h-[140px]')
       expect(col.className).toContain('max-h-[640px]')
     }
   })

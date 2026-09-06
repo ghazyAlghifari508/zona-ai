@@ -1,6 +1,5 @@
 import { ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
@@ -9,7 +8,6 @@ import {
   getChecklistCopyText,
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
-import { shouldExpandCompareCard } from '@/lib/chat/compare-card-width'
 import {
   chatHighlightOptions,
   extractRawText,
@@ -86,31 +84,10 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   const technicalDetail =
     displayError.technicalDetail ?? contentAsError?.technicalDetail ?? null
 
-  const contentToAnalyze = generation.content ?? ''
-  const shouldExpand = shouldExpandCompareCard(contentToAnalyze)
-  const [hasExpanded, setHasExpanded] = useState(() => shouldExpand)
-
-  // One-way latch during streaming: once expanded, stays expanded for this generation
-  useEffect(() => {
-    if (shouldExpand && !hasExpanded) {
-      setHasExpanded(true)
-    }
-  }, [shouldExpand, hasExpanded])
-
-  // Reset latch when generation ID changes
-  const prevIdRef = useRef(generation.id)
-  if (prevIdRef.current !== generation.id) {
-    prevIdRef.current = generation.id
-    setHasExpanded(shouldExpandCompareCard(generation.content ?? ''))
-  }
-
-  const isExpanded = hasExpanded || shouldExpand
-
   return (
     <div
       data-testid="model-column"
-      data-width-variant={isExpanded ? 'expanded' : 'compact'}
-      className="flex h-full min-h-[260px] sm:min-h-[280px] max-h-[640px] sm:max-h-[680px] min-w-0 max-w-full w-full flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white transition-[width,max-width] duration-200"
+      className="flex h-full min-h-[140px] max-h-[640px] sm:max-h-[680px] min-w-0 max-w-full w-full flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white"
     >
       <div
         data-testid="model-column-header"
