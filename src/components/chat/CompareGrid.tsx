@@ -45,7 +45,7 @@ export function CompareGrid({
   return (
     <div className="space-y-4">
       {prompt && (
-        <div className="flex w-full justify-end">
+        <div className="mx-auto flex w-full max-w-[860px] justify-end">
           <div className="max-w-[70%] rounded-lg border border-hairline bg-pure-white px-3 py-2 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
             {prompt}
           </div>
@@ -53,7 +53,7 @@ export function CompareGrid({
       )}
       <div
         data-testid="compare-grid"
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5"
       >
         {generations.map((g) => (
           <ModelColumn

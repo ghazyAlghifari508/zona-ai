@@ -162,4 +162,32 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     expect(contents[2].textContent).toContain('Moderate response')
     expect(contents[3].textContent).toContain('Another long detailed')
   })
+
+  it('renders user prompt alongside CompareGrid without breaking grid columns', () => {
+    const generations = [
+      {
+        id: 'gen-prompt-1',
+        modelId: 'gemini-3.7-flash-high',
+        status: 'completed',
+        content: 'Model A answer',
+      },
+      {
+        id: 'gen-prompt-2',
+        modelId: 'gpt-5.6-sol',
+        status: 'completed',
+        content: 'Model B answer',
+      },
+    ]
+
+    render(
+      <CompareGrid
+        generations={generations}
+        userPrompt="Compare PostgreSQL vs MySQL"
+      />,
+    )
+
+    expect(screen.getByText('Compare PostgreSQL vs MySQL')).toBeTruthy()
+    const columns = screen.getAllByTestId('model-column')
+    expect(columns.length).toBe(2)
+  })
 })
