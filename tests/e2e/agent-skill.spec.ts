@@ -1,7 +1,7 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { makeSignature } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
-import { readFile } from 'node:fs/promises'
 import { auth } from '../../src/lib/auth/auth'
 import { db } from '../../src/lib/db'
 import {
@@ -82,22 +82,20 @@ test.afterEach(async () => {
 async function openSkillSelector(page: import('@playwright/test').Page) {
   const trigger = page.getByTestId('skill-selector-trigger')
   await expect(trigger).toBeVisible()
-  for (let i = 0; i < 6; i++) {
-    if ((await trigger.getAttribute('data-state')) === 'open') break
+  await expect(async () => {
     await trigger.click()
-    await page.waitForTimeout(400)
-  }
+    expect(await trigger.getAttribute('data-state')).toBe('open')
+  }).toPass({ timeout: 10000 })
   await expect(page.getByTestId('skill-option-none')).toBeVisible()
 }
 
 async function openModelSelector(page: import('@playwright/test').Page) {
   const trigger = page.getByTestId('model-selector-trigger')
   await expect(trigger).toBeVisible()
-  for (let i = 0; i < 6; i++) {
-    if ((await trigger.getAttribute('data-state')) === 'open') break
+  await expect(async () => {
     await trigger.click()
-    await page.waitForTimeout(400)
-  }
+    expect(await trigger.getAttribute('data-state')).toBe('open')
+  }).toPass({ timeout: 10000 })
   await expect(page.getByTestId('compare-switch')).toBeVisible()
 }
 
@@ -111,8 +109,8 @@ test('compare mode blocks agent-skill submit with clear validation', async ({
     .returning()
 
   await page.goto(`/chat/${conversation.id}`)
-  await page.waitForLoadState('networkidle')
   await expect(page.getByTestId('message-list')).toBeVisible()
+  await expect(page.getByTestId('skill-selector-trigger')).toBeEnabled()
   const trigger = page.getByTestId('skill-selector-trigger')
   const initialLabel = await trigger.innerText()
 
