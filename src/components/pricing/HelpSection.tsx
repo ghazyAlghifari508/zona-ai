@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowRight01Icon,
   BookOpen01Icon,
   Mail02Icon,
@@ -20,14 +20,14 @@ const HELP_CHANNELS = [
     description: 'Jawaban cepat untuk pertanyaan umum dan pemecahan masalah.',
     icon: MessageQuestionIcon,
     href: '/faq',
-    accent: 'bg-[#fff4cf] text-marigold',
+    accent: 'bg-warning-soft text-warning-strong',
   },
   {
     title: 'Hubungi Support',
     description: 'Kirim pertanyaan langsung ke tim kami.',
     icon: Mail02Icon,
     href: 'mailto:support@zona.ai',
-    accent: 'bg-[#fff0e8] text-coral',
+    accent: 'bg-danger-soft text-coral',
   },
 ] as const
 

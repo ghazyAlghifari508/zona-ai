@@ -114,7 +114,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'failed' && (
               <span
                 data-testid="attachment-status-failed"
-                className="flex items-center gap-1 rounded-full bg-[#fff0e8] px-2 py-0.5 text-[11px] font-medium text-coral"
+                className="flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-coral"
               >
                 <HugeiconsIcon icon={Alert02Icon} size={12} strokeWidth={1.5} />
                 Could not process

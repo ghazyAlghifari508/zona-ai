@@ -137,7 +137,7 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
       'utf8',
     )
     expect(content).toContain('rehypeSanitize')
-    expect(content).toMatch(/rehypePlugins=\{\[rehypeSanitize/)
+    expect(content).toMatch(/rehypePlugins=\{\[\s*rehypeSanitize/)
   })
 
   it('no eval usage in src', () => {

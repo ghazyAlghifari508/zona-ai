@@ -1,4 +1,4 @@
-import { AlertCircleIcon, Loading03Icon } from '@hugeicons/core-free-icons'
+﻿import { AlertCircleIcon, Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
 import type { ArtifactKind } from '@/lib/chat/skills'
@@ -110,7 +110,7 @@ export function ArtifactProgress({
               aria-hidden="true"
             />
           ) : isCompleted ? (
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            <span className="h-2.5 w-2.5 rounded-full bg-success" />
           ) : (
             <HugeiconsIcon
               icon={Loading03Icon}

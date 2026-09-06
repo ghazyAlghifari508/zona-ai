@@ -57,7 +57,7 @@ Analisis data di atas secara mendalam:
 2. 3 hipotesis bisnis mengapa AOV naik saat pertumbuhan GMV melambat.
 3. Rekomendasi langkah taktis prioritas tinggi untuk 30 hari ke depan guna menstabilkan churn.`,
     icon: Analytics01Icon,
-    iconClass: 'bg-[#fff0e8] text-coral',
+    iconClass: 'bg-danger-soft text-coral',
   },
   {
     id: 'research',
@@ -71,7 +71,7 @@ Bahas dalam format laporan terstruktur:
 3. Manajemen isolasi data multi-tenant (Row Level Security vs metadata filtering).
 4. Matriks keputusan: kapan harus tetap di pgvector dan kapan wajib migrasi ke dedicated vector DB.`,
     icon: Compass01Icon,
-    iconClass: 'bg-[#fff4cf] text-[#8a5a00]',
+    iconClass: 'bg-warning-soft text-warning-strong',
   },
   {
     id: 'review',
@@ -85,7 +85,7 @@ Tolong review ide ini dari perspektif Product & VC:
 3. Saran positioning & model monetisasi (Freemium, Pay-per-interview, atau B2B ke Bootcamp).
 4. Fitur Minimum Viable Product (MVP) yang paling esensial untuk validasi pasar dalam 2 minggu.`,
     icon: Idea01Icon,
-    iconClass: 'bg-[#e9edff] text-midnight',
+    iconClass: 'bg-info-soft text-midnight',
   },
 ] as const
 

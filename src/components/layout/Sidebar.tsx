@@ -1,4 +1,4 @@
-import {
+﻿import {
   Clock01Icon,
   Delete02Icon,
   Loading03Icon,
@@ -577,7 +577,7 @@ export function Sidebar({
                   },
                 })
               }}
-              className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg text-stone transition-colors duration-200 hover:bg-rose-50 hover:text-coral active:scale-95"
+              className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg text-stone transition-colors duration-200 hover:bg-danger-soft hover:text-coral active:scale-95"
             >
               <HugeiconsIcon
                 icon={Logout01Icon}
@@ -612,7 +612,7 @@ export function Sidebar({
                     },
                   })
                 }}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-stone transition-colors duration-200 hover:bg-rose-50 hover:text-coral active:scale-95"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-stone transition-colors duration-200 hover:bg-danger-soft hover:text-coral active:scale-95"
               >
                 <HugeiconsIcon
                   icon={Logout01Icon}

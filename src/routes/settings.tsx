@@ -1,4 +1,4 @@
-import {
+﻿import {
   CheckmarkCircle02Icon,
   Delete02Icon,
   Logout01Icon,
@@ -255,7 +255,7 @@ function SettingsPage() {
                 type="button"
                 data-testid="settings-sign-out"
                 onClick={handleSignOut}
-                className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-3 py-1.5 text-[13px] font-medium text-coral transition-colors hover:bg-rose-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-hairline px-3 py-1.5 text-[13px] font-medium text-coral transition-colors hover:bg-danger-soft"
               >
                 <HugeiconsIcon
                   icon={Logout01Icon}
@@ -361,7 +361,7 @@ function SettingsPage() {
               type="button"
               data-testid="delete-all-conversations-btn"
               onClick={() => setDeleteDialogOpen(true)}
-              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-md border border-hairline px-3 py-1.5 text-[13px] font-medium text-coral transition-colors hover:bg-rose-50 sm:self-auto"
+              className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-md border border-hairline px-3 py-1.5 text-[13px] font-medium text-coral transition-colors hover:bg-danger-soft sm:self-auto"
             >
               <HugeiconsIcon
                 icon={Delete02Icon}
@@ -388,7 +388,7 @@ function SettingsPage() {
           </DialogHeader>
 
           {deleteError && (
-            <div className="rounded-md bg-rose-50 p-2.5 text-[13px] text-coral">
+            <div className="rounded-md bg-danger-soft p-2.5 text-[13px] text-coral">
               {deleteError}
             </div>
           )}

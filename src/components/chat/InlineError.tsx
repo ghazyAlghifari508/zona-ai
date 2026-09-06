@@ -1,4 +1,4 @@
-import {
+﻿import {
   Alert02Icon,
   ArrowDown01Icon,
   Copy01Icon,
@@ -25,7 +25,7 @@ export function InlineError({
     <div
       data-testid="inline-error"
       role="note"
-      className="min-w-0 rounded-md border border-coral/30 bg-[#fff0e8] px-3 py-2 text-[13px] text-ink"
+      className="min-w-0 rounded-md border border-coral/30 bg-danger-soft px-3 py-2 text-[13px] text-ink"
     >
       <div className="flex items-center gap-2">
         <HugeiconsIcon
