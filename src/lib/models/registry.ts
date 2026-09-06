@@ -1,3 +1,4 @@
+import { CREDIT_COST_BY_BARS } from '../utils/constants'
 import type { ModelCatalogEntry, ModelRegistryEntry } from './types'
 
 export const modelRegistry: ModelRegistryEntry[] = [
@@ -56,7 +57,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
     lastEvaluated: '2026-09-05',
     description: "OpenAI's high-tier flagship model",
     enabled: true,
-    creditCost: 15,
+    creditCost: CREDIT_COST_BY_BARS[4],
     creditTier: 'premium',
     capabilities: {
       text: true,
@@ -89,7 +90,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
     lastEvaluated: '2026-09-05',
     description: "Google's next-gen hybrid reasoning model",
     enabled: true,
-    creditCost: 4,
+    creditCost: CREDIT_COST_BY_BARS[3],
     creditTier: 'balanced',
     capabilities: {
       text: true,
@@ -122,7 +123,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
     lastEvaluated: '2026-09-05',
     description: 'Fast multilingual model with Qwen thinking',
     enabled: true,
-    creditCost: 3,
+    creditCost: CREDIT_COST_BY_BARS[2],
     creditTier: 'balanced',
     capabilities: {
       text: true,
@@ -155,7 +156,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
     lastEvaluated: '2026-09-05',
     description: 'High-speed multimodal model with vision and 1M context',
     enabled: true,
-    creditCost: 3,
+    creditCost: CREDIT_COST_BY_BARS[2],
     creditTier: 'balanced',
     capabilities: {
       text: true,
@@ -188,7 +189,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
     lastEvaluated: '2026-09-05',
     description: 'Tencent Hunyuan 3 reasoning model',
     enabled: true,
-    creditCost: 3,
+    creditCost: CREDIT_COST_BY_BARS[3],
     creditTier: 'balanced',
     capabilities: {
       text: true,
@@ -221,7 +222,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
     lastEvaluated: '2026-09-05',
     description: 'Fast reasoning and multimodal model by Zhipu AI',
     enabled: true,
-    creditCost: 3,
+    creditCost: CREDIT_COST_BY_BARS[3],
     creditTier: 'balanced',
     capabilities: {
       text: true,

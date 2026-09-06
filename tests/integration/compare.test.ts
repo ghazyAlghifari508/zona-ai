@@ -149,7 +149,7 @@ describe.sequential('sendCompareMessage integration', () => {
     await db.delete(users).where(eq(users.id, compareUserId))
   })
 
-  it('deducts total 19 for 4+15 and creates comparison_runs', async () => {
+  it('deducts total 21 for 6+15 and creates comparison_runs', async () => {
     const { sendCompareMessageCore } = await import(
       '../../src/server/core/chat'
     )
@@ -170,7 +170,7 @@ describe.sequential('sendCompareMessage integration', () => {
       .select()
       .from(users)
       .where(eq(users.id, compareUserId))
-    expect(user.credits).toBe(81)
+    expect(user.credits).toBe(79)
     const comps = await db
       .select()
       .from(comparisonRuns)
@@ -307,7 +307,7 @@ describe.sequential('sendCompareMessage integration', () => {
       .select()
       .from(users)
       .where(eq(users.id, compareUserId))
-    expect(user.credits).toBe(96)
+    expect(user.credits).toBe(94)
     const txs = await db
       .select()
       .from(creditTransactions)

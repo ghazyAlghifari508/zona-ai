@@ -8,10 +8,10 @@ describe('resolveAutoModel', () => {
       reason: 'lightweight',
     })
   })
-  it('heavy reasoning -> ag/gemini-3.7-flash-high cost 4', () => {
+  it('heavy reasoning -> ag/gemini-3.7-flash-high cost 6', () => {
     expect(
       resolveAutoModel('selesaikan persamaan x^2+3x=10 langkah demi langkah'),
-    ).toMatchObject({ routerModelId: 'ag/gemini-3.7-flash-high', cost: 4 })
+    ).toMatchObject({ routerModelId: 'ag/gemini-3.7-flash-high', cost: 6 })
   })
   it('code block -> cx/gpt-5.6-sol cost 15', () => {
     expect(
@@ -26,9 +26,9 @@ describe('resolveAutoModel', () => {
       cost: 15,
     })
   })
-  it('low-credit fallback: coding but credits 2 -> 4', () => {
+  it('low-credit fallback: coding but credits 2 -> 6', () => {
     expect(resolveAutoModel('refactor code', { credits: 2 })).toMatchObject({
-      cost: 4,
+      cost: 6,
     })
   })
 })

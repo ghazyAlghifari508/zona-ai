@@ -58,6 +58,14 @@ export const RATE_LIMIT_PAYMENT_STATUS_PER_MINUTE = Number(
 )
 export const RATE_LIMIT_WINDOW_MS = 60_000
 
+// Credit cost by model intelligence bars — single source of truth for
+// per-prompt pricing. Smartest models drain credits fastest.
+export const CREDIT_COST_BY_BARS: Record<2 | 3 | 4, number> = {
+  2: 3,
+  3: 6,
+  4: 15,
+}
+
 export const PAYMENT_ORDER_ID_PREFIX = 'zona-'
 export const PAYMENT_ORDER_ID_MAX_LENGTH = 50
 export const PAYMENT_RECONCILE_MAX_ROWS = 10

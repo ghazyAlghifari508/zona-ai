@@ -197,7 +197,7 @@ describe('sendMessage integration', () => {
     await db.delete(users).where(eq(users.id, mockUserId2))
   })
 
-  it('deducts 4 for auto reasoning + creates generation_runs', async () => {
+  it('deducts 6 for auto reasoning + creates generation_runs', async () => {
     const { sendMessageCore } = await import('../../src/server/core/chat')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
@@ -241,11 +241,11 @@ describe('sendMessage integration', () => {
       .select()
       .from(creditTransactions)
       .where(eq(creditTransactions.userId, mockUserId))
-    const usageTx = txs.find((t) => t.amount === -4)
+    const usageTx = txs.find((t) => t.amount === -6)
     expect(usageTx).toBeDefined()
-    expect(usageTx?.balanceAfter).toBe(96)
+    expect(usageTx?.balanceAfter).toBe(94)
     const [user] = await db.select().from(users).where(eq(users.id, mockUserId))
-    expect(user.credits).toBe(96)
+    expect(user.credits).toBe(94)
   })
 
   it('throws 402 if insufficient for premium', async () => {

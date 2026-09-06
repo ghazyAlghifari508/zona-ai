@@ -1,3 +1,5 @@
+import { CREDIT_COST_BY_BARS } from '../utils/constants'
+
 export function resolveAutoModel(
   prompt: string,
   opts?: { credits?: number },
@@ -19,13 +21,13 @@ export function resolveAutoModel(
     if (opts?.credits !== undefined && opts.credits < 15)
       return {
         routerModelId: 'ag/gemini-3.7-flash-high',
-        cost: 4,
+        cost: CREDIT_COST_BY_BARS[3],
         reason: 'fallback-low-credit',
         tier: 'balanced',
       }
     return {
       routerModelId: 'cx/gpt-5.6-sol',
-      cost: 15,
+      cost: CREDIT_COST_BY_BARS[4],
       reason: 'coding-architecture',
       tier: 'premium',
     }
@@ -33,7 +35,7 @@ export function resolveAutoModel(
   if (isReasoning || wordCount > 100)
     return {
       routerModelId: 'ag/gemini-3.7-flash-high',
-      cost: 4,
+      cost: CREDIT_COST_BY_BARS[3],
       reason: 'heavy-reasoning',
       tier: 'balanced',
     }
@@ -46,7 +48,7 @@ export function resolveAutoModel(
     }
   return {
     routerModelId: 'ag/gemini-3.7-flash-high',
-    cost: 4,
+    cost: CREDIT_COST_BY_BARS[3],
     reason: 'heavy-reasoning',
     tier: 'balanced',
   }
