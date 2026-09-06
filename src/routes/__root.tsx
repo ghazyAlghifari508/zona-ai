@@ -11,6 +11,9 @@ import '../styles/app.css'
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     head: () => ({
+      links: [
+        { rel: 'icon', type: 'image/png', href: '/assets/zonaai-logo.png' },
+      ],
       meta: [
         { charSet: 'utf-8' },
         { title: 'Zona.ai — Ruang kerja AI multi-model' },

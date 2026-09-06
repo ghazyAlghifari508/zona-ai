@@ -246,9 +246,14 @@ export function Sidebar({
         >
           {!collapsed ? (
             <>
-              <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border-2 border-notion-blue bg-pure-white text-[13px] font-extrabold tracking-[-0.04em] text-notion-blue">
-                ZA
-              </span>
+              <img
+                data-testid="brand-mark"
+                src="/assets/zonaai-logo.png"
+                alt="ZonaAI"
+                width={32}
+                height={32}
+                className="h-8 w-8 shrink-0 object-contain"
+              />
               <span className="min-w-0 flex-1 flex-col">
                 <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
                   ZonaAI

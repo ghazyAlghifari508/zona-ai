@@ -37,9 +37,13 @@ function SignUp() {
       >
         {/* Brand mark */}
         <div className="flex items-center justify-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-notion-blue/20 bg-sky-tint text-[15px] font-black text-notion-blue">
-            ZA
-          </span>
+          <img
+            src="/assets/zonaai-logo.png"
+            alt="Zona.ai"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 object-contain"
+          />
           <span className="text-[20px] font-bold tracking-tight text-ink">
             Zona.ai
           </span>
