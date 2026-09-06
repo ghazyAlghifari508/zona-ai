@@ -1,7 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
-import { chatSchema, compareSchema } from '../../lib/utils/validation'
+import {
+  artifactSchema,
+  chatSchema,
+  compareSchema,
+} from '../../lib/utils/validation'
+import { generateArtifactCore } from '../core/artifacts'
 import {
   getComparisonRunsCore,
   retryGenerationCore,
@@ -10,6 +15,16 @@ import {
   stopGenerationCore,
 } from '../core/chat'
 import { generatePrdArtifactCore } from '../core/prd'
+
+export const generateArtifact = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => artifactSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return generateArtifactCore({
+      data: data as z.infer<typeof artifactSchema>,
+      request,
+    })
+  })
 
 export const generatePrdArtifact = createServerFn({ method: 'POST' })
   .validator((data: unknown) => chatSchema.parse(data))

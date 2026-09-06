@@ -11,6 +11,7 @@ import {
 import { createMultiplexStream, type StreamEvent } from '../../lib/ai/multiplex'
 import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import { getAuthSession } from '../../lib/auth/session'
+import { isArtifactSkill, skillSupportsCompare } from '../../lib/chat/skills'
 import { generateAiTitle } from '../../lib/chat/title'
 import { db } from '../../lib/db/index'
 import {
@@ -91,6 +92,14 @@ export async function sendMessageCore({
     limit: RATE_LIMIT_CHAT_PER_MINUTE,
     windowMs: RATE_LIMIT_WINDOW_MS,
   })
+
+  if (isArtifactSkill(data.skillId)) {
+    throw new AppError(
+      'Skill artifact hanya tersedia melalui pembuatan artifact.',
+      400,
+      'ERR-003',
+    )
+  }
 
   const modelEntry = getModelById(data.modelId)
   const input = data
@@ -503,9 +512,9 @@ export async function sendCompareMessageCore({
     windowMs: RATE_LIMIT_WINDOW_MS,
   })
 
-  if (data.skillId === 'prd-plan') {
+  if (!skillSupportsCompare(data.skillId)) {
     throw new AppError(
-      'Skill PRD Plan hanya tersedia untuk mode single model.',
+      'Skill ini hanya tersedia untuk mode single model.',
       400,
       'ERR-003',
     )

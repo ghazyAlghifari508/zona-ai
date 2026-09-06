@@ -50,6 +50,9 @@ export const RATE_LIMIT_SEARCH_PER_MINUTE = Number(
 export const RATE_LIMIT_PRD_PER_MINUTE = Number(
   getEnv(['RATE_LIMIT', 'PRD', 'PER', 'MINUTE'].join('_')) ?? 5,
 )
+export const RATE_LIMIT_AGENT_SKILL_PER_MINUTE = Number(
+  getEnv(['RATE_LIMIT', 'AGENT', 'SKILL', 'PER', 'MINUTE'].join('_')) ?? 5,
+)
 export const RATE_LIMIT_PAYMENT_PER_MINUTE = Number(
   getEnv(['RATE_LIMIT', 'PAYMENT', 'PER', 'MINUTE'].join('_')) ?? 5,
 )
