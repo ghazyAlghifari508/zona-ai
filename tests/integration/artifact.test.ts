@@ -44,6 +44,11 @@ vi.mock('../../src/lib/auth/session', () => ({
 
 let nextOutput = ''
 const nextUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
+let nextFinishReason: unknown = 'stop'
+
+function __setNextFinishReason(reason: unknown) {
+  nextFinishReason = reason
+}
 
 function __setNextArtifactOutput(text: string) {
   nextOutput = text
@@ -83,6 +88,7 @@ const mockStreamText = vi.fn((opts: Record<string, unknown>) => {
     stream: chatStream,
     textStream,
     usage: Promise.resolve(nextUsage),
+    finishReason: Promise.resolve(nextFinishReason),
     toUIMessageStreamResponse: (init?: { headers?: Record<string, string> }) =>
       new Response('Hello mocked response', { headers: init?.headers }),
     toTextStreamResponse: () => new Response('Hello mocked response'),
@@ -189,6 +195,7 @@ function userRequest(userId: string): Request {
 describe('artifact generation', () => {
   beforeEach(async () => {
     resetRateLimitForTest()
+    nextFinishReason = 'stop'
     for (const id of ARTIFACT_USERS) {
       await cleanUser(id)
     }
@@ -432,6 +439,82 @@ describe('artifact generation', () => {
       .where(eq(attachments.conversationId, convId))
     expect(attRows.length).toBe(1)
     expect(attRows[0].mimeType).toBe('text/markdown')
+  })
+
+  it('treats a length finish reason as an incomplete retryable failure with a readable message', async () => {
+    const USER = 'artifact-user-5'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    const creditsBefore = await getCredits(USER)
+    __setNextArtifactOutput(FRONTEND_SKILL)
+    __setNextFinishReason('length')
+    const res = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'agent-skill',
+        content: 'Buatkan skill untuk frontend design',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    const genId = res.headers.get('X-Generation-Id') as string
+    const events = await readArtifactEvents(res)
+    const errEvent = events.find((e) => e.type === 'artifact-error')
+    if (errEvent?.type !== 'artifact-error') throw new Error('missing error')
+    expect(errEvent.code).toBe('ERR-016')
+    expect(errEvent.retryable).toBe(true)
+    expect(typeof errEvent.message).toBe('string')
+    expect(errEvent.message?.length).toBeGreaterThan(0)
+    expect(errEvent.message).not.toContain('ERR-016')
+    expect(events.some((e) => e.type === 'artifact-created')).toBe(false)
+    expect(r2.putObject).not.toHaveBeenCalled()
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    expect(run.status).toBe('failed')
+    expect(await getCredits(USER)).toBe(creditsBefore)
+  })
+
+  it('carries the profile failure message on validation errors and keeps retries failing until output is valid', async () => {
+    const USER = 'artifact-user-5'
+    const { generateArtifactCore, retryArtifactGenerationCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    const creditsBefore = await getCredits(USER)
+    __setNextFinishReason('stop')
+    __setNextArtifactOutput('Just some prose, not a skill.')
+    const first = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'agent-skill',
+        content: 'Buatkan skill untuk frontend design',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    const failedGenId = first.headers.get('X-Generation-Id') as string
+    const events = await readArtifactEvents(first)
+    const errEvent = events.find((e) => e.type === 'artifact-error')
+    if (errEvent?.type !== 'artifact-error') throw new Error('missing error')
+    expect(typeof errEvent.message).toBe('string')
+    expect(errEvent.message?.length).toBeGreaterThan(0)
+
+    __setNextArtifactOutput('Still not a valid skill document.')
+    const retryRes = await retryArtifactGenerationCore({
+      generationId: failedGenId,
+      request: userRequest(USER),
+    })
+    const retryEvents = await readArtifactEvents(retryRes)
+    expect(
+      retryEvents.some((e) => e.type === 'artifact-error' && e.retryable),
+    ).toBe(true)
+    expect(
+      retryEvents.some((e) => e.type === 'artifact-created'),
+    ).toBe(false)
+    expect(await getCredits(USER)).toBe(creditsBefore)
   })
 })
 
