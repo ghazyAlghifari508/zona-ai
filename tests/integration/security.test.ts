@@ -31,6 +31,21 @@ const serverFunctionFiles = [
   ...walk(join(SRC, 'server', 'core')),
 ]
 
+// Layer-aware exemption: these server/core modules handle no request
+// boundary themselves. artifact-profiles.ts holds pure profile data,
+// history.ts is a DB helper, and prd.ts delegates to generateArtifactCore.
+// Auth is enforced at the entry cores, which the checks below still
+// require to call getAuthSession.
+const NO_REQUEST_BOUNDARY = new Set([
+  'artifact-profiles.ts',
+  'history.ts',
+  'prd.ts',
+])
+
+function baseName(f: string): string {
+  return f.split(/[\\/]/).pop() ?? f
+}
+
 describe('security audit — static checks (SECURITY.md 20 sections)', () => {
   it('no dangerouslySetInnerHTML anywhere in src/components', () => {
     const offenders = componentFiles.filter((f) =>
@@ -75,7 +90,10 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
       // RPC wrapper files (server/functions) may delegate auth to core files
       const delegatesToCore = content.includes("from '../core/")
       return (
-        hasExport && !content.includes('getAuthSession') && !delegatesToCore
+        hasExport &&
+        !content.includes('getAuthSession') &&
+        !delegatesToCore &&
+        !NO_REQUEST_BOUNDARY.has(baseName(f))
       )
     })
     expect(offenders).toEqual([])
@@ -88,9 +106,19 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
     })
     expect(coreFiles.length).toBeGreaterThan(0)
     const offenders = coreFiles.filter((f) => {
-      return !readFileSync(f, 'utf8').includes('getAuthSession')
+      return (
+        !readFileSync(f, 'utf8').includes('getAuthSession') &&
+        !NO_REQUEST_BOUNDARY.has(baseName(f))
+      )
     })
     expect(offenders).toEqual([])
+  })
+
+  it('auth-check exemptions reference existing modules only', () => {
+    const coreFiles = walk(join(SRC, 'server', 'core'))
+    for (const name of NO_REQUEST_BOUNDARY) {
+      expect(coreFiles.filter((f) => baseName(f) === name).length).toBe(1)
+    }
   })
 
   it('conversation queries verify userId ownership (where + userId)', () => {

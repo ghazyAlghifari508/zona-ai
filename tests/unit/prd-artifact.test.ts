@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ZodError } from 'zod'
 import {
   type ArtifactStreamEvent,
   encodeArtifactSseEvent,
@@ -259,7 +260,7 @@ describe('PRD stream protocol', () => {
     })
 
     it('throws for null input', () => {
-      expect(() => parseArtifactStreamEvent(null)).toThrow()
+      expect(() => parseArtifactStreamEvent(null)).toThrow(ZodError)
     })
 
     it('throws for invalid kind', () => {
@@ -270,7 +271,7 @@ describe('PRD stream protocol', () => {
           kind: 'unknown-kind',
           phase: 'preparing',
         }),
-      ).toThrow()
+      ).toThrow(ZodError)
     })
 
     it('throws for missing type', () => {
@@ -280,7 +281,7 @@ describe('PRD stream protocol', () => {
           kind: 'prd',
           phase: 'preparing',
         }),
-      ).toThrow()
+      ).toThrow(ZodError)
     })
   })
 })
