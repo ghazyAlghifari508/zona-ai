@@ -18,6 +18,7 @@ import {
   getCompareSelectionHint,
 } from '@/lib/chat/compare-selection'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
+import { skillSupportsCompare } from '@/lib/chat/skills'
 import { getDefaultModelPreference } from '@/lib/models/preference'
 import { AttachmentPreview, type PreviewAttachment } from './AttachmentPreview'
 import { ModelSelector } from './ModelSelector'
@@ -571,7 +572,7 @@ export function Composer({
                 credits={credits}
                 compareEnabled={compareEnabled}
                 onCompareEnabledChange={(enabled) => {
-                  if (enabled && skillId === 'prd-plan') {
+                  if (enabled && !skillSupportsCompare(skillId)) {
                     changeSkill('none')
                   }
                   onCompareEnabledChange?.(enabled)

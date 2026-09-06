@@ -13,37 +13,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  getSkillDefinition,
+  SKILL_IDS,
+  skillSupportsCompare,
+} from '@/lib/chat/skills'
 
-export const SKILLS = [
-  {
-    id: 'none',
-    label: 'Tanpa skill',
-    icon: Message01Icon,
-    desc: 'Jawaban natural',
-    example: 'Tanyakan apa saja ke Zona.ai...',
-  },
-  {
-    id: 'checklist',
-    label: 'Checklist',
-    icon: CheckListIcon,
-    desc: 'Checklist terstruktur',
-    example: 'Buatkan checklist untuk ',
-  },
-  {
-    id: 'prd-plan',
-    label: 'PRD Plan',
-    icon: File01Icon,
-    desc: 'Objective → DoD',
-    example: 'Buatkan PRD untuk ',
-  },
-  {
-    id: 'agent-skill',
-    label: 'Agent Skill',
-    icon: SourceCodeIcon,
-    desc: 'SKILL.md modular',
-    example: 'Buatkan SKILL.md untuk ',
-  },
-] as const
+const SKILL_ICONS = {
+  none: Message01Icon,
+  checklist: CheckListIcon,
+  'prd-plan': File01Icon,
+  'agent-skill': SourceCodeIcon,
+} as const
+
+export const SKILLS = SKILL_IDS.map((id) => {
+  const def = getSkillDefinition(id)
+  return { ...def, icon: SKILL_ICONS[def.id] }
+})
 
 type Props = {
   value: string
@@ -92,25 +78,25 @@ export function SkillSelector({ value, onChange, compareEnabled }: Props) {
         <div className="space-y-1">
           {SKILLS.map((s) => {
             const isActive = value === s.id
-            const isPrdBlocked = s.id === 'prd-plan' && compareEnabled
+            const isBlocked = !skillSupportsCompare(s.id) && compareEnabled
             return (
               <button
                 key={s.id}
                 type="button"
                 data-testid={`skill-option-${s.id}`}
-                disabled={isPrdBlocked}
+                disabled={isBlocked}
                 onClick={() => {
-                  if (isPrdBlocked) return
+                  if (isBlocked) return
                   onChange(s.id)
                   setOpen(false)
                 }}
                 title={
-                  isPrdBlocked
-                    ? 'PRD Plan hanya tersedia untuk mode single model'
+                  isBlocked
+                    ? 'Hanya tersedia untuk mode single model'
                     : undefined
                 }
                 className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-200 ${
-                  isPrdBlocked
+                  isBlocked
                     ? 'cursor-not-allowed opacity-40'
                     : isActive
                       ? 'bg-paper'
@@ -128,17 +114,17 @@ export function SkillSelector({ value, onChange, compareEnabled }: Props) {
                     <span className="text-[14px] font-bold tracking-[-0.015em] text-ink">
                       {s.label}
                     </span>
-                    {isPrdBlocked && (
+                    {isBlocked && (
                       <span className="rounded bg-paper px-1.5 py-0.2 font-mono text-[9px] font-medium uppercase text-stone">
                         Single Only
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-stone">
-                    {isPrdBlocked ? 'Tidak tersedia di Compare Mode' : s.desc}
+                    {isBlocked ? 'Tidak tersedia di Compare Mode' : s.desc}
                   </div>
                 </div>
-                {isActive && !isPrdBlocked && (
+                {isActive && !isBlocked && (
                   <HugeiconsIcon
                     icon={Tick01Icon}
                     size={16}

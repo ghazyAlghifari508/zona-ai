@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { SKILL_IDS } from './skills'
 
 export const DEFAULT_SKILL_PREFERENCE_KEY = 'zona-ai:default-skill'
 export const SKILL_PREFERENCE_KEY = DEFAULT_SKILL_PREFERENCE_KEY
@@ -9,6 +10,13 @@ let currentSkillPreference = DEFAULT_SKILL_ID
 let initialized = false
 const listeners = new Set<() => void>()
 
+function normalizeSkillId(raw: string): string {
+  const trimmed = raw.trim()
+  return (SKILL_IDS as readonly string[]).includes(trimmed)
+    ? trimmed
+    : DEFAULT_SKILL_ID
+}
+
 function initPreference(): void {
   if (initialized || typeof window === 'undefined') return
   try {
@@ -16,10 +24,7 @@ function initPreference(): void {
       localStorage.getItem(DEFAULT_SKILL_PREFERENCE_KEY) ||
       localStorage.getItem('zona-ai:selected-skill')
     if (saved && typeof saved === 'string') {
-      const trimmed = saved.trim()
-      if (trimmed) {
-        currentSkillPreference = trimmed
-      }
+      currentSkillPreference = normalizeSkillId(saved)
     }
   } catch {}
   initialized = true
@@ -31,7 +36,7 @@ export function getDefaultSkillPreference(): string {
 }
 
 export function setDefaultSkillPreference(skillId: string): void {
-  const normalized = skillId.trim() || DEFAULT_SKILL_ID
+  const normalized = normalizeSkillId(skillId) || DEFAULT_SKILL_ID
   currentSkillPreference = normalized
   if (typeof window !== 'undefined') {
     try {

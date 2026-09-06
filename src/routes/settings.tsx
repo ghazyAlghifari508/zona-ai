@@ -20,6 +20,7 @@ import {
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { authClient } from '@/lib/auth/auth-client'
 import { useDefaultSkill } from '@/lib/chat/skill-preference'
+import { getSkillDefinition, SKILL_IDS } from '@/lib/chat/skills'
 import { useDefaultModel } from '@/lib/models/preference'
 import { deleteAllConversations } from '@/server/functions/conversations'
 import { getCreditBalanceFn } from '@/server/functions/credits'
@@ -322,14 +323,14 @@ function SettingsPage() {
                 onChange={(e) => setDefaultSkill(e.target.value)}
                 className="w-full rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink focus:border-notion-blue focus:outline-none"
               >
-                <option value="none">Standar (Percakapan Bebas)</option>
-                <option value="checklist">Checklist (To-do Interaktif)</option>
-                <option value="prd-plan">
-                  PRD Plan (Product Requirements)
-                </option>
-                <option value="agent-skill">
-                  Agent Skill (Format SKILL.md)
-                </option>
+                {SKILL_IDS.map((id) => {
+                  const def = getSkillDefinition(id)
+                  return (
+                    <option key={def.id} value={def.id}>
+                      {def.label}
+                    </option>
+                  )
+                })}
               </select>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SKILL_IDS } from '../chat/skills'
 import {
   COMPARE_MAX_MODELS,
   COMPARE_MIN_MODELS,
@@ -7,12 +8,16 @@ import {
   CONVERSATIONS_PAGE_SIZE,
 } from './constants'
 
+export const skillIdSchema = z.enum(SKILL_IDS)
+
+// Literal tuple mirrors ARTIFACT_SKILL_IDS; the registry test above pins the
+// two lists together so they cannot drift silently.
+export const artifactSkillIdSchema = z.enum(['prd-plan', 'agent-skill'])
+
 export const chatSchema = z.object({
   conversationId: z.string().uuid().optional(),
   modelId: z.string().min(1),
-  skillId: z
-    .enum(['none', 'checklist', 'prd-plan', 'agent-skill'])
-    .default('none'),
+  skillId: skillIdSchema.default('none'),
   content: z.string().min(1).max(20000),
   attachmentIds: z.array(z.string().uuid()).optional(),
   enableWebSearch: z.boolean().optional().default(false),
@@ -54,9 +59,7 @@ export const compareSchema = z
       .array(z.string().min(1))
       .min(COMPARE_MIN_MODELS)
       .max(COMPARE_MAX_MODELS),
-    skillId: z
-      .enum(['none', 'checklist', 'prd-plan', 'agent-skill'])
-      .default('none'),
+    skillId: skillIdSchema.default('none'),
     content: z.string().min(1).max(20000),
     attachmentIds: z.array(z.string().uuid()).optional(),
     enableWebSearch: z.boolean().optional().default(false),
@@ -71,3 +74,14 @@ export const compareSchema = z
   })
 
 export type CompareInput = z.infer<typeof compareSchema>
+
+export const artifactSchema = z.object({
+  conversationId: z.string().uuid().optional(),
+  modelId: z.string().min(1),
+  skillId: artifactSkillIdSchema,
+  content: z.string().min(1).max(20000),
+  attachmentIds: z.array(z.string().uuid()).optional(),
+  enableWebSearch: z.boolean().optional().default(false),
+})
+
+export type ArtifactInput = z.infer<typeof artifactSchema>

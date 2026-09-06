@@ -9,7 +9,9 @@ describe('SkillSelector Compare Guard', () => {
 
   it('allows selecting prd-plan when compare mode is disabled', () => {
     const onChange = vi.fn()
-    render(<SkillSelector value="none" onChange={onChange} compareEnabled={false} />)
+    render(
+      <SkillSelector value="none" onChange={onChange} compareEnabled={false} />,
+    )
 
     const trigger = screen.getByTestId('skill-selector-trigger')
     fireEvent.click(trigger)
@@ -22,7 +24,9 @@ describe('SkillSelector Compare Guard', () => {
 
   it('blocks prd-plan when compare mode is enabled', () => {
     const onChange = vi.fn()
-    render(<SkillSelector value="none" onChange={onChange} compareEnabled={true} />)
+    render(
+      <SkillSelector value="none" onChange={onChange} compareEnabled={true} />,
+    )
 
     const trigger = screen.getByTestId('skill-selector-trigger')
     fireEvent.click(trigger)
@@ -33,6 +37,19 @@ describe('SkillSelector Compare Guard', () => {
     expect(prdOption.textContent).toContain('Tidak tersedia di Compare Mode')
 
     fireEvent.click(prdOption)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('blocks agent-skill when compare mode is enabled', () => {
+    const onChange = vi.fn()
+    render(
+      <SkillSelector value="none" onChange={onChange} compareEnabled={true} />,
+    )
+    const trigger = screen.getByTestId('skill-selector-trigger')
+    fireEvent.click(trigger)
+    const skillOption = screen.getByTestId('skill-option-agent-skill')
+    expect(skillOption.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(skillOption)
     expect(onChange).not.toHaveBeenCalled()
   })
 })
