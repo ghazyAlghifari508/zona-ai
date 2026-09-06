@@ -391,7 +391,7 @@ export function Sidebar({
                       ),
                     ),
                   )
-                  const visibleModelIds = uniqueModelIds.slice(0, 4)
+                  const visibleModelIds = uniqueModelIds.slice(0, 3)
 
                   return (
                     <div
@@ -428,33 +428,38 @@ export function Sidebar({
                             else
                               window.location.assign(`/chat/${conversation.id}`)
                           }}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-1.5 text-left"
+                          className="grid min-w-0 flex-1 grid-cols-[38px_minmax(0,1fr)] items-center gap-2.5 px-2.5 py-1.5 text-left"
                         >
-                          {visibleModelIds.length > 0 && (
-                            <div
-                              data-testid={`conversation-model-icons-${conversation.id}`}
-                              className="flex shrink-0 items-center -space-x-1.5"
-                            >
-                              {visibleModelIds.map((modelId, index) => {
-                                const { provider, displayName } =
-                                  getModelDisplayInfo(catalog, modelId)
-                                return (
-                                  <span
-                                    key={modelId}
-                                    data-testid={`conversation-model-icon-${modelId}`}
-                                    title={displayName}
-                                    style={{ zIndex: index + 1 }}
-                                    className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-pure-white bg-paper text-ink ring-1 ring-hairline"
-                                  >
-                                    <ProviderIcon
-                                      provider={provider}
-                                      size={11}
-                                    />
-                                  </span>
-                                )
-                              })}
-                            </div>
-                          )}
+                          <div
+                            data-testid={`conversation-slot-${conversation.id}`}
+                            className="flex h-[18px] w-[38px] shrink-0 items-center"
+                          >
+                            {visibleModelIds.length > 0 && (
+                              <div
+                                data-testid={`conversation-model-icons-${conversation.id}`}
+                                className="flex shrink-0 items-center -space-x-2"
+                              >
+                                {visibleModelIds.map((modelId, index) => {
+                                  const { provider, displayName } =
+                                    getModelDisplayInfo(catalog, modelId)
+                                  return (
+                                    <span
+                                      key={modelId}
+                                      data-testid={`conversation-model-icon-${modelId}`}
+                                      title={displayName}
+                                      style={{ zIndex: index + 1 }}
+                                      className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-pure-white bg-paper text-ink ring-1 ring-hairline"
+                                    >
+                                      <ProviderIcon
+                                        provider={provider}
+                                        size={11}
+                                      />
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                           <div className="flex min-w-0 flex-1 flex-col items-start">
                             <span className="w-full truncate text-[13px] font-medium leading-[1.3] text-ink/80 group-hover:text-ink">
                               {conversation.title ?? 'New Chat'}

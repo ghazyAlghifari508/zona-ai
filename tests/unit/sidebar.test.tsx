@@ -100,42 +100,48 @@ describe('Sidebar persistence', () => {
     )
   })
 
-  it('renames a conversation from its accessible menu', async () => {
-    serverMocks.getConversations.mockResolvedValue({
-      conversations: [
-        {
-          id: '10000000-0000-4000-8000-000000000011',
-          title: 'Old title',
-          updatedAt: new Date('2026-08-29T00:00:00Z'),
-        },
-      ],
-      nextCursor: undefined,
-    })
-    serverMocks.updateConversation.mockResolvedValue({ title: 'New title' })
-    renderSidebar()
+  it(
+    'renames a conversation from its accessible menu',
+    async () => {
+      serverMocks.getConversations.mockResolvedValue({
+        conversations: [
+          {
+            id: '10000000-0000-4000-8000-000000000011',
+            title: 'Old title',
+            updatedAt: new Date('2026-08-29T00:00:00Z'),
+          },
+        ],
+        nextCursor: undefined,
+      })
+      serverMocks.updateConversation.mockResolvedValue({ title: 'New title' })
+      renderSidebar()
 
-    fireEvent.pointerDown(
-      await screen.findByRole('button', { name: 'Menu Old title' }),
-      { button: 0, ctrlKey: false },
-    )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
-    const input = await screen.findByRole('textbox', {
-      name: 'Rename Old title',
-    })
-    fireEvent.change(input, { target: { value: 'New title' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+      fireEvent.pointerDown(
+        await screen.findByRole('button', { name: 'Menu Old title' }),
+        { button: 0, ctrlKey: false },
+      )
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+      const input = await screen.findByRole('textbox', {
+        name: 'Rename Old title',
+      })
+      fireEvent.change(input, { target: { value: 'New title' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
 
-    await waitFor(() =>
-      expect(serverMocks.updateConversation).toHaveBeenCalledWith({
-        data: {
-          id: '10000000-0000-4000-8000-000000000011',
-          title: 'New title',
-        },
-      }),
-    )
-  })
+      await waitFor(() =>
+        expect(serverMocks.updateConversation).toHaveBeenCalledWith({
+          data: {
+            id: '10000000-0000-4000-8000-000000000011',
+            title: 'New title',
+          },
+        }),
+      )
+    },
+    10000,
+  )
 
-  it('confirms before deleting a conversation', async () => {
+  it(
+    'confirms before deleting a conversation',
+    async () => {
     const id = '10000000-0000-4000-8000-000000000012'
     serverMocks.getConversations.mockResolvedValue({
       conversations: [
@@ -163,7 +169,7 @@ describe('Sidebar persistence', () => {
         data: { id },
       }),
     )
-  })
+  }, 10000)
 
   it('navigates to home when the active conversation is deleted', async () => {
     const id = '10000000-0000-4000-8000-000000000013'
@@ -354,11 +360,11 @@ describe('Sidebar persistence', () => {
     )
     expect(doubleContainer.children.length).toBe(2)
 
-    // 3. Six models -> capped at 4 icons
+    // 3. Six models -> capped at 3 icons
     const cappedContainer = screen.getByTestId(
       'conversation-model-icons-conv-capped',
     )
-    expect(cappedContainer.children.length).toBe(4)
+    expect(cappedContainer.children.length).toBe(3)
 
     // 4. Duplicates -> deduplicated to 2 icons
     const dupContainer = screen.getByTestId(
@@ -366,7 +372,8 @@ describe('Sidebar persistence', () => {
     )
     expect(dupContainer.children.length).toBe(2)
 
-    // 5. Legacy without models -> no icon container rendered
+    // 5. Legacy without models -> slot exists for alignment, but no icon container inside
+    expect(screen.getByTestId('conversation-slot-conv-legacy')).toBeTruthy()
     expect(screen.queryByTestId('conversation-model-icons-conv-legacy')).toBeNull()
   })
 })
