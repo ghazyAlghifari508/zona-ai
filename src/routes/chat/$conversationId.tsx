@@ -10,7 +10,10 @@ import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { createArtifactSseParser } from '@/lib/ai/artifact-stream'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
-import { COMPARE_MAX_WIDTH_CLASS } from '@/lib/chat/compare-card-width'
+import {
+  COMPARE_GUTTER_CLASS,
+  COMPARE_MAX_WIDTH_CLASS,
+} from '@/lib/chat/compare-card-width'
 import { isCompareSelectionValid } from '@/lib/chat/compare-selection'
 import { resolveConversationModelId } from '@/lib/chat/conversation-model'
 import {
@@ -1360,7 +1363,7 @@ function ChatThread() {
         >
           <header
             className={`sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white transition-[padding] duration-200 ${
-              hasUsedCompareMode ? 'px-3 sm:px-4 lg:px-5' : 'px-4 lg:px-6'
+              hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
             }`}
           >
             <div
@@ -1393,7 +1396,7 @@ function ChatThread() {
         <div
           data-testid="chat-composer-container"
           className={`pointer-events-none absolute bottom-0 left-0 right-0 z-20 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 transition-[padding] duration-200 ${
-            hasUsedCompareMode ? 'px-3 sm:px-4 lg:px-5' : 'px-4 lg:px-6'
+            hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
           }`}
         >
           <div

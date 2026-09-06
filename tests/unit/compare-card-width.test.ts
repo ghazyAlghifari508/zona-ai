@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   COMPARE_CONTAINER_CLASS,
   COMPARE_GRID_CLASS,
+  COMPARE_GUTTER_CLASS,
   COMPARE_MAX_WIDTH_CLASS,
   getCompareGridClasses,
 } from '../../src/lib/chat/compare-card-width'
 
 describe('compare grid layout constants & sizing', () => {
-  it('defines stable wide max-width container (1480px)', () => {
-    expect(COMPARE_MAX_WIDTH_CLASS).toBe('max-w-[1480px]')
+  it('defines stable wide max-width container (1400px) and responsive 24-32px gutter', () => {
+    expect(COMPARE_MAX_WIDTH_CLASS).toBe('max-w-[1400px]')
+    expect(COMPARE_GUTTER_CLASS).toBe('px-4 sm:px-6 lg:px-8')
     expect(COMPARE_CONTAINER_CLASS).toContain(COMPARE_MAX_WIDTH_CLASS)
     expect(COMPARE_CONTAINER_CLASS).toContain('mx-auto')
     expect(COMPARE_CONTAINER_CLASS).toContain('w-full')

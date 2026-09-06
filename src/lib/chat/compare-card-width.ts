@@ -5,7 +5,8 @@
  * and 1-column on mobile. Consistent width across all models.
  */
 
-export const COMPARE_MAX_WIDTH_CLASS = 'max-w-[1480px]'
+export const COMPARE_MAX_WIDTH_CLASS = 'max-w-[1400px]'
+export const COMPARE_GUTTER_CLASS = 'px-4 sm:px-6 lg:px-8'
 export const COMPARE_CONTAINER_CLASS = `mx-auto w-full ${COMPARE_MAX_WIDTH_CLASS}`
 export const COMPARE_GRID_CLASS =
   'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-stretch'

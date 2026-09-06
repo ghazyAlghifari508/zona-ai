@@ -400,8 +400,9 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     const innerCompare = containerCompare.querySelector(
       '[data-testid="message-list"] > div',
     )
-    expect(innerCompare?.className).toContain('max-w-[1480px]')
-    expect(innerCompare?.className).toContain('px-3')
-    expect(innerCompare?.className).toContain('lg:px-5')
+    expect(innerCompare?.className).toContain('max-w-[1400px]')
+    expect(innerCompare?.className).toContain('px-4')
+    expect(innerCompare?.className).toContain('sm:px-6')
+    expect(innerCompare?.className).toContain('lg:px-8')
   })
 })
