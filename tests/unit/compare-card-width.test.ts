@@ -1,6 +1,7 @@
-﻿import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   extractPlainContent,
+  getCompareGridClasses,
   shouldExpandCompareCard,
   OLD_COMPARE_CARD_WIDTH,
   CURRENT_WIDE_COMPARE_CARD_WIDTH,
@@ -52,13 +53,12 @@ describe('compare card width heuristics', () => {
     expect(shouldExpandCompareCard(longText)).toBe(true)
   })
 
-  it('expands for substantive multi-line content (>= 6 lines)', () => {
+  it('expands for substantive multi-line content (>= 5 lines)', () => {
     const multiLine = `Langkah 1: Inisialisasi proyek
 Langkah 2: Konfigurasi basis data
 Langkah 3: Tulis skema Drizzle
 Langkah 4: Jalankan migrasi
-Langkah 5: Siapkan server functions
-Langkah 6: Uji endpoint dengan Vitest`
+Langkah 5: Siapkan server functions`
     expect(shouldExpandCompareCard(multiLine)).toBe(true)
   })
 
@@ -79,3 +79,48 @@ Langkah 6: Uji endpoint dengan Vitest`
     expect(plain).toContain('tautan')
   })
 })
+
+describe('getCompareGridClasses', () => {
+  it('returns compact 860px container with 2 equal columns when both models are compact', () => {
+    const generations = [
+      { id: 'g1', content: '42' },
+      { id: 'g2', content: 'Jakarta' },
+    ]
+    const sizing = getCompareGridClasses(generations, new Set())
+    expect(sizing.containerClass).toContain('max-w-[860px]')
+    expect(sizing.gridClass).toContain('md:grid-cols-2')
+  })
+
+  it('returns expanded 1360px container with 2 equal columns when both models are expanded', () => {
+    const long1 = 'A'.repeat(200)
+    const long2 = 'B'.repeat(200)
+    const generations = [
+      { id: 'g1', content: long1 },
+      { id: 'g2', content: long2 },
+    ]
+    const sizing = getCompareGridClasses(generations, new Set())
+    expect(sizing.containerClass).toContain('max-w-[1360px]')
+    expect(sizing.gridClass).toContain('md:grid-cols-2')
+  })
+
+  it('returns asymmetric 2-column grid when model 0 is compact and model 1 is expanded', () => {
+    const generations = [
+      { id: 'g1', content: '42' },
+      { id: 'g2', content: 'Long detailed explanation '.repeat(10) },
+    ]
+    const sizing = getCompareGridClasses(generations, new Set())
+    expect(sizing.containerClass).toContain('max-w-[1360px]')
+    expect(sizing.gridClass).toContain('md:grid-cols-[minmax(0,400px)_minmax(0,1fr)]')
+  })
+
+  it('returns asymmetric 2-column grid when model 0 is expanded and model 1 is compact', () => {
+    const generations = [
+      { id: 'g1', content: 'Long detailed explanation '.repeat(10) },
+      { id: 'g2', content: '42' },
+    ]
+    const sizing = getCompareGridClasses(generations, new Set())
+    expect(sizing.containerClass).toContain('max-w-[1360px]')
+    expect(sizing.gridClass).toContain('md:grid-cols-[minmax(0,1fr)_minmax(0,400px)]')
+  })
+})
+

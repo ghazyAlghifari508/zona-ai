@@ -104,11 +104,7 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
     <div
       data-testid="model-column"
       data-width-variant={isExpanded ? 'expanded' : 'compact'}
-      className={`flex h-[520px] sm:h-[560px] min-w-0 max-w-full flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white transition-[width,max-width] duration-200 w-full ${
-        isExpanded
-          ? 'md:w-[650px] md:max-w-[650px]'
-          : 'md:w-[400px] md:max-w-[400px]'
-      }`}
+      className="flex h-[520px] sm:h-[560px] min-w-0 max-w-full w-full flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white transition-[width,max-width] duration-200"
     >
       <div
         data-testid="model-column-header"

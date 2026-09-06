@@ -67,3 +67,68 @@ export function shouldExpandCompareCard(
 
   return false
 }
+
+export type CompareGridSizing = {
+  containerClass: string
+  gridClass: string
+}
+
+/**
+ * Calculates responsive CSS Grid and container classes based on model variants.
+ * Guarantees that 2 models on desktop remain strictly horizontal / side-by-side:
+ * - 2 compact: max-w-[860px] with md:grid-cols-2 (~400px each)
+ * - 2 expanded: max-w-[1360px] with md:grid-cols-2 (50% each)
+ * - 1 compact, 1 expanded: max-w-[1360px] with asymmetric 2-column grid
+ */
+export function getCompareGridClasses(
+  generations: Array<{ id: string; content?: string | null }>,
+  expandedIds: Set<string>,
+): CompareGridSizing {
+  if (generations.length === 2) {
+    const is0 =
+      expandedIds.has(generations[0].id) ||
+      shouldExpandCompareCard(generations[0].content)
+    const is1 =
+      expandedIds.has(generations[1].id) ||
+      shouldExpandCompareCard(generations[1].content)
+
+    if (!is0 && !is1) {
+      return {
+        containerClass: 'mx-auto w-full max-w-[860px]',
+        gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5',
+      }
+    }
+
+    if (is0 && is1) {
+      return {
+        containerClass: 'mx-auto w-full max-w-[1360px]',
+        gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5',
+      }
+    }
+
+    if (!is0 && is1) {
+      return {
+        containerClass: 'mx-auto w-full max-w-[1360px]',
+        gridClass:
+          'grid grid-cols-1 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-4 md:gap-5',
+      }
+    }
+
+    return {
+      containerClass: 'mx-auto w-full max-w-[1360px]',
+      gridClass:
+        'grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 md:gap-5',
+    }
+  }
+
+  const hasAnyExpanded = generations.some(
+    (g) => expandedIds.has(g.id) || shouldExpandCompareCard(g.content),
+  )
+
+  return {
+    containerClass: hasAnyExpanded
+      ? 'mx-auto w-full max-w-[1360px]'
+      : 'mx-auto w-full max-w-[860px]',
+    gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5',
+  }
+}
