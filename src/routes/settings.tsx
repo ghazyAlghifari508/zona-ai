@@ -1,4 +1,4 @@
-﻿import {
+import {
   CheckmarkCircle02Icon,
   Delete02Icon,
   Logout01Icon,
@@ -27,16 +27,22 @@ import { getCreditBalanceFn } from '@/server/functions/credits'
 import { getCurrentSession } from '@/server/functions/session'
 
 export const Route = createFileRoute('/settings')({
+  staleTime: 60_000,
   beforeLoad: async () => {
     try {
-      await getCurrentSession()
+      const session = await getCurrentSession()
+      return { session }
     } catch {
       throw redirect({ to: '/auth/sign-in' })
     }
   },
-  loader: async () => {
+  loader: async ({
+    context,
+  }: {
+    context?: { session?: Awaited<ReturnType<typeof getCurrentSession>> }
+  }) => {
     const [session, credit] = await Promise.all([
-      getCurrentSession(),
+      context?.session ? Promise.resolve(context.session) : getCurrentSession(),
       getCreditBalanceFn(),
     ])
     return {
@@ -133,7 +139,10 @@ function SettingsPage() {
       )}
 
       {/* Section 1: Akun */}
-      <section className="mb-10" aria-labelledby="heading-akun">
+      <section
+        className="settings-section-contain mb-10"
+        aria-labelledby="heading-akun"
+      >
         <h2
           id="heading-akun"
           className="mb-4 border-b border-hairline pb-2 text-[16px] font-semibold text-ink"
@@ -271,7 +280,10 @@ function SettingsPage() {
       </section>
 
       {/* Section 2: Preferensi */}
-      <section className="mb-10" aria-labelledby="heading-preferensi">
+      <section
+        className="settings-section-contain mb-10"
+        aria-labelledby="heading-preferensi"
+      >
         <h2
           id="heading-preferensi"
           className="mb-4 border-b border-hairline pb-2 text-[16px] font-semibold text-ink"
@@ -338,7 +350,10 @@ function SettingsPage() {
       </section>
 
       {/* Section 3: Data & Privasi */}
-      <section className="mb-10" aria-labelledby="heading-data-privasi">
+      <section
+        className="settings-section-contain mb-10"
+        aria-labelledby="heading-data-privasi"
+      >
         <h2
           id="heading-data-privasi"
           className="mb-4 border-b border-hairline pb-2 text-[16px] font-semibold text-ink"

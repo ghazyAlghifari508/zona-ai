@@ -131,13 +131,19 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
     }
   })
 
-  it('MessageList sanitizes markdown via rehype-sanitize', () => {
-    const content = readFileSync(
+  it('MarkdownContent sanitizes markdown via rehype-sanitize', () => {
+    const markdownContent = readFileSync(
+      join(SRC, 'components', 'chat', 'MarkdownContent.tsx'),
+      'utf8',
+    )
+    expect(markdownContent).toContain('rehypeSanitize')
+    expect(markdownContent).toMatch(/rehypePlugins=\{[\w_]+\}/)
+
+    const messageList = readFileSync(
       join(SRC, 'components', 'chat', 'MessageList.tsx'),
       'utf8',
     )
-    expect(content).toContain('rehypeSanitize')
-    expect(content).toMatch(/rehypePlugins=\{\[\s*rehypeSanitize/)
+    expect(messageList).toContain('MarkdownContent')
   })
 
   it('no eval usage in src', () => {

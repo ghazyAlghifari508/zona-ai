@@ -2,15 +2,13 @@ import { ReloadIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
+  memo,
   type RefObject,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
-import rehypeSanitize from 'rehype-sanitize'
 import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
@@ -23,18 +21,14 @@ import {
   COMPARE_MAX_WIDTH_CLASS,
 } from '@/lib/chat/compare-card-width'
 import type { ArtifactKind } from '@/lib/chat/skills'
-import {
-  chatHighlightOptions,
-  extractRawText,
-} from '@/lib/chat/syntax-highlight'
 import { getModelProviderName } from '@/lib/models/filter'
 import { ArtifactProgress } from './ArtifactProgress'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
-import { CodeBlock } from './CodeBlock'
 import { CompareGrid } from './CompareGrid'
 import { CopyButton } from './CopyButton'
 import { FileCard } from './FileCard'
 import { InlineError } from './InlineError'
+import { MarkdownContent } from './MarkdownContent'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
@@ -251,7 +245,7 @@ export function MessageList({
   )
 }
 
-function MessageItem({
+const MessageItem = memo(function MessageItem({
   message,
   catalog,
   onRetryGeneration,
@@ -269,7 +263,7 @@ function MessageItem({
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
     return (
-      <div className="flex w-full justify-end py-3">
+      <div className="message-row-contain flex w-full justify-end py-3">
         <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-accent px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-white shadow-sm shadow-black/10 whitespace-pre-wrap [overflow-wrap:anywhere]">
           {message.content}
         </div>
@@ -279,7 +273,7 @@ function MessageItem({
 
   if (message.compareGenerations && message.compareGenerations.length > 0) {
     return (
-      <div className="mx-auto w-full py-5">
+      <div className="message-row-contain mx-auto w-full py-5">
         <CompareGrid
           comparisonRun={null}
           generations={message.compareGenerations}
@@ -312,7 +306,7 @@ function MessageItem({
     }
 
     return (
-      <div className="mx-auto w-full py-5">
+      <div className="message-row-contain mx-auto w-full py-5">
         <CompareGrid
           comparisonRun={null}
           generations={[singleGen]}
@@ -331,7 +325,7 @@ function MessageItem({
     Boolean(message.streaming) && !hasVisibleContent && !message.artifactStatus
 
   return (
-    <div className="w-full py-5">
+    <div className="message-row-contain w-full py-5">
       <div className="min-w-0">
         <div className="mb-2 flex items-center gap-2.5">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
@@ -392,38 +386,7 @@ function MessageItem({
                 content={message.content}
                 isStreaming={Boolean(message.streaming)}
                 storageKey={`msg:${message.id}`}
-                renderMarkdown={(text) => (
-                  <div className="chat-prose max-w-none text-[15px] leading-[1.7] text-ink [overflow-wrap:anywhere]">
-                    <ReactMarkdown
-                      rehypePlugins={[
-                        rehypeSanitize,
-                        [rehypeHighlight, chatHighlightOptions],
-                      ]}
-                      components={{
-                        code: ({ children, className }) => {
-                          const isBlock =
-                            Boolean(className) ||
-                            extractRawText(children).includes('\n')
-                          if (isBlock) {
-                            return (
-                              <CodeBlock className={className}>
-                                {children}
-                              </CodeBlock>
-                            )
-                          }
-                          return (
-                            <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
-                              {children}
-                            </code>
-                          )
-                        },
-                        pre: ({ children }) => <>{children}</>,
-                      }}
-                    >
-                      {text}
-                    </ReactMarkdown>
-                  </div>
-                )}
+                renderMarkdown={(text) => <MarkdownContent text={text} />}
               />
             )}
           {message.artifact && <FileCard artifact={message.artifact} />}
@@ -459,4 +422,4 @@ function MessageItem({
       </div>
     </div>
   )
-}
+})

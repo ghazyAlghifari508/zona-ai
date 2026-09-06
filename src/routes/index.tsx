@@ -90,6 +90,7 @@ Tolong review ide ini dari perspektif Product & VC:
 ] as const
 
 export const Route = createFileRoute('/')({
+  staleTime: 60_000,
   loader: async () => {
     const session = await getOptionalSession()
     const creditBalance = session?.user

@@ -1,24 +1,18 @@
 import { ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
-import rehypeSanitize from 'rehype-sanitize'
+import { memo } from 'react'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
 } from '@/lib/chat/checklist'
-import {
-  chatHighlightOptions,
-  extractRawText,
-} from '@/lib/chat/syntax-highlight'
 import { getModelProviderName } from '@/lib/models/filter'
 import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
-import { CodeBlock } from './CodeBlock'
 import { CopyButton } from './CopyButton'
 import { InlineError } from './InlineError'
+import { MarkdownContent } from './MarkdownContent'
 import { ReasoningSection } from './ReasoningSection'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
@@ -45,7 +39,12 @@ type Props = {
   onCopy?: (content: string) => void
 }
 
-export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
+export const ModelColumn = memo(function ModelColumn({
+  generation,
+  onRetry,
+  onStop,
+  onCopy,
+}: Props) {
   const catalog = useModelCatalog()
   const entry = findCatalogEntry(catalog, generation.modelId)
   const providerName = getModelProviderName(entry, generation.modelId)
@@ -183,35 +182,12 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
               isStreaming={generation.status === 'streaming'}
               storageKey={`gen:${generation.id}`}
               renderMarkdown={(text) => (
-                <div className="chat-prose max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink">
+                <div className="min-w-0">
                   {text ? (
-                    <ReactMarkdown
-                      rehypePlugins={[
-                        rehypeSanitize,
-                        [rehypeHighlight, chatHighlightOptions],
-                      ]}
-                      components={{
-                        code: ({ children, className }) => {
-                          const isBlock =
-                            Boolean(className) ||
-                            extractRawText(children).includes('\n')
-                          if (isBlock)
-                            return (
-                              <CodeBlock className={className}>
-                                {children}
-                              </CodeBlock>
-                            )
-                          return (
-                            <code className="rounded bg-paper px-1 py-0.5 text-[14px]">
-                              {children}
-                            </code>
-                          )
-                        },
-                        pre: ({ children }) => <>{children}</>,
-                      }}
-                    >
-                      {text}
-                    </ReactMarkdown>
+                    <MarkdownContent
+                      text={text}
+                      className="chat-prose max-w-none min-w-0 text-[15px] leading-relaxed [overflow-wrap:anywhere] text-ink"
+                    />
                   ) : null}
                   {isWaiting && <TypingDots />}
                 </div>
@@ -225,4 +201,4 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
       </div>
     </div>
   )
-}
+})

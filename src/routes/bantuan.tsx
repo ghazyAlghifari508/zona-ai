@@ -5,6 +5,7 @@ import { authClient } from '@/lib/auth/auth-client'
 import { getOptionalSession } from '@/server/functions/session'
 
 export const Route = createFileRoute('/bantuan')({
+  staleTime: 60_000,
   loader: async () => {
     const session = await getOptionalSession()
     return { session }

@@ -50,18 +50,27 @@ import { getCurrentSession } from '@/server/functions/session'
 export const Route = createFileRoute('/chat/$conversationId')({
   beforeLoad: async () => {
     try {
-      await getCurrentSession()
+      const session = await getCurrentSession()
+      return { session }
     } catch {
       throw redirect({ to: '/auth/sign-in' })
     }
   },
-  loader: async ({ params }) => {
+  loader: async ({
+    params,
+    context,
+  }: {
+    params: { conversationId: string }
+    context?: { session?: Awaited<ReturnType<typeof getCurrentSession>> }
+  }) => {
     const [conversation, persistedMessages, credit, session] =
       await Promise.all([
         getConversation({ data: { id: params.conversationId } }),
         getMessages({ data: { conversationId: params.conversationId } }),
         getCreditBalanceFn(),
-        getCurrentSession(),
+        context?.session
+          ? Promise.resolve(context.session)
+          : getCurrentSession(),
       ])
     return {
       conversation,

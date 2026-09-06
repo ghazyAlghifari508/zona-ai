@@ -6,6 +6,7 @@ import { getPricingSummaryFn } from '@/server/functions/payments'
 import { getOptionalSession } from '@/server/functions/session'
 
 export const Route = createFileRoute('/pricing')({
+  staleTime: 60_000,
   loader: async () => {
     const session = await getOptionalSession()
     if (!session) return { session: null, summary: null }
