@@ -53,10 +53,10 @@ Write the minimal production code that makes the failing test pass. Resist the u
 Clean up duplication with both test suites green. Each refactor step stays verifiable.
 
 ## Test Boundaries
-Cover the contract, the failure mode, and one boundary case. Do not assert stochastic output.
+Cover the contract, the failure mode, and one boundary case. Do not assert stochastic output. Name each test after the behavior it locks in, and keep boundary values explicit so a regression points at the broken rule instead of a vague failure.
 
 ## Common Mistakes
-Do not write the implementation first and backfill tests. Do not mock the unit under test.
+Do not write the implementation first and backfill tests. Do not mock the unit under test. Do not assert implementation details that make refactors fail without any behavior change. Keep each test focused on one observable outcome.
 `
 
 describe('agent skill document profile', () => {

@@ -2,8 +2,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { z } from 'zod'
 
 export const SKILL_MIME_TYPE = 'text/markdown'
-// Accepts compact five-section skills; shallow briefs stay rejected (see agent-skill.test.ts).
-export const SKILL_MIN_BODY_CHARS = 400
+export const SKILL_MIN_BODY_CHARS = 600
 export const SKILL_MIN_SECTIONS = 3
 export const SKILL_MIN_SECTION_CHARS = 40
 export const SKILL_MAX_BYTES = 64 * 1024
