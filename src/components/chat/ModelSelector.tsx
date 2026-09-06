@@ -1,6 +1,7 @@
 import {
   ArrowDown01Icon,
   ImageIcon,
+  Search01Icon,
   Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -16,6 +17,7 @@ import {
   isCompareSelectionValid,
   toggleCompareModel,
 } from '@/lib/chat/compare-selection'
+import { filterModelCatalogEntry } from '@/lib/models/filter'
 import { resolveModelFallback } from '@/lib/models/preference'
 import { cn } from '@/lib/utils'
 import { COMPARE_MAX_MODELS, COMPARE_MIN_MODELS } from '@/lib/utils/constants'
@@ -42,6 +44,20 @@ export function ModelSelector({
 }: Props) {
   const catalog = useModelCatalog()
   const [open, setOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) {
+      setSearchQuery('')
+    }
+  }
+
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery('')
+    }
+  }, [open])
 
   useEffect(() => {
     if (catalog.length > 0 && value !== 'auto') {
@@ -55,6 +71,9 @@ export function ModelSelector({
   const selectable = compareEnabled
     ? catalog.filter((m) => m.id !== 'auto')
     : catalog
+  const filteredSelectable = searchQuery.trim()
+    ? selectable.filter((m) => filterModelCatalogEntry(m, searchQuery))
+    : selectable
   const selected = findCatalogEntry(catalog, value)
 
   const costLabel = (m: {
@@ -83,7 +102,7 @@ export function ModelSelector({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -197,8 +216,28 @@ export function ModelSelector({
             />
           </button>
         </div>
+        <label className="relative mt-2 block">
+          <span className="sr-only">Cari model</span>
+          <HugeiconsIcon
+            icon={Search01Icon}
+            size={14}
+            strokeWidth={1.75}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            data-testid="model-search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari model..."
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-md border border-hairline bg-paper/50 py-1.5 pl-8 pr-2.5 text-[12.5px] text-ink outline-none placeholder:text-stone transition-colors duration-150 focus:border-notion-blue focus:bg-pure-white"
+          />
+        </label>
         <div className="mt-2 max-h-[380px] space-y-1 overflow-y-auto pr-0.5">
-          {selectable.map((m) => {
+          {filteredSelectable.map((m) => {
             const isSelected = compareEnabled
               ? compareModelIds.includes(m.id)
               : m.id === value
@@ -345,9 +384,16 @@ export function ModelSelector({
               </button>
             )
           })}
-          {selectable.length === 0 && (
+          {selectable.length === 0 ? (
             <div className="p-3 text-sm text-stone">Memuat model...</div>
-          )}
+          ) : filteredSelectable.length === 0 ? (
+            <div
+              data-testid="model-search-empty"
+              className="py-6 text-center text-xs text-stone"
+            >
+              Tidak ada model ditemukan.
+            </div>
+          ) : null}
         </div>
       </PopoverContent>
     </Popover>
