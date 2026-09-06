@@ -22,9 +22,7 @@ vi.mock('../../src/lib/r2/client', () => ({
 
 vi.mock('../../src/lib/auth/session', () => ({
   getAuthSession: vi.fn(async (req: Request) => {
-    const testUser = (req as unknown as { headers: Headers })?.headers?.get(
-      'x-test-user',
-    )
+    const testUser = req.headers.get('x-test-user')
     if (testUser)
       return { user: { id: testUser, email: `${testUser}@example.com` } }
     return { user: { id: 'test-user-download', email: 'dl@example.com' } }
@@ -55,13 +53,13 @@ describe('artifact download', () => {
       email: 'dl@example.com',
       name: 'TestDownload',
       credits: 100,
-    } as never)
+    })
     await db.insert(users).values({
       id: otherUserId,
       email: 'someone-else@example.com',
       name: 'SomeoneElse',
       credits: 100,
-    } as never)
+    })
     const [conv] = await db
       .insert(conversations)
       .values({ userId: mockUserId, title: 'Download Conv' })
