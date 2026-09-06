@@ -2,9 +2,9 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Primitive palette — flipped by the .dark class on <html>.
-   Applied through @theme inline below so every bg-*/text-*/border-*
-   utility resolves at runtime against these variables. */
+/* Primitive palette — flipped by the .dark class on html.
+   Applied through @theme inline below so every color utility
+   resolves at runtime against these variables. */
 :root {
   --paper: #f6f5f4;
   --sidebar: #faf9f7;
