@@ -83,9 +83,6 @@ export function resolveModelFallback(
   const valid = catalog.some(
     (entry) => entry.id === currentModelId && entry.enabled !== false,
   )
-  if (!valid) {
-    setDefaultModelPreference('auto')
-    return 'auto'
-  }
+  if (!valid) return 'auto'
   return currentModelId
 }

@@ -86,7 +86,7 @@ describe('model preference store', () => {
     expect(localStorage.getItem(MODEL_PREFERENCE_KEY)).toBe('cx/gpt-5.6-sol')
   })
 
-  it('falls back to auto only when catalog is loaded and model is missing or disabled', () => {
+  it('falls back to auto only when catalog is loaded and model is missing or disabled, never mutating the stored preference', () => {
     const mockCatalog = [
       { id: 'auto', enabled: true },
       { id: 'gemini-3.7-flash-high', enabled: true },
@@ -98,14 +98,15 @@ describe('model preference store', () => {
       'gemini-3.7-flash-high',
     )
 
-    // Missing model falls back to auto and updates preference
+    // Missing model falls back to auto WITHOUT touching stored preference
+    setSelectedModelPreference('gemini-3.7-flash-high')
     expect(resolveModelFallback(mockCatalog, 'non-existent-model')).toBe('auto')
-    expect(getSelectedModelPreference()).toBe('auto')
+    expect(getSelectedModelPreference()).toBe('gemini-3.7-flash-high')
 
-    // Disabled model falls back to auto and updates preference
+    // Disabled model falls back to auto WITHOUT touching stored preference
     setSelectedModelPreference('deprecated-model')
     expect(resolveModelFallback(mockCatalog, 'deprecated-model')).toBe('auto')
-    expect(getSelectedModelPreference()).toBe('auto')
+    expect(getSelectedModelPreference()).toBe('deprecated-model')
 
     // Empty catalog (still loading) must not prematurely fall back
     setSelectedModelPreference('gemini-3.7-flash-high')
