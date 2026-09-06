@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowUp02Icon,
   Attachment01Icon,
   GlobalSearchIcon,
@@ -13,10 +13,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  canSendCompareWith,
-  getCompareSelectionHint,
-} from '@/lib/chat/compare-selection'
+import { canSendCompareWith } from '@/lib/chat/compare-selection'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
 import { skillSupportsCompare } from '@/lib/chat/skills'
 import { getDefaultModelPreference } from '@/lib/models/preference'
@@ -210,9 +207,6 @@ export function Composer({
     idle: !isStreaming && !uploading,
   })
   const canSendNormal = hasContent && !isStreaming && !uploading
-  const compareSelectionHint = compareEnabled
-    ? getCompareSelectionHint(compareModelIds)
-    : null
 
   async function handleFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList as FileList)
@@ -498,7 +492,7 @@ export function Composer({
         {compareEnabled && compareModelIds.length >= 2 && (
           <div className="flex items-center justify-between rounded-md border border-hairline bg-sky-tint px-3 py-2 text-[13px] text-ink">
             <span data-testid="composer-compare-banner">
-              Compare mode: {compareModelIds.length} model â€¢ Total:{' '}
+              Compare mode: {compareModelIds.length} model • Total:{' '}
               {compareTotal} Kredit
             </span>
             {compareInsufficient && (
@@ -507,15 +501,6 @@ export function Composer({
               </span>
             )}
           </div>
-        )}
-        {compareSelectionHint && (
-          <p
-            data-testid="compare-selection-hint"
-            role="status"
-            className="px-2 text-[13px] text-stone"
-          >
-            {compareSelectionHint}
-          </p>
         )}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: composer drag container */}
         <div
@@ -639,7 +624,7 @@ export function Composer({
                 }`}
                 title={
                   enableWebSearch
-                    ? 'Pencarian web aktif â€” model akan mencari informasi terkini'
+                    ? 'Pencarian web aktif — model akan mencari informasi terkini'
                     : 'Aktifkan pencarian web via Tavily'
                 }
                 aria-label={
@@ -693,7 +678,7 @@ export function Composer({
         ) : (
           isPremium && (
             <p className="px-2 text-[13px] text-stone">
-              GPT-5.6 Sol memakai kredit lebih cepat â€” pakai Auto â†’
+              GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
             </p>
           )
         )}

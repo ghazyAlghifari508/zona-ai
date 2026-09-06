@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowDown01Icon,
   ImageIcon,
   Search01Icon,
@@ -149,7 +149,7 @@ export function ModelSelector({
           ) : (
             <span className="text-[13px] font-medium tracking-[-0.01em]">
               {selected?.displayName ??
-                (catalog.length === 0 ? 'Memuatâ€¦' : 'Auto')}
+                (catalog.length === 0 ? 'Memuat...' : 'Auto')}
             </span>
           )}
           {selected && !compareEnabled && (
@@ -174,11 +174,7 @@ export function ModelSelector({
         <div className="flex items-center justify-between px-2 py-1">
           <span className="text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
             {compareEnabled
-              ? 'PILIH ' +
-                COMPARE_MIN_MODELS +
-                'â€“' +
-                COMPARE_MAX_MODELS +
-                ' MODEL'
+              ? `PILIH ${COMPARE_MIN_MODELS}-${COMPARE_MAX_MODELS} MODEL`
               : 'PILIH MODEL AI'}
           </span>
           {compareEnabled && (
