@@ -41,3 +41,41 @@ export function filterModelCatalogEntry(
 
   return false
 }
+
+export function getModelProviderName(
+  entry?: { vendor?: string; provider?: string } | null,
+  modelId?: string,
+): string {
+  if (entry?.vendor && entry.vendor.trim().length > 0) return entry.vendor
+
+  if (entry?.provider && entry.provider !== 'zona-router') {
+    const p = entry.provider.toLowerCase()
+    if (p === 'antigravity' || p === 'google') return 'Google'
+    if (p === 'codex' || p === 'openai') return 'OpenAI'
+    if (p === 'anthropic') return 'Anthropic'
+    if (p === 'qwen' || p === 'alibaba') return 'Qwen'
+    if (p === 'xiaomi') return 'Xiaomi'
+    if (p === 'tencent') return 'Tencent'
+    if (p === 'zhipu') return 'Zhipu AI'
+    return entry.provider
+  }
+
+  if (modelId) {
+    const m = modelId.toLowerCase()
+    if (m.includes('gemini') || m.includes('google')) return 'Google'
+    if (
+      m.includes('gpt') ||
+      m.includes('openai') ||
+      m.includes('o1') ||
+      m.includes('o3')
+    )
+      return 'OpenAI'
+    if (m.includes('claude') || m.includes('anthropic')) return 'Anthropic'
+    if (m.includes('qwen')) return 'Qwen'
+    if (m.includes('mimo') || m.includes('xiaomi')) return 'Xiaomi'
+    if (m.includes('hunyuan') || m.includes('tencent')) return 'Tencent'
+    if (m.includes('glm') || m.includes('zhipu')) return 'Zhipu AI'
+  }
+
+  return 'Zona'
+}

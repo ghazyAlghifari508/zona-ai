@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CompareGrid } from '../../src/components/chat/CompareGrid'
+import {
+  type ChatMessage,
+  MessageList,
+} from '../../src/components/chat/MessageList'
 import { ModelColumn } from '../../src/components/chat/ModelColumn'
 
 vi.mock('../../src/components/chat/useModelCatalog', () => ({
@@ -8,19 +12,46 @@ vi.mock('../../src/components/chat/useModelCatalog', () => ({
     {
       id: 'gemini-3.7-flash-high',
       displayName: 'Gemini 3.7 Flash',
+      provider: 'antigravity',
+      vendor: 'Google',
       creditCost: 1,
     },
-    { id: 'gpt-5.6-sol', displayName: 'GPT 5.6 Sol', creditCost: 1 },
-    { id: 'qwen3.8-flash', displayName: 'Qwen 3.8 Flash', creditCost: 1 },
-    { id: 'mimo-v2.5', displayName: 'MiMo V2.5', creditCost: 1 },
+    {
+      id: 'gpt-5.6-sol',
+      displayName: 'GPT 5.6 Sol',
+      provider: 'codex',
+      vendor: 'OpenAI',
+      creditCost: 1,
+    },
+    {
+      id: 'qwen3.8-flash',
+      displayName: 'Qwen 3.8 Flash',
+      provider: 'qwen',
+      vendor: 'Qwen',
+      creditCost: 1,
+    },
+    {
+      id: 'mimo-v2.5',
+      displayName: 'MiMo V2.5',
+      provider: 'xiaomi',
+      vendor: 'Xiaomi',
+      creditCost: 1,
+    },
   ],
   findCatalogEntry: (
-    catalog: Array<{ id: string; displayName: string }>,
+    catalog: Array<{
+      id: string
+      displayName: string
+      provider?: string
+      vendor?: string
+    }>,
     id: string,
   ) =>
     catalog.find((m) => m.id === id) ?? {
       id,
       displayName: id,
+      provider: 'zona-router',
+      vendor: 'Zona',
     },
 }))
 
@@ -283,5 +314,85 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
       />,
     )
     expect(card.getAttribute('data-width-variant')).toBe('expanded')
+  })
+
+  it('renders provider name under model name in card header', () => {
+    const geminiGen = {
+      id: 'gen-gemini',
+      modelId: 'gemini-3.7-flash-high',
+      status: 'completed',
+      content: 'Jawaban Gemini',
+    }
+    const { unmount } = render(<ModelColumn generation={geminiGen} />)
+    const header = screen.getByTestId('model-column-header')
+    expect(header.textContent).toContain('Gemini 3.7 Flash')
+    expect(header.textContent).toContain('Google')
+    unmount()
+
+    const gptGen = {
+      id: 'gen-gpt',
+      modelId: 'gpt-5.6-sol',
+      status: 'completed',
+      content: 'Jawaban GPT',
+    }
+    render(<ModelColumn generation={gptGen} />)
+    const headerGpt = screen.getByTestId('model-column-header')
+    expect(headerGpt.textContent).toContain('GPT 5.6 Sol')
+    expect(headerGpt.textContent).toContain('OpenAI')
+  })
+
+  it('applies items-stretch and adaptive min/max height classes to ensure equal height', () => {
+    const generations = [
+      {
+        id: 'gen-short',
+        modelId: 'gemini-3.7-flash-high',
+        status: 'completed',
+        content: 'Pendek',
+      },
+      {
+        id: 'gen-tall',
+        modelId: 'gpt-5.6-sol',
+        status: 'completed',
+        content: 'Jawaban panjang sekali '.repeat(20),
+      },
+    ]
+
+    render(<CompareGrid generations={generations} />)
+    const grid = screen.getByTestId('compare-grid')
+    expect(grid.className).toContain('items-stretch')
+
+    const columns = screen.getAllByTestId('model-column')
+    for (const col of columns) {
+      expect(col.className).toContain('h-full')
+      expect(col.className).toContain('min-h-[260px]')
+      expect(col.className).toContain('max-h-[640px]')
+    }
+  })
+
+  it('respects hasUsedCompareMode on MessageList', () => {
+    const messages: ChatMessage[] = [
+      {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'Jawaban normal',
+        modelId: 'gemini-3.7-flash-high',
+      },
+    ]
+
+    // When hasUsedCompareMode is false: normal chat layout (no model-column card)
+    const { unmount } = render(
+      <MessageList messages={messages} hasUsedCompareMode={false} />,
+    )
+    expect(screen.queryByTestId('model-column')).toBeNull()
+    expect(screen.getByText('Gemini 3.7 Flash')).toBeTruthy()
+    expect(screen.getByText('Google')).toBeTruthy()
+    unmount()
+
+    // When hasUsedCompareMode is true: compare card layout (model-column card present)
+    render(<MessageList messages={messages} hasUsedCompareMode={true} />)
+    expect(screen.getByTestId('model-column')).toBeTruthy()
+    const header = screen.getByTestId('model-column-header')
+    expect(header.textContent).toContain('Gemini 3.7 Flash')
+    expect(header.textContent).toContain('Google')
   })
 })

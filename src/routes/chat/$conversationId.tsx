@@ -33,6 +33,7 @@ import {
 } from '@/server/functions/chat'
 import {
   getConversation,
+  setConversationMode,
   setConversationModel,
 } from '@/server/functions/conversations'
 import {
@@ -138,7 +139,20 @@ function ChatThread() {
     }
   }
 
-  const [mode, setMode] = useState<'normal' | 'compare'>('normal')
+  const hasUsedCompareInitially =
+    conversation.mode === 'compare' ||
+    messages.some((m) =>
+      Boolean(m.compareGenerations && m.compareGenerations.length > 0),
+    ) ||
+    (
+      persistedMessages as Array<{
+        generationRuns?: Array<{ comparisonRunId?: string | null }>
+      }>
+    ).some((m) => m.generationRuns?.some((r) => r.comparisonRunId != null))
+
+  const [mode, setMode] = useState<'normal' | 'compare'>(() =>
+    hasUsedCompareInitially ? 'compare' : 'normal',
+  )
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
   const [modelId, setModelId] = useState<string>(() =>
     resolveConversationModelId({
@@ -158,8 +172,21 @@ function ChatThread() {
   )
 
   const compareEnabled = mode === 'compare'
-  const setCompareEnabled = (enabled: boolean) =>
-    setMode(enabled ? 'compare' : 'normal')
+  const setCompareEnabled = (enabled: boolean) => {
+    const nextMode = enabled ? 'compare' : 'normal'
+    setMode(nextMode)
+    void setConversationMode({
+      data: { id: conversationId, mode: nextMode },
+    }).catch(() => {})
+  }
+
+  const hasUsedCompareMode =
+    mode === 'compare' ||
+    conversation.mode === 'compare' ||
+    messages.some((m) =>
+      Boolean(m.compareGenerations && m.compareGenerations.length > 0),
+    ) ||
+    hasUsedCompareInitially
 
   const handleSendArtifact = async (
     content: string,
@@ -579,6 +606,10 @@ function ChatThread() {
     enableWebSearch?: boolean,
   ) => {
     if (!isCompareSelectionValid(modelIds)) return
+    setMode('compare')
+    void setConversationMode({
+      data: { id: conversationId, mode: 'compare' },
+    }).catch(() => {})
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -1344,6 +1375,7 @@ function ChatThread() {
             onStopGeneration={handleStopPerModel}
             onRetryArtifact={handleRetryArtifact}
             scrollRef={scrollRef}
+            hasUsedCompareMode={hasUsedCompareMode}
           />
         </div>
 

@@ -13,6 +13,7 @@ import type {
   getConversationSchema,
   getConversationsSchema,
   setConversationModelSchema,
+  setConversationModeSchema,
   updateConversationSchema,
 } from '../../lib/utils/validation'
 
@@ -203,6 +204,23 @@ export async function setConversationModelCore({
   const [updated] = await db
     .update(conversations)
     .set({ modelId: data.modelId })
+    .where(and(eq(conversations.id, data.id), eq(conversations.userId, userId)))
+    .returning()
+  return updated
+}
+
+export async function setConversationModeCore({
+  data,
+  request,
+}: {
+  data: z.infer<typeof setConversationModeSchema>
+  request: Request
+}) {
+  const userId = await sessionUserId(request)
+  await ownedConversation(data.id, userId)
+  const [updated] = await db
+    .update(conversations)
+    .set({ mode: data.mode, updatedAt: new Date() })
     .where(and(eq(conversations.id, data.id), eq(conversations.userId, userId)))
     .returning()
   return updated

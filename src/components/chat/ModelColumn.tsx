@@ -14,6 +14,7 @@ import {
   chatHighlightOptions,
   extractRawText,
 } from '@/lib/chat/syntax-highlight'
+import { getModelProviderName } from '@/lib/models/filter'
 import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
@@ -49,6 +50,7 @@ type Props = {
 export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
   const catalog = useModelCatalog()
   const entry = findCatalogEntry(catalog, generation.modelId)
+  const providerName = getModelProviderName(entry, generation.modelId)
 
   const getCopyText = () => {
     if (!generation.content) return ''
@@ -108,22 +110,27 @@ export function ModelColumn({ generation, onRetry, onStop, onCopy }: Props) {
     <div
       data-testid="model-column"
       data-width-variant={isExpanded ? 'expanded' : 'compact'}
-      className="flex h-[520px] sm:h-[560px] min-w-0 max-w-full w-full flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white transition-[width,max-width] duration-200"
+      className="flex h-full min-h-[260px] sm:min-h-[280px] max-h-[640px] sm:max-h-[680px] min-w-0 max-w-full w-full flex-col overflow-hidden rounded-lg border border-hairline bg-pure-white transition-[width,max-width] duration-200"
     >
       <div
         data-testid="model-column-header"
         className="flex shrink-0 items-center justify-between rounded-t-lg border-b border-hairline bg-pure-white p-3"
       >
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
             <ProviderIcon
               provider={entry?.provider ?? 'zona-router'}
-              size={13}
+              size={14}
             />
           </span>
-          <span className="text-[14px] font-semibold text-ink">
-            {entry?.displayName ?? generation.modelId}
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="truncate text-[13.5px] font-semibold leading-tight text-ink">
+              {entry?.displayName ?? generation.modelId}
+            </span>
+            <span className="truncate text-[11px] font-medium leading-tight text-stone">
+              {providerName}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           {generation.status === 'streaming' && onStop && (

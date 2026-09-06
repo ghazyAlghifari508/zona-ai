@@ -695,6 +695,11 @@ export async function sendCompareMessageCore({
       .where(eq(generationRuns.id, gid))
   }
 
+  await db
+    .update(conversations)
+    .set({ mode: 'compare', updatedAt: new Date() })
+    .where(eq(conversations.id, convId))
+
   const history = await db
     .select()
     .from(messages)

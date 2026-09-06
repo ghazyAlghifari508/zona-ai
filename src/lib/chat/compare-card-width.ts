@@ -84,6 +84,18 @@ export function getCompareGridClasses(
   generations: Array<{ id: string; content?: string | null }>,
   expandedIds: Set<string>,
 ): CompareGridSizing {
+  if (generations.length === 1) {
+    const isExpanded =
+      expandedIds.has(generations[0].id) ||
+      shouldExpandCompareCard(generations[0].content)
+    return {
+      containerClass: isExpanded
+        ? 'mx-auto w-full max-w-[680px]'
+        : 'mx-auto w-full max-w-[440px]',
+      gridClass: 'grid grid-cols-1 gap-4 md:gap-5 items-stretch',
+    }
+  }
+
   if (generations.length === 2) {
     const is0 =
       expandedIds.has(generations[0].id) ||
@@ -95,14 +107,16 @@ export function getCompareGridClasses(
     if (!is0 && !is1) {
       return {
         containerClass: 'mx-auto w-full max-w-[860px]',
-        gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5',
+        gridClass:
+          'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-stretch',
       }
     }
 
     if (is0 && is1) {
       return {
         containerClass: 'mx-auto w-full max-w-[1360px]',
-        gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5',
+        gridClass:
+          'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-stretch',
       }
     }
 
@@ -110,14 +124,21 @@ export function getCompareGridClasses(
       return {
         containerClass: 'mx-auto w-full max-w-[1360px]',
         gridClass:
-          'grid grid-cols-1 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-4 md:gap-5',
+          'grid grid-cols-1 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-4 md:gap-5 items-stretch',
       }
     }
 
     return {
       containerClass: 'mx-auto w-full max-w-[1360px]',
       gridClass:
-        'grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 md:gap-5',
+        'grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 md:gap-5 items-stretch',
+    }
+  }
+
+  if (generations.length === 3) {
+    return {
+      containerClass: 'mx-auto w-full max-w-[1400px]',
+      gridClass: 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 items-stretch',
     }
   }
 
@@ -129,6 +150,6 @@ export function getCompareGridClasses(
     containerClass: hasAnyExpanded
       ? 'mx-auto w-full max-w-[1360px]'
       : 'mx-auto w-full max-w-[860px]',
-    gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5',
+    gridClass: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-stretch',
   }
 }

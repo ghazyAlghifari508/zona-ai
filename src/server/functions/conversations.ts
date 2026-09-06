@@ -10,6 +10,7 @@ import {
   getConversationSchema,
   getConversationsSchema,
   setConversationModelSchema,
+  setConversationModeSchema,
   updateConversationSchema,
 } from '../../lib/utils/validation'
 import {
@@ -18,6 +19,7 @@ import {
   deleteConversationCore,
   getConversationCore,
   getConversationsCore,
+  setConversationModeCore,
   setConversationModelCore,
   updateConversationCore,
 } from '../core/conversations'
@@ -50,6 +52,12 @@ export const setConversationModel = createServerFn({ method: 'POST' })
   .validator((data: unknown) => setConversationModelSchema.parse(data))
   .handler(({ data }) =>
     setConversationModelCore({ data, request: getRequest() as Request }),
+  )
+
+export const setConversationMode = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => setConversationModeSchema.parse(data))
+  .handler(({ data }) =>
+    setConversationModeCore({ data, request: getRequest() as Request }),
   )
 
 export const deleteConversation = createServerFn({ method: 'POST' })

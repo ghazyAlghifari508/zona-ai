@@ -23,6 +23,7 @@ import {
   chatHighlightOptions,
   extractRawText,
 } from '@/lib/chat/syntax-highlight'
+import { getModelProviderName } from '@/lib/models/filter'
 import { ArtifactProgress } from './ArtifactProgress'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CodeBlock } from './CodeBlock'
@@ -115,12 +116,14 @@ export function MessageList({
   onStopGeneration,
   onRetryArtifact,
   scrollRef,
+  hasUsedCompareMode,
 }: {
   messages: ChatMessage[]
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
+  hasUsedCompareMode?: boolean
 }) {
   const parentRef = useRef<HTMLDivElement>(null)
   const catalog = useModelCatalog()
@@ -202,6 +205,7 @@ export function MessageList({
                     onRetryGeneration={onRetryGeneration}
                     onStopGeneration={onStopGeneration}
                     onRetryArtifact={onRetryArtifact}
+                    hasUsedCompareMode={hasUsedCompareMode}
                   />
                 </div>
               )
@@ -217,6 +221,7 @@ export function MessageList({
                 onRetryGeneration={onRetryGeneration}
                 onStopGeneration={onStopGeneration}
                 onRetryArtifact={onRetryArtifact}
+                hasUsedCompareMode={hasUsedCompareMode}
               />
             ))}
           </div>
@@ -244,12 +249,14 @@ function MessageItem({
   onRetryGeneration,
   onStopGeneration,
   onRetryArtifact,
+  hasUsedCompareMode,
 }: {
   message: ChatMessage
   catalog: ReturnType<typeof useModelCatalog>
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
+  hasUsedCompareMode?: boolean
 }) {
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
@@ -266,7 +273,7 @@ function MessageItem({
 
   if (message.compareGenerations && message.compareGenerations.length > 0) {
     return (
-      <div className="mx-auto w-full max-w-[1360px] py-5">
+      <div className="mx-auto w-full py-5">
         <CompareGrid
           comparisonRun={null}
           generations={message.compareGenerations}
@@ -277,6 +284,40 @@ function MessageItem({
     )
   }
 
+  if (
+    hasUsedCompareMode &&
+    !message.artifact &&
+    !message.artifactStatus &&
+    message.role === 'assistant'
+  ) {
+    const singleGen = {
+      id: message.generationRunId ?? message.id,
+      modelId: message.modelId ?? 'auto',
+      status: message.streaming
+        ? 'streaming'
+        : message.errorCode
+          ? 'failed'
+          : 'completed',
+      content: message.content,
+      error: message.errorMessage
+        ? { message: message.errorMessage, code: message.errorCode }
+        : undefined,
+      webSources: message.webSources,
+    }
+
+    return (
+      <div className="mx-auto w-full py-5">
+        <CompareGrid
+          comparisonRun={null}
+          generations={[singleGen]}
+          onRetry={onRetryGeneration}
+          onStop={onStopGeneration}
+        />
+      </div>
+    )
+  }
+
+  const providerName = getModelProviderName(entry, message.modelId)
   const hasVisibleContent = Boolean(
     message.content && message.content.trim().length > 0,
   )
@@ -286,16 +327,21 @@ function MessageItem({
   return (
     <div className="mx-auto w-full max-w-[860px] py-5">
       <div className="min-w-0">
-        <div className="mb-1.5 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
+        <div className="mb-2 flex items-center gap-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-hairline bg-pure-white text-ink">
             <ProviderIcon
               provider={entry?.provider ?? 'zona-router'}
               size={17}
             />
           </span>
-          <span className="text-[13px] font-bold text-ink">
-            {entry?.displayName ?? 'Model AI'}
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[13px] font-bold leading-tight text-ink">
+              {entry?.displayName ?? 'Model AI'}
+            </span>
+            <span className="text-[11px] font-medium leading-tight text-stone">
+              {providerName}
+            </span>
+          </div>
         </div>
         <div className="min-w-0 space-y-2 pl-9">
           {isWaiting && <TypingDots />}

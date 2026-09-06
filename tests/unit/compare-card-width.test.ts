@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CURRENT_WIDE_COMPARE_CARD_WIDTH,
   extractPlainContent,
   getCompareGridClasses,
-  shouldExpandCompareCard,
   OLD_COMPARE_CARD_WIDTH,
-  CURRENT_WIDE_COMPARE_CARD_WIDTH,
+  shouldExpandCompareCard,
 } from '../../src/lib/chat/compare-card-width'
 
 describe('compare card width heuristics', () => {
@@ -70,7 +70,8 @@ Langkah 5: Siapkan server functions`
   })
 
   it('strips markdown syntax when measuring plain text', () => {
-    const formatted = '# Heading\n**Teks tebal** dan *miring* serta [tautan](https://example.com)'
+    const formatted =
+      '# Heading\n**Teks tebal** dan *miring* serta [tautan](https://example.com)'
     const plain = extractPlainContent(formatted)
     expect(plain).not.toContain('#')
     expect(plain).not.toContain('**')
@@ -81,7 +82,7 @@ Langkah 5: Siapkan server functions`
 })
 
 describe('getCompareGridClasses', () => {
-  it('returns compact 860px container with 2 equal columns when both models are compact', () => {
+  it('returns compact 860px container with 2 equal columns and items-stretch when both models are compact', () => {
     const generations = [
       { id: 'g1', content: '42' },
       { id: 'g2', content: 'Jakarta' },
@@ -89,9 +90,10 @@ describe('getCompareGridClasses', () => {
     const sizing = getCompareGridClasses(generations, new Set())
     expect(sizing.containerClass).toContain('max-w-[860px]')
     expect(sizing.gridClass).toContain('md:grid-cols-2')
+    expect(sizing.gridClass).toContain('items-stretch')
   })
 
-  it('returns expanded 1360px container with 2 equal columns when both models are expanded', () => {
+  it('returns expanded 1360px container with 2 equal columns and items-stretch when both models are expanded', () => {
     const long1 = 'A'.repeat(200)
     const long2 = 'B'.repeat(200)
     const generations = [
@@ -101,6 +103,7 @@ describe('getCompareGridClasses', () => {
     const sizing = getCompareGridClasses(generations, new Set())
     expect(sizing.containerClass).toContain('max-w-[1360px]')
     expect(sizing.gridClass).toContain('md:grid-cols-2')
+    expect(sizing.gridClass).toContain('items-stretch')
   })
 
   it('returns asymmetric 2-column grid when model 0 is compact and model 1 is expanded', () => {
@@ -110,7 +113,10 @@ describe('getCompareGridClasses', () => {
     ]
     const sizing = getCompareGridClasses(generations, new Set())
     expect(sizing.containerClass).toContain('max-w-[1360px]')
-    expect(sizing.gridClass).toContain('md:grid-cols-[minmax(0,400px)_minmax(0,1fr)]')
+    expect(sizing.gridClass).toContain(
+      'md:grid-cols-[minmax(0,400px)_minmax(0,1fr)]',
+    )
+    expect(sizing.gridClass).toContain('items-stretch')
   })
 
   it('returns asymmetric 2-column grid when model 0 is expanded and model 1 is compact', () => {
@@ -120,7 +126,25 @@ describe('getCompareGridClasses', () => {
     ]
     const sizing = getCompareGridClasses(generations, new Set())
     expect(sizing.containerClass).toContain('max-w-[1360px]')
-    expect(sizing.gridClass).toContain('md:grid-cols-[minmax(0,1fr)_minmax(0,400px)]')
+    expect(sizing.gridClass).toContain(
+      'md:grid-cols-[minmax(0,1fr)_minmax(0,400px)]',
+    )
+    expect(sizing.gridClass).toContain('items-stretch')
+  })
+
+  it('supports single-generation compare sizing with items-stretch', () => {
+    const compactGen = [{ id: 'single-1', content: '42' }]
+    const compactSizing = getCompareGridClasses(compactGen, new Set())
+    expect(compactSizing.containerClass).toContain('max-w-[440px]')
+    expect(compactSizing.gridClass).toContain('grid-cols-1')
+    expect(compactSizing.gridClass).toContain('items-stretch')
+
+    const expandedGen = [
+      { id: 'single-2', content: 'Long explanation '.repeat(15) },
+    ]
+    const expandedSizing = getCompareGridClasses(expandedGen, new Set())
+    expect(expandedSizing.containerClass).toContain('max-w-[680px]')
+    expect(expandedSizing.gridClass).toContain('grid-cols-1')
+    expect(expandedSizing.gridClass).toContain('items-stretch')
   })
 })
-

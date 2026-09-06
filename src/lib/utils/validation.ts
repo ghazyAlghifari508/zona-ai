@@ -54,6 +54,11 @@ export const setConversationModelSchema = z.object({
   modelId: z.string().trim().min(1).max(120),
 })
 
+export const setConversationModeSchema = z.object({
+  id: z.string().uuid(),
+  mode: z.enum(['normal', 'compare']),
+})
+
 export const deleteConversationSchema = z.object({
   id: z.string().uuid(),
 })
