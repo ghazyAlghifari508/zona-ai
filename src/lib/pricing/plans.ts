@@ -8,7 +8,6 @@ export interface PricingPlan {
   priceYearly: number
   credits: number
   popular?: boolean
-  current?: boolean
   highlight: {
     card: string
     button: string
@@ -33,7 +32,6 @@ export const pricingPlans: PricingPlan[] = [
     priceMonthly: 0,
     priceYearly: 0,
     credits: 100,
-    current: true,
     highlight: {
       card: 'bg-pure-white',
       button:
