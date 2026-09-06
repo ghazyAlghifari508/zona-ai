@@ -11,6 +11,7 @@ import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { createArtifactSseParser } from '@/lib/ai/artifact-stream'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
 import { isCompareSelectionValid } from '@/lib/chat/compare-selection'
+import { resolveConversationModelId } from '@/lib/chat/conversation-model'
 import {
   type PendingMessage,
   takePendingMessageForConversation,
@@ -26,7 +27,10 @@ import {
   sendMessage,
   stopGeneration,
 } from '@/server/functions/chat'
-import { getConversation } from '@/server/functions/conversations'
+import {
+  getConversation,
+  setConversationModel,
+} from '@/server/functions/conversations'
 import {
   getCreditBalanceFn,
   resetDevCreditsFn,
@@ -92,7 +96,8 @@ function ConversationError() {
 
 function ChatThread() {
   const { conversationId } = Route.useParams()
-  const { persistedMessages, creditBalance, user } = Route.useLoaderData()
+  const { conversation, persistedMessages, creditBalance, user } =
+    Route.useLoaderData()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -131,23 +136,19 @@ function ChatThread() {
 
   const [mode, setMode] = useState<'normal' | 'compare'>('normal')
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
-  const [modelId, setModelId] = useState<string>(() => {
-    if (Array.isArray(persistedMessages)) {
-      for (let i = persistedMessages.length - 1; i >= 0; i--) {
-        const msg = persistedMessages[i]
-        if (
-          msg &&
-          typeof msg === 'object' &&
-          'modelId' in msg &&
-          typeof msg.modelId === 'string' &&
-          msg.modelId
-        ) {
-          return msg.modelId
-        }
-      }
-    }
-    return getDefaultModelPreference()
-  })
+  const [modelId, setModelId] = useState<string>(() =>
+    resolveConversationModelId({
+      conversationModelId: conversation.modelId,
+      persistedMessages,
+      defaultModelId: getDefaultModelPreference(),
+    }),
+  )
+  const handleModelChange = (id: string) => {
+    setModelId(id)
+    void setConversationModel({
+      data: { id: conversationId, modelId: id },
+    }).catch(() => {})
+  }
   const [skillId, setSkillId] = useState<string>(() =>
     getDefaultSkillPreference(),
   )
@@ -1178,7 +1179,7 @@ function ChatThread() {
               isStreaming={isStreaming}
               credits={credits}
               modelValue={modelId}
-              onModelChange={setModelId}
+              onModelChange={handleModelChange}
               skillValue={skillId}
               onSkillChange={setSkillId}
               compareEnabled={compareEnabled}

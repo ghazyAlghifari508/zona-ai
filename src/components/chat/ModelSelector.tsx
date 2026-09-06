@@ -129,7 +129,8 @@ export function ModelSelector({
             </span>
           ) : (
             <span className="text-[13px] font-medium tracking-[-0.01em]">
-              {selected?.displayName ?? 'Auto'}
+              {selected?.displayName ??
+                (catalog.length === 0 ? 'Memuat…' : 'Auto')}
             </span>
           )}
           {selected && !compareEnabled && (

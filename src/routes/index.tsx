@@ -187,7 +187,7 @@ function ChatHome() {
     setSubmitting(true)
     try {
       const conversation = await createConversation({
-        data: { mode: 'normal' },
+        data: { mode: 'normal', modelId },
       })
       savePendingMessage({
         conversationId: conversation.id,
@@ -220,7 +220,7 @@ function ChatHome() {
     setSubmitting(true)
     try {
       const conversation = await createConversation({
-        data: { mode: 'normal' },
+        data: { mode: 'normal', modelId: modelIds[0] ?? 'auto' },
       })
       savePendingMessage({
         conversationId: conversation.id,
