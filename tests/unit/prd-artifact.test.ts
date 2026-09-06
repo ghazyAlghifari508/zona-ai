@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  type ArtifactStreamEvent,
+  encodeArtifactSseEvent,
+  parseArtifactStreamEvent,
+} from '../../src/lib/ai/artifact-stream'
+import {
   detectCurrentSection,
   generatePrdFilename,
-  sanitizeFilename,
-  validatePrdContent,
   PRD_MIME_TYPE,
   PRD_SECTION_MARKERS,
+  sanitizeFilename,
+  validatePrdContent,
 } from '../../src/lib/ai/prd-artifact'
-import {
-  encodePrdSseEvent,
-  parsePrdStreamEvent,
-  type PrdStreamEvent,
-} from '../../src/lib/ai/prd-stream'
 
 describe('PRD artifact utilities', () => {
   describe('sanitizeFilename', () => {
@@ -160,13 +160,13 @@ describe('PRD artifact utilities', () => {
     })
 
     it('detects the last section in accumulated text', () => {
-      const text = '## 1. Overview\ntext\n## 2. Requirements\nmore\n## 3. Core Features\nstuff'
+      const text =
+        '## 1. Overview\ntext\n## 2. Requirements\nmore\n## 3. Core Features\nstuff'
       expect(detectCurrentSection(text)).toBe('features')
     })
 
     it('detects all 7 sections', () => {
-      for (const { marker, section } of PRD_SECTION_MARKERS) {
-        const match = marker.source.replace(/\\/g, '').replace('^', '').replace(/\(\?:.*\)/, '')
+      for (const { section } of PRD_SECTION_MARKERS) {
         const text = `## ${section === 'overview' ? '1' : section === 'requirements' ? '2' : section === 'features' ? '3' : section === 'userflow' ? '4' : section === 'architecture' ? '5' : section === 'schema' ? '6' : '7'}. Test`
         expect(detectCurrentSection(text)).toBe(section)
       }
@@ -181,75 +181,106 @@ describe('PRD artifact utilities', () => {
 })
 
 describe('PRD stream protocol', () => {
-  describe('encodePrdSseEvent', () => {
+  const GEN_ID = '11111111-1111-4111-8111-111111111111'
+
+  describe('encodeArtifactSseEvent', () => {
     it('encodes status event as SSE data line', () => {
-      const event: PrdStreamEvent = { type: 'prd-status', phase: 'preparing' }
-      const encoded = encodePrdSseEvent(event)
-      expect(encoded).toBe(
-        `data: ${JSON.stringify(event)}\n\n`,
-      )
+      const event: ArtifactStreamEvent = {
+        type: 'artifact-status',
+        generationId: GEN_ID,
+        kind: 'prd',
+        phase: 'preparing',
+      }
+      const encoded = encodeArtifactSseEvent(event)
+      expect(encoded).toBe(`data: ${JSON.stringify(event)}\n\n`)
     })
 
     it('encodes artifact event with all fields', () => {
-      const event: PrdStreamEvent = {
-        type: 'prd-artifact',
-        attachmentId: '123',
-        fileName: 'PRD-Test.md',
-        fileSize: 1024,
-        mimeType: 'text/markdown',
+      const event: ArtifactStreamEvent = {
+        type: 'artifact-created',
+        generationId: GEN_ID,
+        kind: 'prd',
+        summary: 'PRD selesai dibuat.',
+        artifact: {
+          attachmentId: GEN_ID,
+          fileName: 'PRD-Test.md',
+          fileSize: 1024,
+          mimeType: 'text/markdown',
+        },
       }
-      const encoded = encodePrdSseEvent(event)
-      expect(encoded).toContain('"type":"prd-artifact"')
-      expect(encoded).toContain('"attachmentId":"123"')
+      const encoded = encodeArtifactSseEvent(event)
+      expect(encoded).toContain('"type":"artifact-created"')
+      expect(encoded).toContain(`"attachmentId":"${GEN_ID}"`)
       expect(encoded).toMatch(/^data: /)
       expect(encoded).toMatch(/\n\n$/)
     })
   })
 
-  describe('parsePrdStreamEvent', () => {
+  describe('parseArtifactStreamEvent', () => {
     it('parses valid status event', () => {
-      const raw = { type: 'prd-status', phase: 'preparing' }
-      const event = parsePrdStreamEvent(raw)
-      expect(event.type).toBe('prd-status')
+      const raw = {
+        type: 'artifact-status',
+        generationId: GEN_ID,
+        kind: 'prd',
+        phase: 'preparing',
+      }
+      const event = parseArtifactStreamEvent(raw)
+      expect(event.type).toBe('artifact-status')
     })
 
     it('parses valid artifact event', () => {
       const raw = {
-        type: 'prd-artifact',
-        attachmentId: '123',
-        fileName: 'test.md',
-        fileSize: 100,
-        mimeType: 'text/markdown',
+        type: 'artifact-created',
+        generationId: GEN_ID,
+        kind: 'prd',
+        summary: 'PRD selesai dibuat.',
+        artifact: {
+          attachmentId: GEN_ID,
+          fileName: 'test.md',
+          fileSize: 100,
+          mimeType: 'text/markdown',
+        },
       }
-      const event = parsePrdStreamEvent(raw)
-      expect(event.type).toBe('prd-artifact')
+      const event = parseArtifactStreamEvent(raw)
+      expect(event.type).toBe('artifact-created')
     })
 
     it('parses valid done event', () => {
       const raw = {
-        type: 'prd-done',
-        messageId: 'a',
-        generationId: 'b',
-        conversationId: 'c',
+        type: 'artifact-done',
+        generationId: GEN_ID,
+        kind: 'prd',
+        status: 'completed',
+        messageId: GEN_ID,
+        conversationId: GEN_ID,
       }
-      const event = parsePrdStreamEvent(raw)
-      expect(event.type).toBe('prd-done')
+      const event = parseArtifactStreamEvent(raw)
+      expect(event.type).toBe('artifact-done')
     })
 
     it('throws for null input', () => {
-      expect(() => parsePrdStreamEvent(null)).toThrow('not an object')
+      expect(() => parseArtifactStreamEvent(null)).toThrow()
     })
 
-    it('throws for invalid type', () => {
+    it('throws for invalid kind', () => {
       expect(() =>
-        parsePrdStreamEvent({ type: 'unknown-type' }),
-      ).toThrow('invalid type')
+        parseArtifactStreamEvent({
+          type: 'artifact-status',
+          generationId: GEN_ID,
+          kind: 'unknown-kind',
+          phase: 'preparing',
+        }),
+      ).toThrow()
     })
 
     it('throws for missing type', () => {
-      expect(() => parsePrdStreamEvent({ phase: 'preparing' })).toThrow(
-        'invalid type',
-      )
+      expect(() =>
+        parseArtifactStreamEvent({
+          generationId: GEN_ID,
+          kind: 'prd',
+          phase: 'preparing',
+        }),
+      ).toThrow()
     })
   })
 })

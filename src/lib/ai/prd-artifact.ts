@@ -1,4 +1,11 @@
-import type { PrdSection } from './prd-stream'
+export type PrdSection =
+  | 'overview'
+  | 'requirements'
+  | 'features'
+  | 'userflow'
+  | 'architecture'
+  | 'schema'
+  | 'techstack'
 
 export const PRD_MIME_TYPE = 'text/markdown'
 
