@@ -23,10 +23,7 @@ vi.mock('../../src/lib/auth/auth-client', () => ({
   },
 }))
 
-import {
-  resetThemeForTesting,
-  setTheme,
-} from '../../src/lib/ui/theme'
+import { resetThemeForTesting, setTheme } from '../../src/lib/ui/theme'
 
 describe('ProfileMenu', () => {
   afterEach(() => {
@@ -37,7 +34,11 @@ describe('ProfileMenu', () => {
   })
 
   it('renders user initials when no image is provided', () => {
-    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+    render(
+      <ProfileMenu
+        user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }}
+      />,
+    )
 
     const trigger = screen.getByTestId('profile-menu-trigger')
     expect(trigger.textContent).toBe('GA')
@@ -61,7 +62,11 @@ describe('ProfileMenu', () => {
   })
 
   it('links to /settings when Pengaturan is clicked', async () => {
-    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+    render(
+      <ProfileMenu
+        user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }}
+      />,
+    )
 
     // Open dropdown
     const trigger = screen.getByTestId('profile-menu-trigger')
@@ -75,7 +80,11 @@ describe('ProfileMenu', () => {
 
   it('calls authClient.signOut when Keluar is clicked', async () => {
     const { authClient } = await import('../../src/lib/auth/auth-client')
-    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+    render(
+      <ProfileMenu
+        user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }}
+      />,
+    )
 
     // Open dropdown
     const trigger = screen.getByTestId('profile-menu-trigger')
@@ -88,7 +97,11 @@ describe('ProfileMenu', () => {
   })
 
   it('places the Tampilan toggle directly above Keluar', async () => {
-    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+    render(
+      <ProfileMenu
+        user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }}
+      />,
+    )
 
     const trigger = screen.getByTestId('profile-menu-trigger')
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
@@ -98,16 +111,24 @@ describe('ProfileMenu', () => {
       '[data-testid="profile-theme-toggle"]',
     )?.parentElement
     expect(content).toBeTruthy()
-    const toggle = content?.querySelector('[data-testid="profile-theme-toggle"]')
+    const toggle = content?.querySelector(
+      '[data-testid="profile-theme-toggle"]',
+    )
     const signOut = content?.querySelector('[data-testid="profile-sign-out"]')
-    expect(toggle && signOut
-      ? (Array.from(content?.children ?? []).indexOf(toggle as Element) <
-          Array.from(content?.children ?? []).indexOf(signOut as Element))
-      : false).toBe(true)
+    expect(
+      toggle && signOut
+        ? Array.from(content?.children ?? []).indexOf(toggle as Element) <
+            Array.from(content?.children ?? []).indexOf(signOut as Element)
+        : false,
+    ).toBe(true)
   })
 
   it('toggles dark mode in place without unmounting the menu', async () => {
-    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+    render(
+      <ProfileMenu
+        user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }}
+      />,
+    )
 
     const trigger = screen.getByTestId('profile-menu-trigger')
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
@@ -128,7 +149,11 @@ describe('ProfileMenu', () => {
 
   it('shows the dark state label when theme starts dark', async () => {
     setTheme('dark')
-    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+    render(
+      <ProfileMenu
+        user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }}
+      />,
+    )
 
     const trigger = screen.getByTestId('profile-menu-trigger')
     fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
@@ -137,4 +162,3 @@ describe('ProfileMenu', () => {
     expect(screen.getByTestId('profile-theme-state').textContent).toBe('Gelap')
   })
 })
-
