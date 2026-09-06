@@ -71,8 +71,8 @@ function PlanCard({
   const isDark = plan.id === 'ultra'
   const price = yearly ? plan.priceYearly : plan.priceMonthly
   const period = yearly ? '/tahun' : '/bulan'
-  const muted = isDark ? 'text-pure-white/60' : 'text-graphite'
-  const heading = isDark ? 'text-pure-white' : 'text-ink'
+  const muted = isDark ? 'text-white/60' : 'text-graphite'
+  const heading = isDark ? 'text-white' : 'text-ink'
   const isFree = plan.id === 'free'
   const isBusy = purchaseState === 'creating' || purchaseState === 'awaiting'
   const buttonLabel =
@@ -125,7 +125,7 @@ function PlanCard({
       </div>
 
       <div
-        className={cn('my-6 h-px', isDark ? 'bg-pure-white/15' : 'bg-hairline')}
+        className={cn('my-6 h-px', isDark ? 'bg-white/15' : 'bg-hairline')}
       />
 
       <div className="flex flex-1 flex-col gap-3">
@@ -139,7 +139,7 @@ function PlanCard({
                   feature.included
                     ? plan.highlight.icon
                     : isDark
-                      ? 'bg-pure-white/10 text-pure-white/40'
+                      ? 'bg-white/10 text-white/40'
                       : 'bg-ink/5 text-ink/30',
                 )}
               >
@@ -155,7 +155,7 @@ function PlanCard({
                   'text-[13px] leading-snug',
                   feature.included
                     ? isDark
-                      ? 'text-pure-white/90'
+                      ? 'text-white/90'
                       : 'text-ink'
                     : muted,
                 )}

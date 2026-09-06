@@ -19,6 +19,7 @@
   --coral: #f64932;
   --sky-wash: #62aef0;
   --midnight: #02093a;
+  --on-tint: #02093a;
   --hairline: rgba(0, 0, 0, 0.08);
   --hairline-strong: rgba(0, 0, 0, 0.12);
 
@@ -59,7 +60,8 @@
   --marigold: #ffb110;
   --coral: #ff6b54;
   --sky-wash: #62aef0;
-  --midnight: #cfe0ff;
+  --midnight: #02093a;
+  --on-tint: #cfe0ff;
   --hairline: rgba(255, 255, 255, 0.09);
   --hairline-strong: rgba(255, 255, 255, 0.14);
 
@@ -99,6 +101,7 @@
   --color-coral: var(--coral);
   --color-sky-wash: var(--sky-wash);
   --color-midnight: var(--midnight);
+  --color-on-tint: var(--on-tint);
   --color-hairline: var(--hairline);
   --color-hairline-strong: var(--hairline-strong);
 

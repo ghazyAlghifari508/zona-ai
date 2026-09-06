@@ -1,4 +1,4 @@
-import {
+﻿import {
   ArrowDown01Icon,
   ImageIcon,
   Search01Icon,
@@ -149,11 +149,11 @@ export function ModelSelector({
           ) : (
             <span className="text-[13px] font-medium tracking-[-0.01em]">
               {selected?.displayName ??
-                (catalog.length === 0 ? 'Memuat…' : 'Auto')}
+                (catalog.length === 0 ? 'Memuatâ€¦' : 'Auto')}
             </span>
           )}
           {selected && !compareEnabled && (
-            <span className="rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-midnight">
+            <span className="rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-on-tint">
               {costLabel(selected)}
             </span>
           )}
@@ -176,7 +176,7 @@ export function ModelSelector({
             {compareEnabled
               ? 'PILIH ' +
                 COMPARE_MIN_MODELS +
-                '–' +
+                'â€“' +
                 COMPARE_MAX_MODELS +
                 ' MODEL'
               : 'PILIH MODEL AI'}
@@ -294,7 +294,7 @@ export function ModelSelector({
                       {m.vendor}
                     </span>
                     {m.creditTier === 'premium' && (
-                      <span className="shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-midnight">
+                      <span className="shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-on-tint">
                         Premium
                       </span>
                     )}

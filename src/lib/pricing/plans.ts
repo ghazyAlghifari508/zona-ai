@@ -1,4 +1,4 @@
-export type PlanId = 'free' | 'pro' | 'ultra'
+﻿export type PlanId = 'free' | 'pro' | 'ultra'
 
 export interface PricingPlan {
   id: PlanId
@@ -77,9 +77,9 @@ export const pricingPlans: PricingPlan[] = [
     priceYearly: 1430000,
     credits: 10000,
     highlight: {
-      card: 'bg-midnight text-pure-white',
-      button: 'bg-pure-white text-ink hover:bg-pure-white/90',
-      icon: 'bg-pure-white/15 text-pure-white',
+      card: 'bg-midnight text-white',
+      button: 'bg-white text-[#111111] hover:bg-white/90',
+      icon: 'bg-white/15 text-white',
     },
     features: [
       { text: '10.000 kredit per bulan', included: true, icon: 'credits' },

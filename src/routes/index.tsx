@@ -85,7 +85,7 @@ Tolong review ide ini dari perspektif Product & VC:
 3. Saran positioning & model monetisasi (Freemium, Pay-per-interview, atau B2B ke Bootcamp).
 4. Fitur Minimum Viable Product (MVP) yang paling esensial untuk validasi pasar dalam 2 minggu.`,
     icon: Idea01Icon,
-    iconClass: 'bg-info-soft text-midnight',
+    iconClass: 'bg-info-soft text-on-tint',
   },
 ] as const
 
@@ -220,7 +220,7 @@ function ChatHome() {
     setSubmitting(true)
     try {
       const conversation = await createConversation({
-        data: { mode: 'normal', modelId: modelIds[0] ?? 'auto' },
+        data: { mode: 'compare', modelId: modelIds[0] ?? 'auto' },
       })
       savePendingMessage({
         conversationId: conversation.id,
