@@ -924,14 +924,18 @@ export async function sendCompareMessageCore({
             onError: async ({ error }) => {
               hasError = true
               try {
+                const won = await finalizeTerminalRun({
+                  genId,
+                  status: 'failed',
+                  error: { message: (error as Error).message },
+                })
+                if (!won) {
+                  controllers.delete(genId)
+                  return
+                }
                 await db
                   .update(generationRuns)
-                  .set({
-                    status: 'failed',
-                    reasoningContent: accumulatedReasoning || null,
-                    error: { message: (error as Error).message },
-                    completedAt: new Date(),
-                  })
+                  .set({ reasoningContent: accumulatedReasoning || null })
                   .where(eq(generationRuns.id, genId))
                 await refundCredits({
                   userId,
