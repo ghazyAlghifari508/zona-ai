@@ -1,33 +1,124 @@
 @import "tailwindcss";
 
-@theme {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Primitive palette — flipped by the .dark class on <html>.
+   Applied through @theme inline below so every bg-*/text-*/border-*
+   utility resolves at runtime against these variables. */
+:root {
+  --paper: #f6f5f4;
+  --sidebar: #faf9f7;
+  --pure-white: #ffffff;
+  --ink: #000000;
+  --graphite: #615d59;
+  --stone: #757575;
+  --sky-tint: #e6f3fe;
+  --notion-blue: #0075de;
+  --blue-hover: #0068c5;
+  --marigold: #ffb110;
+  --coral: #f64932;
+  --sky-wash: #62aef0;
+  --midnight: #02093a;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hairline-strong: rgba(0, 0, 0, 0.12);
+
+  /* Semantic accents replacing hardcoded palette utilities */
+  --danger-soft: #fff0e8;
+  --warning-soft: #fff4cf;
+  --warning-strong: #8a5a00;
+  --info-soft: #e9edff;
+  --success: #10b981;
+
+  /* Scrollbars */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.14);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.24);
+  --scrollbar-thumb-soft: rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb-soft-hover: rgba(0, 0, 0, 0.25);
+
+  /* Syntax highlighting (rehype-highlight) — light */
+  --hljs-comment: #6e7781;
+  --hljs-keyword: #cf222e;
+  --hljs-string: #0a3069;
+  --hljs-constant: #0550ae;
+  --hljs-title: #8250df;
+  --hljs-type: #953800;
+  --hljs-meta: #57606a;
+  --hljs-tag: #116329;
+}
+
+.dark {
+  --paper: #191919;
+  --sidebar: #202020;
+  --pure-white: #262626;
+  --ink: #e9e9e7;
+  --graphite: #a8a49e;
+  --stone: #98958f;
+  --sky-tint: rgba(107, 171, 242, 0.14);
+  --notion-blue: #6babf2;
+  --blue-hover: #5b9ce8;
+  --marigold: #ffb110;
+  --coral: #ff6b54;
+  --sky-wash: #62aef0;
+  --midnight: #cfe0ff;
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
+
+  --danger-soft: rgba(246, 73, 50, 0.12);
+  --warning-soft: rgba(255, 177, 16, 0.12);
+  --warning-strong: #ffca5f;
+  --info-soft: rgba(98, 174, 240, 0.14);
+  --success: #34d399;
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
+  --scrollbar-thumb-soft: rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-soft-hover: rgba(255, 255, 255, 0.26);
+
+  --hljs-comment: #8b949e;
+  --hljs-keyword: #ff7b72;
+  --hljs-string: #a5d6ff;
+  --hljs-constant: #79c0ff;
+  --hljs-title: #d2a8ff;
+  --hljs-type: #ffa657;
+  --hljs-meta: #8b949e;
+  --hljs-tag: #7ee787;
+}
+
+@theme inline {
   /* Colors — Notion style (DESIGN.md) */
-  --color-notion-blue: #0075de;
-  --color-blue-hover: #0068c5;
-  --color-paper: #f6f5f4;
-  --color-sidebar: #faf9f7;
-  --color-pure-white: #ffffff;
-  --color-ink: #000000;
-  --color-graphite: #615d59;
-  --color-stone: #757575;
-  --color-sky-tint: #e6f3fe;
-  --color-marigold: #ffb110;
-  --color-coral: #f64932;
-  --color-sky-wash: #62aef0;
-  --color-midnight: #02093a;
-  --color-hairline: rgba(0, 0, 0, 0.08);
-  --color-hairline-strong: rgba(0, 0, 0, 0.12);
+  --color-notion-blue: var(--notion-blue);
+  --color-blue-hover: var(--blue-hover);
+  --color-paper: var(--paper);
+  --color-sidebar: var(--sidebar);
+  --color-pure-white: var(--pure-white);
+  --color-ink: var(--ink);
+  --color-graphite: var(--graphite);
+  --color-stone: var(--stone);
+  --color-sky-tint: var(--sky-tint);
+  --color-marigold: var(--marigold);
+  --color-coral: var(--coral);
+  --color-sky-wash: var(--sky-wash);
+  --color-midnight: var(--midnight);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+
+  /* Semantic accents */
+  --color-danger-soft: var(--danger-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-strong: var(--warning-strong);
+  --color-info-soft: var(--info-soft);
+  --color-success: var(--success);
 
   /* Semantic tokens (DESIGN.md) */
-  --color-background: #ffffff;
-  --color-foreground: #000000;
-  --color-primary: #0075de;
+  --color-background: var(--pure-white);
+  --color-foreground: var(--ink);
+  --color-primary: var(--notion-blue);
   --color-primary-foreground: #ffffff;
-  --color-card: #ffffff;
-  --color-card-foreground: #000000;
-  --color-border: rgba(0, 0, 0, 0.08);
-  --color-muted: #e6f3fe;
-  --color-muted-foreground: #757575;
+  --color-card: var(--pure-white);
+  --color-card-foreground: var(--ink);
+  --color-border: var(--hairline);
+  --color-muted: var(--sky-tint);
+  --color-muted-foreground: var(--stone);
 
   /* Typography — Font Families */
   --font-inter:
@@ -43,15 +134,15 @@
 }
 
 body {
-  background: var(--color-pure-white);
+  background: var(--pure-white);
   font-family: var(--font-inter);
-  color: var(--color-ink);
+  color: var(--ink);
 }
 
 /* Accessibility — visible focus ring (WCAG 2.1 AA, 2.4.7). */
 @layer base {
   *:focus-visible {
-    outline: 2px solid var(--color-notion-blue);
+    outline: 2px solid var(--notion-blue);
     outline-offset: 2px;
   }
 }
@@ -64,11 +155,11 @@ textarea::-webkit-scrollbar-track {
   background: transparent;
 }
 textarea::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--scrollbar-thumb-hover);
 }
 textarea::-webkit-scrollbar-button {
   display: none;
@@ -84,11 +175,11 @@ textarea::-webkit-scrollbar-button {
   background: transparent;
 }
 .reasoning-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--scrollbar-thumb-soft);
   border-radius: 9999px;
 }
 .reasoning-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--scrollbar-thumb-soft-hover);
 }
 .reasoning-scroll::-webkit-scrollbar-button {
   display: none;
@@ -101,7 +192,7 @@ textarea::-webkit-scrollbar-button {
    below for older engines. Kept light so thumbs blend with paper tones. */
 .zona-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 .zona-scroll::-webkit-scrollbar {
   width: 6px;
@@ -110,16 +201,69 @@ textarea::-webkit-scrollbar-button {
   background: transparent;
 }
 .zona-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.14);
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 .zona-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.24);
+  background: var(--scrollbar-thumb-hover);
 }
 .zona-scroll::-webkit-scrollbar-button {
   display: none;
   width: 0;
   height: 0;
+}
+
+/* Syntax highlighting token colors — driven by theme variables so
+   rehype-highlight output follows light and dark without extra CSS. */
+.hljs-comment,
+.hljs-quote {
+  color: var(--hljs-comment);
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag,
+.hljs-name,
+.hljs-deletion {
+  color: var(--hljs-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: var(--hljs-string);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-attr,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: var(--hljs-constant);
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-type,
+.hljs-params {
+  color: var(--hljs-title);
+}
+.hljs-meta,
+.hljs-emphasis {
+  color: var(--hljs-meta);
+}
+.hljs-tag {
+  color: var(--hljs-tag);
+}
+.hljs-strong {
+  font-weight: 600;
 }
 
 /* Accessibility — respect prefers-reduced-motion (WCAG 2.1 AA, 2.3.3) */
@@ -166,199 +310,11 @@ textarea::-webkit-scrollbar-button {
 }
 .chat-prose blockquote {
   padding-left: 1em;
-  border-left: 2px solid var(--color-hairline-strong);
-  color: var(--color-graphite);
+  border-left: 2px solid var(--hairline-strong);
+  color: var(--graphite);
 }
 .chat-prose hr {
   margin-top: 1.25em;
   border: 0;
-  border-top: 1px solid var(--color-hairline);
-}
-
-/* Syntax highlighting — light mode (default) */
-.hljs {
-  color: #24292f;
-  background: transparent;
-}
-.hljs-keyword,
-.hljs-selector-tag {
-  color: #cf222e;
-  font-weight: 500;
-}
-.hljs-title,
-.hljs-title.function_,
-.hljs-title.class_ {
-  color: #8250df;
-}
-.hljs-attr,
-.hljs-attribute,
-.hljs-literal,
-.hljs-number,
-.hljs-operator,
-.hljs-variable {
-  color: #0550ae;
-}
-.hljs-string,
-.hljs-regexp,
-.hljs-meta .hljs-string {
-  color: #0a3069;
-}
-.hljs-built_in,
-.hljs-symbol {
-  color: #953800;
-}
-.hljs-comment,
-.hljs-code,
-.hljs-formula {
-  color: #6e7781;
-  font-style: italic;
-}
-.hljs-name,
-.hljs-quote,
-.hljs-selector-id,
-.hljs-selector-class {
-  color: #116329;
-}
-.hljs-type,
-.hljs-params {
-  color: #953800;
-}
-.hljs-subst {
-  color: #24292f;
-}
-.hljs-meta {
-  color: #8250df;
-}
-
-/* Syntax highlighting — dark mode support */
-.dark .hljs,
-[data-theme="dark"] .hljs {
-  color: #c9d1d9;
-}
-.dark .hljs-keyword,
-.dark .hljs-selector-tag,
-[data-theme="dark"] .hljs-keyword,
-[data-theme="dark"] .hljs-selector-tag {
-  color: #ff7b72;
-}
-.dark .hljs-title,
-.dark .hljs-title.function_,
-.dark .hljs-title.class_,
-[data-theme="dark"] .hljs-title,
-[data-theme="dark"] .hljs-title.function_,
-[data-theme="dark"] .hljs-title.class_ {
-  color: #d2a8ff;
-}
-.dark .hljs-attr,
-.dark .hljs-attribute,
-.dark .hljs-literal,
-.dark .hljs-number,
-.dark .hljs-operator,
-.dark .hljs-variable,
-[data-theme="dark"] .hljs-attr,
-[data-theme="dark"] .hljs-attribute,
-[data-theme="dark"] .hljs-literal,
-[data-theme="dark"] .hljs-number,
-[data-theme="dark"] .hljs-operator,
-[data-theme="dark"] .hljs-variable {
-  color: #79c0ff;
-}
-.dark .hljs-string,
-.dark .hljs-regexp,
-.dark .hljs-meta .hljs-string,
-[data-theme="dark"] .hljs-string,
-[data-theme="dark"] .hljs-regexp,
-[data-theme="dark"] .hljs-meta .hljs-string {
-  color: #a5d6ff;
-}
-.dark .hljs-built_in,
-.dark .hljs-symbol,
-[data-theme="dark"] .hljs-built_in,
-[data-theme="dark"] .hljs-symbol {
-  color: #ffa657;
-}
-.dark .hljs-comment,
-.dark .hljs-code,
-.dark .hljs-formula,
-[data-theme="dark"] .hljs-comment,
-[data-theme="dark"] .hljs-code,
-[data-theme="dark"] .hljs-formula {
-  color: #8b949e;
-}
-.dark .hljs-name,
-.dark .hljs-quote,
-.dark .hljs-selector-id,
-.dark .hljs-selector-class,
-[data-theme="dark"] .hljs-name,
-[data-theme="dark"] .hljs-quote,
-[data-theme="dark"] .hljs-selector-id,
-[data-theme="dark"] .hljs-selector-class {
-  color: #7ee787;
-}
-.dark .hljs-type,
-.dark .hljs-params,
-[data-theme="dark"] .hljs-type,
-[data-theme="dark"] .hljs-params {
-  color: #ffa657;
-}
-.dark .hljs-subst,
-[data-theme="dark"] .hljs-subst {
-  color: #c9d1d9;
-}
-.dark .hljs-meta,
-[data-theme="dark"] .hljs-meta {
-  color: #d2a8ff;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.light):not([data-theme="light"]) .hljs {
-    color: #c9d1d9;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-keyword,
-  :root:not(.light):not([data-theme="light"]) .hljs-selector-tag {
-    color: #ff7b72;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-title,
-  :root:not(.light):not([data-theme="light"]) .hljs-title.function_,
-  :root:not(.light):not([data-theme="light"]) .hljs-title.class_ {
-    color: #d2a8ff;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-attr,
-  :root:not(.light):not([data-theme="light"]) .hljs-attribute,
-  :root:not(.light):not([data-theme="light"]) .hljs-literal,
-  :root:not(.light):not([data-theme="light"]) .hljs-number,
-  :root:not(.light):not([data-theme="light"]) .hljs-operator,
-  :root:not(.light):not([data-theme="light"]) .hljs-variable {
-    color: #79c0ff;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-string,
-  :root:not(.light):not([data-theme="light"]) .hljs-regexp,
-  :root:not(.light):not([data-theme="light"]) .hljs-meta .hljs-string {
-    color: #a5d6ff;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-built_in,
-  :root:not(.light):not([data-theme="light"]) .hljs-symbol {
-    color: #ffa657;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-comment,
-  :root:not(.light):not([data-theme="light"]) .hljs-code,
-  :root:not(.light):not([data-theme="light"]) .hljs-formula {
-    color: #8b949e;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-name,
-  :root:not(.light):not([data-theme="light"]) .hljs-quote,
-  :root:not(.light):not([data-theme="light"]) .hljs-selector-id,
-  :root:not(.light):not([data-theme="light"]) .hljs-selector-class {
-    color: #7ee787;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-type,
-  :root:not(.light):not([data-theme="light"]) .hljs-params {
-    color: #ffa657;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-subst {
-    color: #c9d1d9;
-  }
-  :root:not(.light):not([data-theme="light"]) .hljs-meta {
-    color: #d2a8ff;
-  }
+  border-top: 1px solid var(--hairline);
 }
