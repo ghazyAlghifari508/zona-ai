@@ -23,8 +23,18 @@ vi.mock('../../src/lib/auth/auth-client', () => ({
   },
 }))
 
+import {
+  resetThemeForTesting,
+  setTheme,
+} from '../../src/lib/ui/theme'
+
 describe('ProfileMenu', () => {
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    resetThemeForTesting()
+  })
 
   it('renders user initials when no image is provided', () => {
     render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
@@ -75,6 +85,56 @@ describe('ProfileMenu', () => {
     fireEvent.click(signOutBtn)
 
     expect(authClient.signOut).toHaveBeenCalled()
+  })
+
+  it('places the Tampilan toggle directly above Keluar', async () => {
+    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+
+    const trigger = screen.getByTestId('profile-menu-trigger')
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+
+    await screen.findByTestId('profile-theme-toggle')
+    const content = trigger.ownerDocument.querySelector(
+      '[data-testid="profile-theme-toggle"]',
+    )?.parentElement
+    expect(content).toBeTruthy()
+    const toggle = content?.querySelector('[data-testid="profile-theme-toggle"]')
+    const signOut = content?.querySelector('[data-testid="profile-sign-out"]')
+    expect(toggle && signOut
+      ? (Array.from(content?.children ?? []).indexOf(toggle as Element) <
+          Array.from(content?.children ?? []).indexOf(signOut as Element))
+      : false).toBe(true)
+  })
+
+  it('toggles dark mode in place without unmounting the menu', async () => {
+    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+
+    const trigger = screen.getByTestId('profile-menu-trigger')
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+
+    const toggle = await screen.findByTestId('profile-theme-toggle')
+    expect(screen.getByTestId('profile-theme-state').textContent).toBe('Terang')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+
+    fireEvent.click(toggle)
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(screen.getByTestId('profile-theme-state').textContent).toBe('Gelap')
+    expect(screen.getByTestId('profile-theme-toggle')).toBeTruthy()
+
+    fireEvent.click(toggle)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(screen.getByTestId('profile-theme-state').textContent).toBe('Terang')
+  })
+
+  it('shows the dark state label when theme starts dark', async () => {
+    setTheme('dark')
+    render(<ProfileMenu user={{ name: 'Ghazy Alghifari', email: 'ghazy@example.com' }} />)
+
+    const trigger = screen.getByTestId('profile-menu-trigger')
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+
+    await screen.findByTestId('profile-theme-toggle')
+    expect(screen.getByTestId('profile-theme-state').textContent).toBe('Gelap')
   })
 })
 

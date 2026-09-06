@@ -1,4 +1,9 @@
-import { Logout01Icon, Settings01Icon } from '@hugeicons/core-free-icons'
+import {
+  Logout01Icon,
+  Moon02Icon,
+  Settings01Icon,
+  Sun03Icon,
+} from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import {
@@ -11,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { authClient } from '@/lib/auth/auth-client'
+import { useTheme } from '@/lib/ui/theme'
 
 type Props = {
   user:
@@ -24,6 +30,8 @@ type Props = {
 }
 
 export function ProfileMenu({ user }: Props) {
+  const [theme, toggleTheme] = useTheme()
+  const isDark = theme === 'dark'
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -65,8 +73,32 @@ export function ProfileMenu({ user }: Props) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
+          data-testid="profile-theme-toggle"
+          onSelect={(event) => {
+            event.preventDefault()
+          }}
+          onClick={() => {
+            toggleTheme()
+          }}
+          className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-ink cursor-pointer transition-colors duration-200 hover:bg-ink/5 focus:bg-ink/5"
+        >
+          <HugeiconsIcon
+            icon={isDark ? Sun03Icon : Moon02Icon}
+            size={16}
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+          Tampilan
+          <span
+            data-testid="profile-theme-state"
+            className="ml-auto text-[11px] text-stone"
+          >
+            {isDark ? 'Gelap' : 'Terang'}
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
           asChild
-          className="text-coral focus:bg-rose-50 focus:text-coral"
+          className="text-coral focus:bg-danger-soft focus:text-coral"
         >
           <button
             type="button"
