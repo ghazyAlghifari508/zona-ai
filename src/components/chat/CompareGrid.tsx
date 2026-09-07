@@ -1,3 +1,4 @@
+import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
 import { getCompareGridClasses } from '@/lib/chat/compare-card-width'
 import { ModelColumn } from './ModelColumn'
 
@@ -12,6 +13,7 @@ type Generation = {
   totalTokens?: number | null
   latencyMs?: number | null
   timeToFirstTokenMs?: number | null
+  artifact?: ArtifactDescriptor
 }
 
 type ComparisonRun = {
@@ -26,6 +28,8 @@ type Props = {
   generations: Generation[]
   onRetry?: (generationId: string) => void
   onStop?: (generationId: string) => void
+  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
+  onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   userPrompt?: string
 }
 
@@ -34,6 +38,8 @@ export function CompareGrid({
   generations,
   onRetry,
   onStop,
+  onOpenArtifact,
+  onOpenArtifacts,
   userPrompt,
 }: Props) {
   const prompt =
@@ -44,6 +50,7 @@ export function CompareGrid({
     ''
 
   const { containerClass, gridClass } = getCompareGridClasses(generations)
+  void onOpenArtifacts
 
   return (
     <div className={`space-y-4 ${containerClass}`}>
@@ -61,6 +68,7 @@ export function CompareGrid({
             generation={g}
             onRetry={onRetry}
             onStop={onStop}
+            onOpenArtifact={onOpenArtifact}
           />
         ))}
       </div>

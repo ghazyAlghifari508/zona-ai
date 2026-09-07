@@ -281,4 +281,233 @@ describe('conversation reload hydration', () => {
     expect(hydrated[0]).not.toHaveProperty('artifact')
     expect(hydrated[0]).not.toHaveProperty('artifactStatus')
   })
+
+  it('hydrates PRD safe descriptors with logical and version identity', () => {
+    const descriptor = {
+      artifactId: 'aaaaaaaa-0000-4000-8000-000000000001',
+      versionId: 'aaaaaaaa-0000-4000-8000-000000000002',
+      attachmentId: 'aaaaaaaa-0000-4000-8000-000000000003',
+      generationId: 'aaaaaaaa-0000-4000-8000-000000000004',
+      kind: 'prd',
+      title: 'Login PRD',
+      fileName: 'login-prd.md',
+      fileSize: 4096,
+      mimeType: 'text/markdown',
+      version: 1,
+      modelId: 'gpt-5.6-sol',
+      routerModelId: 'openai/gpt-4o',
+    } as const
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-asst-prd-safe',
+        role: 'assistant',
+        content: 'Summary ready.',
+        generationRuns: [
+          {
+            id: 'aaaaaaaa-0000-4000-8000-000000000004',
+            modelId: 'gpt-5.6-sol',
+            routerModelId: 'openai/gpt-4o',
+            skillId: 'prd-plan',
+            status: 'completed',
+            content: null,
+            comparisonRunId: null,
+            messageId: 'msg-asst-prd-safe',
+            artifact: descriptor,
+          },
+        ],
+      },
+    ])
+    expect(hydrated).toHaveLength(1)
+    expect(hydrated[0]).toMatchObject({
+      id: 'msg-asst-prd-safe',
+      artifactStatus: 'completed',
+      artifactKind: 'prd',
+    })
+    expect(hydrated[0].artifact).toEqual(descriptor)
+    expect(hydrated[0].artifact?.artifactId).toBe(descriptor.artifactId)
+    expect(hydrated[0].artifact?.versionId).toBe(descriptor.versionId)
+    expect(hydrated[0].artifact).not.toHaveProperty('r2Key')
+    expect(hydrated[0].artifact).not.toHaveProperty('r2Bucket')
+  })
+
+  it('hydrates agent-skill safe descriptors with logical and version identity', () => {
+    const descriptor = {
+      artifactId: 'bbbbbbbb-0000-4000-8000-000000000001',
+      versionId: 'bbbbbbbb-0000-4000-8000-000000000002',
+      attachmentId: 'bbbbbbbb-0000-4000-8000-000000000003',
+      generationId: 'bbbbbbbb-0000-4000-8000-000000000004',
+      kind: 'agent-skill',
+      title: 'Review Skill',
+      fileName: 'review-skill.md',
+      fileSize: 2048,
+      mimeType: 'text/markdown',
+      version: 2,
+      modelId: 'gpt-5.6-sol',
+      routerModelId: 'openai/gpt-4o',
+    } as const
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-asst-skill-safe',
+        role: 'assistant',
+        content: 'Skill summary.',
+        generationRuns: [
+          {
+            id: 'bbbbbbbb-0000-4000-8000-000000000004',
+            modelId: 'gpt-5.6-sol',
+            routerModelId: 'openai/gpt-4o',
+            skillId: 'agent-skill',
+            status: 'completed',
+            content: null,
+            comparisonRunId: null,
+            messageId: 'msg-asst-skill-safe',
+            artifact: descriptor,
+          },
+        ],
+      },
+    ])
+    expect(hydrated[0].artifact).toEqual(descriptor)
+    expect(hydrated[0]).toMatchObject({
+      artifactKind: 'agent-skill',
+      artifactStatus: 'completed',
+    })
+  })
+
+  it('hydrates checklist safe descriptors with logical and version identity', () => {
+    const descriptor = {
+      artifactId: 'cccccccc-0000-4000-8000-000000000001',
+      versionId: 'cccccccc-0000-4000-8000-000000000002',
+      attachmentId: 'cccccccc-0000-4000-8000-000000000003',
+      generationId: 'cccccccc-0000-4000-8000-000000000004',
+      kind: 'checklist',
+      title: 'Launch Checklist',
+      fileName: 'launch-checklist.md',
+      fileSize: 1024,
+      mimeType: 'text/markdown',
+      version: 1,
+      modelId: 'gemini-3.7-flash-high',
+      routerModelId: 'google/gemini-2.5-flash',
+    } as const
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-asst-checklist-safe',
+        role: 'assistant',
+        content: 'Checklist summary.',
+        generationRuns: [
+          {
+            id: 'cccccccc-0000-4000-8000-000000000004',
+            modelId: 'gemini-3.7-flash-high',
+            routerModelId: 'google/gemini-2.5-flash',
+            skillId: 'checklist',
+            status: 'completed',
+            content: null,
+            comparisonRunId: null,
+            messageId: 'msg-asst-checklist-safe',
+            artifact: descriptor,
+          },
+        ],
+      },
+    ])
+    expect(hydrated[0].artifact).toEqual(descriptor)
+    expect(hydrated[0]).toMatchObject({
+      artifactKind: 'checklist',
+      artifactStatus: 'completed',
+    })
+  })
+
+  it('hydrates compare groups with successful descriptors while preserving failed siblings', () => {
+    const compRunId = 'dddddddd-0000-4000-8000-000000000000'
+    const successDescriptor = {
+      artifactId: 'dddddddd-0000-4000-8000-000000000001',
+      versionId: 'dddddddd-0000-4000-8000-000000000002',
+      attachmentId: 'dddddddd-0000-4000-8000-000000000003',
+      generationId: 'dddddddd-0000-4000-8000-000000000004',
+      kind: 'checklist',
+      title: 'Compare Checklist A',
+      fileName: 'compare-a.md',
+      fileSize: 512,
+      mimeType: 'text/markdown',
+      version: 1,
+      modelId: 'gemini-3.7-flash-high',
+      routerModelId: 'google/gemini-2.5-flash',
+    } as const
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-compare-a',
+        role: 'assistant',
+        content: '',
+        generationRuns: [
+          {
+            id: 'dddddddd-0000-4000-8000-000000000004',
+            modelId: 'gemini-3.7-flash-high',
+            routerModelId: 'google/gemini-2.5-flash',
+            skillId: 'checklist',
+            status: 'completed',
+            content: null,
+            comparisonRunId: compRunId,
+            messageId: 'msg-compare-a',
+            artifact: successDescriptor,
+          },
+        ],
+      },
+      {
+        id: 'msg-compare-b',
+        role: 'assistant',
+        content: '',
+        generationRuns: [
+          {
+            id: 'dddddddd-0000-4000-8000-000000000005',
+            modelId: 'gpt-5.6-sol',
+            routerModelId: 'openai/gpt-4o',
+            skillId: 'checklist',
+            status: 'failed',
+            content: '',
+            comparisonRunId: compRunId,
+            messageId: 'msg-compare-b',
+            error: { message: 'boom', code: 'ERR-016' },
+          },
+        ],
+      },
+    ])
+    expect(hydrated).toHaveLength(1)
+    const group = hydrated[0]
+    expect(group.compareGenerations).toHaveLength(2)
+    expect(group.compareGenerations?.[0].artifact).toEqual(successDescriptor)
+    expect(group.compareGenerations?.[0].status).toBe('completed')
+    expect(group.compareGenerations?.[1].status).toBe('failed')
+    expect(group.compareGenerations?.[1]).not.toHaveProperty('artifact')
+  })
+
+  it('keeps historical checklist JSON chat content as ordinary content', () => {
+    const checklistJson = JSON.stringify({
+      type: 'checklist',
+      title: 'Old list',
+      items: [
+        { id: '1', text: 'first', completed: false },
+        { id: '2', text: 'second', completed: true },
+      ],
+    })
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-historical-checklist',
+        role: 'assistant',
+        content: checklistJson,
+        generationRuns: [
+          {
+            id: 'eeeeeeee-0000-4000-8000-000000000001',
+            modelId: 'auto',
+            routerModelId: 'test/router',
+            skillId: 'none',
+            status: 'completed',
+            content: checklistJson,
+            comparisonRunId: null,
+            messageId: 'msg-historical-checklist',
+          },
+        ],
+      },
+    ])
+    expect(hydrated).toHaveLength(1)
+    expect(hydrated[0].content).toBe(checklistJson)
+    expect(hydrated[0]).not.toHaveProperty('artifact')
+    expect(hydrated[0]).not.toHaveProperty('artifactStatus')
+  })
 })

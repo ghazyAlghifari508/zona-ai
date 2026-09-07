@@ -12,6 +12,7 @@ import {
 import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
+import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
@@ -32,6 +33,16 @@ import { MarkdownContent } from './MarkdownContent'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
+export type ChatMessageArtifact =
+  | ArtifactDescriptor
+  | {
+      kind: ArtifactKind
+      attachmentId: string
+      fileName: string
+      fileSize: number
+      mimeType: string
+    }
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -49,13 +60,7 @@ export type ChatMessage = {
   artifactKind?: ArtifactKind
   artifactAck?: string
   generationRunId?: string
-  artifact?: {
-    kind: ArtifactKind
-    attachmentId: string
-    fileName: string
-    fileSize: number
-    mimeType: string
-  }
+  artifact?: ChatMessageArtifact
   compareGenerations?: Array<{
     id: string
     modelId: string
@@ -70,6 +75,7 @@ export type ChatMessage = {
     comparisonRunId?: string | null
     messageId?: string
     error?: { message?: string; code?: string } | unknown
+    artifact?: ArtifactDescriptor
     webSources?: Array<{
       url: string
       title: string | null
@@ -113,6 +119,8 @@ export function MessageList({
   onRetryGeneration,
   onStopGeneration,
   onRetryArtifact,
+  onOpenArtifact,
+  onOpenArtifacts,
   scrollRef,
   hasUsedCompareMode,
 }: {
@@ -120,6 +128,8 @@ export function MessageList({
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
+  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
+  onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   hasUsedCompareMode?: boolean
 }) {
@@ -207,6 +217,8 @@ export function MessageList({
                     onRetryGeneration={onRetryGeneration}
                     onStopGeneration={onStopGeneration}
                     onRetryArtifact={onRetryArtifact}
+                    onOpenArtifact={onOpenArtifact}
+                    onOpenArtifacts={onOpenArtifacts}
                     hasUsedCompareMode={hasUsedCompareMode}
                   />
                 </div>
@@ -223,6 +235,8 @@ export function MessageList({
                 onRetryGeneration={onRetryGeneration}
                 onStopGeneration={onStopGeneration}
                 onRetryArtifact={onRetryArtifact}
+                onOpenArtifact={onOpenArtifact}
+                onOpenArtifacts={onOpenArtifacts}
                 hasUsedCompareMode={hasUsedCompareMode}
               />
             ))}
@@ -251,6 +265,8 @@ const MessageItem = memo(function MessageItem({
   onRetryGeneration,
   onStopGeneration,
   onRetryArtifact,
+  onOpenArtifact,
+  onOpenArtifacts,
   hasUsedCompareMode,
 }: {
   message: ChatMessage
@@ -258,6 +274,8 @@ const MessageItem = memo(function MessageItem({
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
+  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
+  onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   hasUsedCompareMode?: boolean
 }) {
   const entry = findCatalogEntry(catalog, message.modelId)
@@ -279,6 +297,8 @@ const MessageItem = memo(function MessageItem({
           generations={message.compareGenerations}
           onRetry={onRetryGeneration}
           onStop={onStopGeneration}
+          onOpenArtifact={onOpenArtifact}
+          onOpenArtifacts={onOpenArtifacts}
         />
       </div>
     )
@@ -312,10 +332,15 @@ const MessageItem = memo(function MessageItem({
           generations={[singleGen]}
           onRetry={onRetryGeneration}
           onStop={onStopGeneration}
+          onOpenArtifact={onOpenArtifact}
+          onOpenArtifacts={onOpenArtifacts}
         />
       </div>
     )
   }
+
+  void onOpenArtifact
+  void onOpenArtifacts
 
   const providerName = getModelProviderName(entry, message.modelId)
   const hasVisibleContent = Boolean(

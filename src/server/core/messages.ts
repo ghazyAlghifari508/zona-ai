@@ -2,12 +2,15 @@
  * Server-only message helpers.
  * NEVER import from client code — pulls db/postgres into the browser bundle.
  */
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
+import type { ArtifactDescriptor } from '../../lib/artifacts/contracts'
 import { getAuthSession } from '../../lib/auth/session'
 import { ARTIFACT_SKILL_IDS } from '../../lib/chat/skills'
 import { db } from '../../lib/db'
 import {
+  artifacts,
+  artifactVersions,
   attachments,
   conversations,
   generationRuns,
@@ -34,7 +37,7 @@ export async function getMessagesCore({
   if (conversation.userId !== session.user.id)
     throw new AppError('Forbidden', 403)
 
-  const [messageRows, runRows, webSourceRows, attachmentRows] =
+  const [messageRows, runRows, webSourceRows, attachmentRows, artifactRows] =
     await Promise.all([
       db
         .select()
@@ -78,22 +81,82 @@ export async function getMessagesCore({
         })
         .from(attachments)
         .where(eq(attachments.conversationId, data.conversationId)),
+      db
+        .select({
+          generationId: artifactVersions.generationRunId,
+          artifactId: artifactVersions.artifactId,
+          versionId: artifactVersions.id,
+          attachmentId: artifactVersions.attachmentId,
+          title: artifactVersions.title,
+          version: artifactVersions.version,
+          modelId: artifactVersions.createdByModelId,
+          routerModelId: artifactVersions.createdByRouterModelId,
+          kind: artifacts.kind,
+          fileName: attachments.fileName,
+          fileSize: attachments.fileSize,
+          mimeType: attachments.mimeType,
+        })
+        .from(artifactVersions)
+        .innerJoin(
+          artifacts,
+          and(
+            eq(artifacts.id, artifactVersions.artifactId),
+            eq(artifacts.conversationId, data.conversationId),
+          ),
+        )
+        .innerJoin(
+          attachments,
+          and(
+            eq(attachments.id, artifactVersions.attachmentId),
+            eq(attachments.conversationId, data.conversationId),
+          ),
+        )
+        .where(eq(artifactVersions.conversationId, data.conversationId)),
     ])
+  const artifactByGeneration = new Map<string, ArtifactDescriptor>()
+  for (const row of artifactRows) {
+    if (row.mimeType !== 'text/markdown') continue
+    artifactByGeneration.set(row.generationId, {
+      artifactId: row.artifactId,
+      versionId: row.versionId,
+      attachmentId: row.attachmentId,
+      generationId: row.generationId,
+      kind: row.kind,
+      title: row.title,
+      fileName: row.fileName,
+      fileSize: row.fileSize,
+      mimeType: 'text/markdown',
+      version: row.version,
+      modelId: row.modelId,
+      routerModelId: row.routerModelId,
+    })
+  }
   const sourcesByGeneration = new Map<string, typeof webSourceRows>()
   for (const src of webSourceRows) {
     const arr = sourcesByGeneration.get(src.generationRunId) ?? []
     arr.push(src)
     sourcesByGeneration.set(src.generationRunId, arr)
   }
-  const redactedRunRows = runRows.map((run) =>
-    run.status === 'completed' &&
-    (ARTIFACT_SKILL_IDS as readonly string[]).includes(run.skillId ?? '')
-      ? { ...run, content: null }
-      : run,
-  )
+  const redactedRunRows = runRows.map((run) => {
+    const artifact = artifactByGeneration.get(run.id)
+    const isArtifactRun =
+      run.status === 'completed' &&
+      ((ARTIFACT_SKILL_IDS as readonly string[]).includes(run.skillId ?? '') ||
+        artifact !== undefined)
+    return {
+      ...run,
+      content: isArtifactRun ? null : run.content,
+      artifact,
+    }
+  })
   const runsByMessage = new Map<
     string,
-    Array<(typeof runRows)[number] & { webSources: typeof webSourceRows }>
+    Array<
+      (typeof runRows)[number] & {
+        webSources: typeof webSourceRows
+        artifact: ArtifactDescriptor | undefined
+      }
+    >
   >()
   for (const run of redactedRunRows) {
     const withSources = {

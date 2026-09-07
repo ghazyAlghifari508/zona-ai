@@ -2,6 +2,7 @@ import { ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { memo } from 'react'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
@@ -29,6 +30,7 @@ type Generation = {
   latencyMs?: number | null
   timeToFirstTokenMs?: number | null
   error?: unknown
+  artifact?: ArtifactDescriptor
   webSources?: CitationSource[]
 }
 
@@ -37,6 +39,7 @@ type Props = {
   onRetry?: (generationId: string) => void
   onStop?: (generationId: string) => void
   onCopy?: (content: string) => void
+  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
 }
 
 export const ModelColumn = memo(function ModelColumn({
@@ -44,7 +47,9 @@ export const ModelColumn = memo(function ModelColumn({
   onRetry,
   onStop,
   onCopy,
+  onOpenArtifact,
 }: Props) {
+  void onOpenArtifact
   const catalog = useModelCatalog()
   const entry = findCatalogEntry(catalog, generation.modelId)
   const providerName = getModelProviderName(entry, generation.modelId)
