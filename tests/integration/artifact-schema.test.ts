@@ -19,6 +19,23 @@ import {
 const USER_ID = 'artifact-schema-owner'
 const USER_EMAIL = 'artifact-schema-owner@example.com'
 
+function constraintName(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) return null
+  if ('constraint_name' in error && typeof error.constraint_name === 'string') {
+    return error.constraint_name
+  }
+  return 'cause' in error ? constraintName(error.cause) : null
+}
+
+async function captureConstraint(operation: Promise<unknown>) {
+  try {
+    await operation
+    return null
+  } catch (error) {
+    return constraintName(error)
+  }
+}
+
 async function resetFixture() {
   await db.delete(users).where(eq(users.id, USER_ID))
   await db.insert(users).values({
@@ -28,10 +45,10 @@ async function resetFixture() {
   })
 }
 
-async function createConversation() {
+async function createConversation(userId = USER_ID) {
   const [conversation] = await db
     .insert(conversations)
-    .values({ userId: USER_ID, title: 'Artifact schema fixture' })
+    .values({ userId, title: 'Artifact schema fixture' })
     .returning({ id: conversations.id })
   if (!conversation) throw new Error('Conversation fixture was not created')
   return conversation.id
@@ -44,6 +61,7 @@ async function createGenerationFixture(input: {
   status?: string
   fileName?: string
   mimeType?: string
+  userId?: string
 }) {
   const [message] = await db
     .insert(messages)
@@ -72,7 +90,7 @@ async function createGenerationFixture(input: {
   const [attachment] = await db
     .insert(attachments)
     .values({
-      userId: USER_ID,
+      userId: input.userId ?? USER_ID,
       messageId: message.id,
       conversationId: input.conversationId,
       fileName,
@@ -92,17 +110,48 @@ async function createGenerationFixture(input: {
   }
 }
 
+async function insertArtifactVersion(input: {
+  id?: string
+  artifactId: string
+  conversationId: string
+  version: number
+  sourceVersionId?: string | null
+  attachmentId: string
+  generationRunId: string
+  title: string
+  contentSha256?: string | null
+  changeSummary: string
+}) {
+  const id = input.id ?? crypto.randomUUID()
+  await db.insert(artifactVersions).values({
+    id,
+    artifactId: input.artifactId,
+    conversationId: input.conversationId,
+    version: input.version,
+    sourceVersionId: input.sourceVersionId,
+    attachmentId: input.attachmentId,
+    generationRunId: input.generationRunId,
+    title: input.title,
+    contentSha256: input.contentSha256,
+    createdByModelId: 'model-internal',
+    createdByRouterModelId: 'router/model',
+    changeSummary: input.changeSummary,
+  })
+  return id
+}
+
 async function createArtifactWithVersion(input: {
   conversationId: string
   generationId: string
   attachmentId: string
   sourceVersionId?: string
   title?: string
+  userId?: string
 }) {
   const [artifact] = await db
     .insert(artifacts)
     .values({
-      userId: USER_ID,
+      userId: input.userId ?? USER_ID,
       conversationId: input.conversationId,
       kind: 'prd',
       title: input.title ?? 'Artifact title',
@@ -110,29 +159,24 @@ async function createArtifactWithVersion(input: {
     .returning({ id: artifacts.id })
   if (!artifact) throw new Error('Artifact fixture was not created')
 
-  const [version] = await db
-    .insert(artifactVersions)
-    .values({
-      artifactId: artifact.id,
-      version: 1,
-      sourceVersionId: input.sourceVersionId,
-      attachmentId: input.attachmentId,
-      generationRunId: input.generationId,
-      title: input.title ?? 'Artifact title',
-      contentSha256: 'a'.repeat(64),
-      createdByModelId: 'model-internal',
-      createdByRouterModelId: 'router/model',
-      changeSummary: 'Created artifact',
-    })
-    .returning({ id: artifactVersions.id })
-  if (!version) throw new Error('Artifact version fixture was not created')
+  const versionId = await insertArtifactVersion({
+    artifactId: artifact.id,
+    conversationId: input.conversationId,
+    version: 1,
+    sourceVersionId: input.sourceVersionId,
+    attachmentId: input.attachmentId,
+    generationRunId: input.generationId,
+    title: input.title ?? 'Artifact title',
+    contentSha256: 'a'.repeat(64),
+    changeSummary: 'Created artifact',
+  })
 
   await db
     .update(artifacts)
-    .set({ currentVersionId: version.id })
+    .set({ currentVersionId: versionId })
     .where(eq(artifacts.id, artifact.id))
 
-  return { artifactId: artifact.id, versionId: version.id }
+  return { artifactId: artifact.id, versionId }
 }
 
 async function readBackfillStatements(): Promise<string[]> {
@@ -176,43 +220,40 @@ describe.sequential('artifact persistence schema', () => {
     const second = await createGenerationFixture({ conversationId })
 
     await expect(
-      db.insert(artifactVersions).values({
+      insertArtifactVersion({
         artifactId: artifact.artifactId,
+        conversationId,
         version: 1,
         attachmentId: second.attachmentId,
         generationRunId: second.generationId,
         title: 'Duplicate version',
         contentSha256: 'b'.repeat(64),
-        createdByModelId: 'model-internal',
-        createdByRouterModelId: 'router/model',
         changeSummary: 'Revision',
       }),
     ).rejects.toThrow()
 
     await expect(
-      db.insert(artifactVersions).values({
+      insertArtifactVersion({
         artifactId: artifact.artifactId,
+        conversationId,
         version: 2,
         attachmentId: first.attachmentId,
         generationRunId: second.generationId,
         title: 'Reused attachment',
         contentSha256: 'c'.repeat(64),
-        createdByModelId: 'model-internal',
-        createdByRouterModelId: 'router/model',
         changeSummary: 'Revision',
       }),
     ).rejects.toThrow()
 
     await expect(
-      db.insert(artifactVersions).values({
+      insertArtifactVersion({
         artifactId: artifact.artifactId,
+        conversationId,
         version: 2,
         attachmentId: second.attachmentId,
         generationRunId: first.generationId,
         title: 'Reused generation',
         contentSha256: 'd'.repeat(64),
-        createdByModelId: 'model-internal',
-        createdByRouterModelId: 'router/model',
         changeSummary: 'Revision',
       }),
     ).rejects.toThrow()
@@ -398,6 +439,342 @@ describe.sequential('artifact persistence schema', () => {
     expect(remainingVersions).toHaveLength(0)
   })
 
+  it('rejects lifecycle edges across conversations and users', async () => {
+    const ownerA = 'artifact-scope-owner-a'
+    const ownerB = 'artifact-scope-owner-b'
+    await db.insert(users).values([
+      { id: ownerA, email: `${ownerA}@example.com`, name: 'Owner A' },
+      { id: ownerB, email: `${ownerB}@example.com`, name: 'Owner B' },
+    ])
+
+    try {
+      const conversationA = await createConversation(ownerA)
+      const conversationB = await createConversation(ownerB)
+      const fixtureA = await createGenerationFixture({
+        conversationId: conversationA,
+        userId: ownerA,
+      })
+      const sourceFixtureB = await createGenerationFixture({
+        conversationId: conversationB,
+        userId: ownerB,
+      })
+      const physicalFixtureB = await createGenerationFixture({
+        conversationId: conversationB,
+        userId: ownerB,
+      })
+      const sourceB = await createArtifactWithVersion({
+        conversationId: conversationB,
+        userId: ownerB,
+        generationId: sourceFixtureB.generationId,
+        attachmentId: sourceFixtureB.attachmentId,
+      })
+
+      const invalidArtifactId = crypto.randomUUID()
+      const artifactOwnerViolation = await captureConstraint(
+        db.insert(artifacts).values({
+          id: invalidArtifactId,
+          userId: ownerB,
+          conversationId: conversationA,
+          kind: 'prd',
+          title: 'Invalid owner',
+        }),
+      )
+      if (!artifactOwnerViolation) {
+        await db.delete(artifacts).where(eq(artifacts.id, invalidArtifactId))
+      }
+      expect
+        .soft(artifactOwnerViolation)
+        .toBe('artifacts_conversation_owner_fk')
+
+      const invalidAttachmentId = crypto.randomUUID()
+      const attachmentOwnerViolation = await captureConstraint(
+        db.insert(attachments).values({
+          id: invalidAttachmentId,
+          userId: ownerB,
+          conversationId: conversationA,
+          fileName: 'invalid-owner.md',
+          fileSize: 10,
+          mimeType: 'text/markdown',
+          r2Key: `artifact-schema/${invalidAttachmentId}/invalid-owner.md`,
+          r2Bucket: 'artifact-schema-fixture',
+        }),
+      )
+      if (!attachmentOwnerViolation) {
+        await db
+          .delete(attachments)
+          .where(eq(attachments.id, invalidAttachmentId))
+      }
+      expect
+        .soft(attachmentOwnerViolation)
+        .toBe('attachments_conversation_owner_fk')
+
+      const invalidAttachmentMessageId = crypto.randomUUID()
+      const attachmentMessageViolation = await captureConstraint(
+        db.insert(attachments).values({
+          id: invalidAttachmentMessageId,
+          userId: ownerA,
+          messageId: physicalFixtureB.messageId,
+          conversationId: conversationA,
+          fileName: 'invalid-message.md',
+          fileSize: 10,
+          mimeType: 'text/markdown',
+          r2Key: `artifact-schema/${invalidAttachmentMessageId}/invalid-message.md`,
+          r2Bucket: 'artifact-schema-fixture',
+        }),
+      )
+      if (!attachmentMessageViolation) {
+        await db
+          .delete(attachments)
+          .where(eq(attachments.id, invalidAttachmentMessageId))
+      }
+      expect
+        .soft(attachmentMessageViolation)
+        .toBe('attachments_message_scope_fk')
+
+      const invalidGenerationId = crypto.randomUUID()
+      const messageScopeViolation = await captureConstraint(
+        db.insert(generationRuns).values({
+          id: invalidGenerationId,
+          messageId: fixtureA.messageId,
+          conversationId: conversationB,
+          modelId: 'model-internal',
+          routerModelId: 'router/model',
+          status: 'failed',
+        }),
+      )
+      if (!messageScopeViolation) {
+        await db
+          .delete(generationRuns)
+          .where(eq(generationRuns.id, invalidGenerationId))
+      }
+      expect
+        .soft(messageScopeViolation)
+        .toBe('generation_runs_message_scope_fk')
+
+      const crossConversationRequestRunId = crypto.randomUUID()
+      const requestMessageScopeViolation = await captureConstraint(
+        db.insert(generationRuns).values({
+          id: crossConversationRequestRunId,
+          messageId: physicalFixtureB.messageId,
+          requestMessageId: fixtureA.messageId,
+          conversationId: conversationB,
+          modelId: 'model-internal',
+          routerModelId: 'router/model',
+          status: 'failed',
+        }),
+      )
+      if (!requestMessageScopeViolation) {
+        await db
+          .delete(generationRuns)
+          .where(eq(generationRuns.id, crossConversationRequestRunId))
+      }
+      expect
+        .soft(requestMessageScopeViolation)
+        .toBe('generation_runs_request_message_scope_fk')
+
+      const artifactAId = crypto.randomUUID()
+      await db.insert(artifacts).values({
+        id: artifactAId,
+        userId: ownerA,
+        conversationId: conversationA,
+        kind: 'prd',
+        title: 'Artifact A',
+      })
+
+      const artifactMismatchVersionId = crypto.randomUUID()
+      const artifactScopeViolation = await captureConstraint(
+        insertArtifactVersion({
+          id: artifactMismatchVersionId,
+          artifactId: artifactAId,
+          conversationId: conversationB,
+          version: 1,
+          attachmentId: physicalFixtureB.attachmentId,
+          generationRunId: physicalFixtureB.generationId,
+          title: 'Artifact mismatch',
+          contentSha256: 'b'.repeat(64),
+          changeSummary: 'Created artifact',
+        }),
+      )
+      if (!artifactScopeViolation) {
+        await db
+          .delete(artifactVersions)
+          .where(eq(artifactVersions.id, artifactMismatchVersionId))
+      }
+      expect
+        .soft(artifactScopeViolation)
+        .toBe('artifact_versions_artifact_scope_fk')
+
+      const attachmentMismatchVersionId = crypto.randomUUID()
+      const attachmentScopeViolation = await captureConstraint(
+        insertArtifactVersion({
+          id: attachmentMismatchVersionId,
+          artifactId: artifactAId,
+          conversationId: conversationA,
+          version: 1,
+          attachmentId: physicalFixtureB.attachmentId,
+          generationRunId: fixtureA.generationId,
+          title: 'Attachment mismatch',
+          contentSha256: 'c'.repeat(64),
+          changeSummary: 'Created artifact',
+        }),
+      )
+      if (!attachmentScopeViolation) {
+        await db
+          .delete(artifactVersions)
+          .where(eq(artifactVersions.id, attachmentMismatchVersionId))
+      }
+      expect
+        .soft(attachmentScopeViolation)
+        .toBe('artifact_versions_attachment_scope_fk')
+
+      const generationMismatchVersionId = crypto.randomUUID()
+      const generationScopeViolation = await captureConstraint(
+        insertArtifactVersion({
+          id: generationMismatchVersionId,
+          artifactId: artifactAId,
+          conversationId: conversationA,
+          version: 1,
+          attachmentId: fixtureA.attachmentId,
+          generationRunId: physicalFixtureB.generationId,
+          title: 'Generation mismatch',
+          contentSha256: 'd'.repeat(64),
+          changeSummary: 'Created artifact',
+        }),
+      )
+      if (!generationScopeViolation) {
+        await db
+          .delete(artifactVersions)
+          .where(eq(artifactVersions.id, generationMismatchVersionId))
+      }
+      expect
+        .soft(generationScopeViolation)
+        .toBe('artifact_versions_generation_scope_fk')
+
+      const sourceMismatchVersionId = crypto.randomUUID()
+      const versionSourceViolation = await captureConstraint(
+        insertArtifactVersion({
+          id: sourceMismatchVersionId,
+          artifactId: artifactAId,
+          conversationId: conversationA,
+          version: 1,
+          sourceVersionId: sourceB.versionId,
+          attachmentId: fixtureA.attachmentId,
+          generationRunId: fixtureA.generationId,
+          title: 'Source mismatch',
+          contentSha256: 'e'.repeat(64),
+          changeSummary: 'Created artifact',
+        }),
+      )
+      if (!versionSourceViolation) {
+        await db
+          .delete(artifactVersions)
+          .where(eq(artifactVersions.id, sourceMismatchVersionId))
+      }
+      expect
+        .soft(versionSourceViolation)
+        .toBe('artifact_versions_source_scope_fk')
+
+      const sourceMismatchRunId = crypto.randomUUID()
+      const generationSourceViolation = await captureConstraint(
+        db.insert(generationRuns).values({
+          id: sourceMismatchRunId,
+          messageId: fixtureA.messageId,
+          conversationId: conversationA,
+          modelId: 'model-internal',
+          routerModelId: 'router/model',
+          status: 'failed',
+          sourceArtifactId: sourceB.artifactId,
+          sourceVersionId: sourceB.versionId,
+        }),
+      )
+      if (!generationSourceViolation) {
+        await db
+          .delete(generationRuns)
+          .where(eq(generationRuns.id, sourceMismatchRunId))
+      }
+      expect
+        .soft(generationSourceViolation)
+        .toBe('generation_runs_source_conversation_scope_fk')
+    } finally {
+      await db.delete(users).where(inArray(users.id, [ownerA, ownerB]))
+    }
+  })
+
+  it('keeps separate conversation and user cascades inside their lifecycle', async () => {
+    const ownerA = 'artifact-cascade-owner-a'
+    const ownerB = 'artifact-cascade-owner-b'
+    await db.insert(users).values([
+      { id: ownerA, email: `${ownerA}@example.com`, name: 'Owner A' },
+      { id: ownerB, email: `${ownerB}@example.com`, name: 'Owner B' },
+    ])
+
+    try {
+      const conversationA = await createConversation(ownerA)
+      const conversationB = await createConversation(ownerB)
+      const fixtureA = await createGenerationFixture({
+        conversationId: conversationA,
+        userId: ownerA,
+      })
+      const fixtureB = await createGenerationFixture({
+        conversationId: conversationB,
+        userId: ownerB,
+      })
+      const artifactA = await createArtifactWithVersion({
+        conversationId: conversationA,
+        userId: ownerA,
+        generationId: fixtureA.generationId,
+        attachmentId: fixtureA.attachmentId,
+      })
+      const artifactB = await createArtifactWithVersion({
+        conversationId: conversationB,
+        userId: ownerB,
+        generationId: fixtureB.generationId,
+        attachmentId: fixtureB.attachmentId,
+      })
+
+      await db.delete(conversations).where(eq(conversations.id, conversationA))
+      expect(
+        await db
+          .select({ id: artifactVersions.id })
+          .from(artifactVersions)
+          .where(eq(artifactVersions.id, artifactA.versionId)),
+      ).toHaveLength(0)
+      expect(
+        await db
+          .select({ id: artifactVersions.id })
+          .from(artifactVersions)
+          .where(eq(artifactVersions.id, artifactB.versionId)),
+      ).toHaveLength(1)
+
+      const secondConversationA = await createConversation(ownerA)
+      const secondFixtureA = await createGenerationFixture({
+        conversationId: secondConversationA,
+        userId: ownerA,
+      })
+      const secondArtifactA = await createArtifactWithVersion({
+        conversationId: secondConversationA,
+        userId: ownerA,
+        generationId: secondFixtureA.generationId,
+        attachmentId: secondFixtureA.attachmentId,
+      })
+      await db.delete(users).where(eq(users.id, ownerA))
+      expect(
+        await db
+          .select({ id: artifactVersions.id })
+          .from(artifactVersions)
+          .where(eq(artifactVersions.id, secondArtifactA.versionId)),
+      ).toHaveLength(0)
+      expect(
+        await db
+          .select({ id: artifactVersions.id })
+          .from(artifactVersions)
+          .where(eq(artifactVersions.id, artifactB.versionId)),
+      ).toHaveLength(1)
+    } finally {
+      await db.delete(users).where(inArray(users.id, [ownerA, ownerB]))
+    }
+  })
+
   it('backfills only unambiguous legacy Markdown once', async () => {
     const conversationId = await createConversation()
     const eligible = await createGenerationFixture({
@@ -437,6 +814,32 @@ describe.sequential('artifact persistence schema', () => {
       fileName: 'legacy-checklist.json',
       mimeType: 'application/json',
     })
+    const ineligible = await createGenerationFixture({
+      conversationId,
+      status: 'failed',
+      fileName: 'ineligible-legacy.md',
+    })
+    const [ineligibleArtifact] = await db
+      .insert(artifacts)
+      .values({
+        userId: USER_ID,
+        conversationId,
+        kind: 'prd',
+        title: 'ineligible-legacy.md',
+      })
+      .returning({ id: artifacts.id })
+    if (!ineligibleArtifact)
+      throw new Error('Ineligible artifact was not created')
+    await insertArtifactVersion({
+      artifactId: ineligibleArtifact.id,
+      conversationId,
+      version: 1,
+      attachmentId: ineligible.attachmentId,
+      generationRunId: ineligible.generationId,
+      title: 'ineligible-legacy.md',
+      contentSha256: null,
+      changeSummary: 'Legacy artifact imported',
+    })
 
     await runBackfill()
 
@@ -473,6 +876,11 @@ describe.sequential('artifact persistence schema', () => {
       .from(artifactVersions)
       .where(inArray(artifactVersions.generationRunId, excludedGenerationIds))
     expect(excludedVersions).toHaveLength(0)
+    const [ineligibleAfterBackfill] = await db
+      .select({ currentVersionId: artifacts.currentVersionId })
+      .from(artifacts)
+      .where(eq(artifacts.id, ineligibleArtifact.id))
+    expect(ineligibleAfterBackfill?.currentVersionId).toBeNull()
 
     const [beforeRerun] = await db
       .select({ value: count() })
@@ -495,5 +903,10 @@ describe.sequential('artifact persistence schema', () => {
       )
     expect(beforeRerun?.value).toBe(1)
     expect(afterRerun?.value).toBe(1)
+    const [ineligibleAfterRerun] = await db
+      .select({ currentVersionId: artifacts.currentVersionId })
+      .from(artifacts)
+      .where(eq(artifacts.id, ineligibleArtifact.id))
+    expect(ineligibleAfterRerun?.currentVersionId).toBeNull()
   })
 })

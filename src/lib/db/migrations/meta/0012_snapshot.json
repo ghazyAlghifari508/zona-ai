@@ -1,5 +1,5 @@
 {
-  "id": "3a262dbd-50bd-4dc0-9cfb-f28b540e427c",
+  "id": "816e3c7e-a801-4e7b-9a81-a2fb998c1013",
   "prevId": "5caa7a4b-ad48-4fae-b72a-273bce1ac57b",
   "version": "7",
   "dialect": "postgresql",
@@ -142,6 +142,12 @@
         },
         "artifact_id": {
           "name": "artifact_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "conversation_id": {
+          "name": "conversation_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -312,6 +318,42 @@
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "artifact_versions_artifact_scope_fk": {
+          "name": "artifact_versions_artifact_scope_fk",
+          "tableFrom": "artifact_versions",
+          "tableTo": "artifacts",
+          "columnsFrom": ["artifact_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "artifact_versions_source_scope_fk": {
+          "name": "artifact_versions_source_scope_fk",
+          "tableFrom": "artifact_versions",
+          "tableTo": "artifact_versions",
+          "columnsFrom": ["source_version_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "artifact_versions_attachment_scope_fk": {
+          "name": "artifact_versions_attachment_scope_fk",
+          "tableFrom": "artifact_versions",
+          "tableTo": "attachments",
+          "columnsFrom": ["attachment_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "artifact_versions_generation_scope_fk": {
+          "name": "artifact_versions_generation_scope_fk",
+          "tableFrom": "artifact_versions",
+          "tableTo": "generation_runs",
+          "columnsFrom": ["generation_run_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -320,6 +362,16 @@
           "name": "artifact_versions_id_artifact_id_unique",
           "nullsNotDistinct": false,
           "columns": ["id", "artifact_id"]
+        },
+        "artifact_versions_id_conversation_id_unique": {
+          "name": "artifact_versions_id_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "conversation_id"]
+        },
+        "artifact_versions_id_artifact_id_conversation_id_unique": {
+          "name": "artifact_versions_id_artifact_id_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "artifact_id", "conversation_id"]
         }
       },
       "policies": {},
@@ -475,6 +527,15 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
+        "artifacts_conversation_owner_fk": {
+          "name": "artifacts_conversation_owner_fk",
+          "tableFrom": "artifacts",
+          "tableTo": "conversations",
+          "columnsFrom": ["conversation_id", "user_id"],
+          "columnsTo": ["id", "user_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "artifacts_current_version_scope_fk": {
           "name": "artifacts_current_version_scope_fk",
           "tableFrom": "artifacts",
@@ -486,7 +547,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "artifacts_id_conversation_id_unique": {
+          "name": "artifacts_id_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "conversation_id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "artifacts_kind_check": {
@@ -669,6 +736,24 @@
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "attachments_conversation_owner_fk": {
+          "name": "attachments_conversation_owner_fk",
+          "tableFrom": "attachments",
+          "tableTo": "conversations",
+          "columnsFrom": ["conversation_id", "user_id"],
+          "columnsTo": ["id", "user_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "attachments_message_scope_fk": {
+          "name": "attachments_message_scope_fk",
+          "tableFrom": "attachments",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -677,6 +762,11 @@
           "name": "attachments_r2_key_unique",
           "nullsNotDistinct": false,
           "columns": ["r2_key"]
+        },
+        "attachments_id_conversation_id_unique": {
+          "name": "attachments_id_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "conversation_id"]
         }
       },
       "policies": {},
@@ -897,7 +987,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "conversations_id_user_id_unique": {
+          "name": "conversations_id_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "user_id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1423,18 +1519,46 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "generation_runs_source_version_scope_fk": {
-          "name": "generation_runs_source_version_scope_fk",
+        "generation_runs_message_scope_fk": {
+          "name": "generation_runs_message_scope_fk",
+          "tableFrom": "generation_runs",
+          "tableTo": "messages",
+          "columnsFrom": ["message_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "generation_runs_request_message_scope_fk": {
+          "name": "generation_runs_request_message_scope_fk",
+          "tableFrom": "generation_runs",
+          "tableTo": "messages",
+          "columnsFrom": ["request_message_id", "conversation_id"],
+          "columnsTo": ["id", "conversation_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "generation_runs_source_conversation_scope_fk": {
+          "name": "generation_runs_source_conversation_scope_fk",
           "tableFrom": "generation_runs",
           "tableTo": "artifact_versions",
-          "columnsFrom": ["source_version_id", "source_artifact_id"],
-          "columnsTo": ["id", "artifact_id"],
+          "columnsFrom": [
+            "source_version_id",
+            "source_artifact_id",
+            "conversation_id"
+          ],
+          "columnsTo": ["id", "artifact_id", "conversation_id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "generation_runs_id_conversation_id_unique": {
+          "name": "generation_runs_id_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "conversation_id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "generation_runs_source_identity_check": {
@@ -1516,7 +1640,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "messages_id_conversation_id_unique": {
+          "name": "messages_id_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "conversation_id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

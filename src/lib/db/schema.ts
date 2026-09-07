@@ -110,6 +110,7 @@ export const conversations = pgTable(
   (table) => [
     index('conversations_user_id_idx').on(table.userId),
     index('conversations_created_at_idx').on(table.createdAt),
+    unique('conversations_id_user_id_unique').on(table.id, table.userId),
     index('conversations_user_updated_id_idx').on(
       table.userId,
       table.updatedAt.desc(),
@@ -130,6 +131,10 @@ export const messages = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
+    unique('messages_id_conversation_id_unique').on(
+      table.id,
+      table.conversationId,
+    ),
     index('messages_conversation_id_created_at_idx').on(
       table.conversationId,
       table.createdAt,
@@ -164,6 +169,20 @@ export const attachments = pgTable(
     index('attachments_conversation_id_idx').on(table.conversationId),
     index('attachments_message_id_idx').on(table.messageId),
     index('attachments_r2_key_idx').on(table.r2Key),
+    unique('attachments_id_conversation_id_unique').on(
+      table.id,
+      table.conversationId,
+    ),
+    foreignKey({
+      name: 'attachments_conversation_owner_fk',
+      columns: [table.conversationId, table.userId],
+      foreignColumns: [conversations.id, conversations.userId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'attachments_message_scope_fk',
+      columns: [table.messageId, table.conversationId],
+      foreignColumns: [messages.id, messages.conversationId],
+    }),
   ],
 )
 
@@ -232,10 +251,32 @@ export const generationRuns = pgTable(
       table.sourceArtifactId,
     ),
     index('generation_runs_status_idx').on(table.status),
+    unique('generation_runs_id_conversation_id_unique').on(
+      table.id,
+      table.conversationId,
+    ),
     foreignKey({
-      name: 'generation_runs_source_version_scope_fk',
-      columns: [table.sourceVersionId, table.sourceArtifactId],
-      foreignColumns: [artifactVersions.id, artifactVersions.artifactId],
+      name: 'generation_runs_message_scope_fk',
+      columns: [table.messageId, table.conversationId],
+      foreignColumns: [messages.id, messages.conversationId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'generation_runs_request_message_scope_fk',
+      columns: [table.requestMessageId, table.conversationId],
+      foreignColumns: [messages.id, messages.conversationId],
+    }),
+    foreignKey({
+      name: 'generation_runs_source_conversation_scope_fk',
+      columns: [
+        table.sourceVersionId,
+        table.sourceArtifactId,
+        table.conversationId,
+      ],
+      foreignColumns: [
+        artifactVersions.id,
+        artifactVersions.artifactId,
+        artifactVersions.conversationId,
+      ],
     }).onDelete('restrict'),
     check(
       'generation_runs_source_identity_check',
@@ -251,6 +292,7 @@ export const artifactVersions = pgTable(
     artifactId: uuid('artifact_id')
       .notNull()
       .references((): AnyPgColumn => artifacts.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id').notNull(),
     version: integer('version').notNull(),
     sourceVersionId: uuid('source_version_id').references(
       (): AnyPgColumn => artifactVersions.id,
@@ -271,7 +313,7 @@ export const artifactVersions = pgTable(
     changeSummary: text('change_summary').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
     uniqueIndex('artifact_versions_artifact_id_version_unique').on(
       table.artifactId,
       table.version.desc(),
@@ -280,6 +322,15 @@ export const artifactVersions = pgTable(
       table.id,
       table.artifactId,
     ),
+    unique('artifact_versions_id_conversation_id_unique').on(
+      table.id,
+      table.conversationId,
+    ),
+    unique('artifact_versions_id_artifact_id_conversation_id_unique').on(
+      table.id,
+      table.artifactId,
+      table.conversationId,
+    ),
     uniqueIndex('artifact_versions_attachment_id_unique').on(
       table.attachmentId,
     ),
@@ -287,6 +338,26 @@ export const artifactVersions = pgTable(
       table.generationRunId,
     ),
     index('artifact_versions_source_version_id_idx').on(table.sourceVersionId),
+    foreignKey({
+      name: 'artifact_versions_artifact_scope_fk',
+      columns: [table.artifactId, table.conversationId],
+      foreignColumns: [artifacts.id, artifacts.conversationId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'artifact_versions_source_scope_fk',
+      columns: [table.sourceVersionId, table.conversationId],
+      foreignColumns: [artifactVersions.id, artifactVersions.conversationId],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'artifact_versions_attachment_scope_fk',
+      columns: [table.attachmentId, table.conversationId],
+      foreignColumns: [attachments.id, attachments.conversationId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'artifact_versions_generation_scope_fk',
+      columns: [table.generationRunId, table.conversationId],
+      foreignColumns: [generationRuns.id, generationRuns.conversationId],
+    }).onDelete('cascade'),
     check(
       'artifact_versions_version_positive_check',
       sql`${table.version} > 0`,
@@ -314,7 +385,7 @@ export const artifacts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
     index('artifacts_user_id_conversation_id_idx').on(
       table.userId,
       table.conversationId,
@@ -327,6 +398,15 @@ export const artifacts = pgTable(
       table.conversationId,
       table.kind,
     ),
+    unique('artifacts_id_conversation_id_unique').on(
+      table.id,
+      table.conversationId,
+    ),
+    foreignKey({
+      name: 'artifacts_conversation_owner_fk',
+      columns: [table.conversationId, table.userId],
+      foreignColumns: [conversations.id, conversations.userId],
+    }).onDelete('cascade'),
     check('artifacts_kind_check', sql`${table.kind} IN (${artifactKindSql})`),
     check(
       'artifacts_title_length_check',
