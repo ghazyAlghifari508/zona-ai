@@ -1,10 +1,14 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
-import { attachments, conversations } from '../../lib/db/schema'
+import {
+  artifactVersions,
+  attachments,
+  conversations,
+} from '../../lib/db/schema'
 import { env } from '../../lib/env.server'
 import { deleteObject, getObject, putObject } from '../../lib/r2/client'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
@@ -197,12 +201,26 @@ export async function deleteAttachmentCore({
   if (!att) throw httpError(404, 'Not found')
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
+  const [artifactVersion] = await db
+    .select({ id: artifactVersions.id })
+    .from(artifactVersions)
+    .where(
+      and(
+        eq(artifactVersions.attachmentId, att.id),
+        eq(artifactVersions.conversationId, att.conversationId),
+      ),
+    )
+    .limit(1)
+  if (artifactVersion) throw httpError(409, 'This file cannot be deleted.')
+
   try {
     await deleteObject({ bucket: att.r2Bucket, key: att.r2Key })
   } catch {
-    // ignore if not found
+    throw httpError(500, 'File deletion failed. Please try again.')
   }
-  await db.delete(attachments).where(eq(attachments.id, data.id))
+  await db
+    .delete(attachments)
+    .where(and(eq(attachments.id, data.id), eq(attachments.userId, userId)))
   return { success: true as const }
 }
 

@@ -6,7 +6,8 @@ import { and, asc, desc, eq, gt, ilike, inArray, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db'
-import { conversations, generationRuns } from '../../lib/db/schema'
+import { attachments, conversations, generationRuns } from '../../lib/db/schema'
+import { deleteObject } from '../../lib/r2/client'
 import type {
   createConversationSchema,
   deleteConversationSchema,
@@ -63,6 +64,33 @@ async function ownedConversation(id: string, userId: string) {
   if (!conversation) throw httpError(404, 'Not Found')
   if (conversation.userId !== userId) throw httpError(403, 'Forbidden')
   return conversation
+}
+
+async function deleteConversationObjects({
+  conversationIds,
+  userId,
+}: {
+  conversationIds: string[]
+  userId: string
+}) {
+  if (conversationIds.length === 0) return
+
+  const locators = await db
+    .select({ bucket: attachments.r2Bucket, key: attachments.r2Key })
+    .from(attachments)
+    .where(
+      and(
+        eq(attachments.userId, userId),
+        inArray(attachments.conversationId, conversationIds),
+      ),
+    )
+    .orderBy(asc(attachments.conversationId), asc(attachments.id))
+
+  try {
+    for (const locator of locators) await deleteObject(locator)
+  } catch {
+    throw httpError(500, 'Conversation deletion failed')
+  }
 }
 
 export async function getConversationsCore({
@@ -235,6 +263,7 @@ export async function deleteConversationCore({
 }) {
   const userId = await sessionUserId(request)
   await ownedConversation(data.id, userId)
+  await deleteConversationObjects({ conversationIds: [data.id], userId })
   await db
     .delete(conversations)
     .where(and(eq(conversations.id, data.id), eq(conversations.userId, userId)))
@@ -247,6 +276,23 @@ export async function deleteAllConversationsCore({
   request: Request
 }) {
   const userId = await sessionUserId(request)
-  await db.delete(conversations).where(eq(conversations.userId, userId))
+  const ownedConversations = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(eq(conversations.userId, userId))
+    .orderBy(asc(conversations.id))
+  const conversationIds = ownedConversations.map(({ id }) => id)
+
+  await deleteConversationObjects({ conversationIds, userId })
+  if (conversationIds.length > 0) {
+    await db
+      .delete(conversations)
+      .where(
+        and(
+          eq(conversations.userId, userId),
+          inArray(conversations.id, conversationIds),
+        ),
+      )
+  }
   return { success: true as const }
 }

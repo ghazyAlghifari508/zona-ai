@@ -2,9 +2,20 @@
  * @vitest-environment node
  */
 import { eq, inArray } from 'drizzle-orm'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { db } from '../../src/lib/db'
 import {
+  artifacts,
+  artifactVersions,
+  attachments,
   conversations,
   generationRuns,
   messages,
@@ -13,6 +24,16 @@ import {
 
 const ownerId = 'phase-04-owner'
 const otherId = 'phase-04-other'
+
+const { deleteObjectMock } = vi.hoisted(() => ({
+  deleteObjectMock: vi.fn(
+    async (_locator: { bucket: string; key: string }): Promise<void> => {},
+  ),
+}))
+
+vi.mock('../../src/lib/r2/client', () => ({
+  deleteObject: deleteObjectMock,
+}))
 
 vi.mock('../../src/lib/auth/session', () => ({
   getAuthSession: vi.fn(async (request: Request) => ({
@@ -30,6 +51,88 @@ async function cleanup() {
   await db.delete(users).where(inArray(users.id, [ownerId, otherId]))
 }
 
+async function seedAttachment(input: {
+  conversationId: string
+  userId: string
+  bucket: string
+  key: string
+}) {
+  const [attachment] = await db
+    .insert(attachments)
+    .values({
+      conversationId: input.conversationId,
+      userId: input.userId,
+      fileName: 'upload.txt',
+      fileSize: 6,
+      mimeType: 'text/plain',
+      r2Bucket: input.bucket,
+      r2Key: input.key,
+      processingStatus: 'completed',
+    })
+    .returning({ id: attachments.id })
+  if (!attachment) throw new Error('attachment fixture failed')
+  return attachment
+}
+
+async function seedArtifactAttachment(input: {
+  conversationId: string
+  userId: string
+  bucket: string
+  key: string
+}) {
+  const [message] = await db
+    .insert(messages)
+    .values({
+      conversationId: input.conversationId,
+      role: 'assistant',
+      content: 'Artifact fixture',
+    })
+    .returning({ id: messages.id })
+  if (!message) throw new Error('message fixture failed')
+  const [generation] = await db
+    .insert(generationRuns)
+    .values({
+      conversationId: input.conversationId,
+      messageId: message.id,
+      modelId: input.userId,
+      routerModelId: `test/${input.userId}`,
+      status: 'completed',
+    })
+    .returning({ id: generationRuns.id })
+  if (!generation) throw new Error('generation fixture failed')
+  const attachment = await seedAttachment(input)
+  const [artifact] = await db
+    .insert(artifacts)
+    .values({
+      conversationId: input.conversationId,
+      userId: input.userId,
+      kind: 'prd',
+      title: 'Artifact fixture',
+    })
+    .returning({ id: artifacts.id })
+  if (!artifact) throw new Error('artifact fixture failed')
+  const [version] = await db
+    .insert(artifactVersions)
+    .values({
+      artifactId: artifact.id,
+      conversationId: input.conversationId,
+      version: 1,
+      attachmentId: attachment.id,
+      generationRunId: generation.id,
+      title: 'Artifact fixture',
+      createdByModelId: input.userId,
+      createdByRouterModelId: `test/${input.userId}`,
+      changeSummary: 'Created',
+    })
+    .returning({ id: artifactVersions.id })
+  if (!version) throw new Error('artifact version fixture failed')
+  await db
+    .update(artifacts)
+    .set({ currentVersionId: version.id })
+    .where(eq(artifacts.id, artifact.id))
+  return { attachmentId: attachment.id, versionId: version.id }
+}
+
 describe('conversation persistence', () => {
   beforeAll(async () => {
     await cleanup()
@@ -37,6 +140,11 @@ describe('conversation persistence', () => {
       { id: ownerId, email: 'phase-04-owner@example.com', name: 'Owner' },
       { id: otherId, email: 'phase-04-other@example.com', name: 'Other' },
     ])
+  })
+
+  beforeEach(() => {
+    deleteObjectMock.mockReset()
+    deleteObjectMock.mockResolvedValue(undefined)
   })
 
   afterAll(cleanup)
@@ -165,6 +273,148 @@ describe('conversation persistence', () => {
     expect(remaining).toEqual([])
   })
 
+  it('deletes every persisted object before deleting the conversation row', async () => {
+    const { createConversationCore, deleteConversationCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const conversation = await createConversationCore({
+      data: { title: 'Stored files', mode: 'normal' },
+      request: requestFor(ownerId),
+    })
+    const ordinaryLocator = {
+      bucket: 'ordinary-bucket',
+      key: `ordinary/${crypto.randomUUID()}.txt`,
+    }
+    const artifactLocator = {
+      bucket: 'artifact-bucket',
+      key: `artifact/${crypto.randomUUID()}.md`,
+    }
+    await seedAttachment({
+      conversationId: conversation.id,
+      userId: ownerId,
+      ...ordinaryLocator,
+    })
+    await seedArtifactAttachment({
+      conversationId: conversation.id,
+      userId: ownerId,
+      ...artifactLocator,
+    })
+    const rowsSeenDuringStorageDelete: string[] = []
+    deleteObjectMock.mockImplementation(async (locator) => {
+      const [row] = await db
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(eq(conversations.id, conversation.id))
+      if (row) rowsSeenDuringStorageDelete.push(locator.key)
+    })
+
+    await deleteConversationCore({
+      data: { id: conversation.id },
+      request: requestFor(ownerId),
+    })
+
+    expect(new Set(rowsSeenDuringStorageDelete)).toEqual(
+      new Set([ordinaryLocator.key, artifactLocator.key]),
+    )
+    expect(deleteObjectMock.mock.calls.map(([locator]) => locator)).toEqual(
+      expect.arrayContaining([ordinaryLocator, artifactLocator]),
+    )
+    const [conversationAfter] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.id, conversation.id))
+    expect(conversationAfter).toBeUndefined()
+  })
+
+  it('retains every database locator when storage cleanup fails and retries a previously deleted key safely', async () => {
+    const { createConversationCore, deleteConversationCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const conversation = await createConversationCore({
+      data: { title: 'Retry cleanup', mode: 'normal' },
+      request: requestFor(ownerId),
+    })
+    const firstLocator = {
+      bucket: 'retry-bucket',
+      key: `retry/${crypto.randomUUID()}-first.txt`,
+    }
+    const secondLocator = {
+      bucket: 'retry-bucket',
+      key: `retry/${crypto.randomUUID()}-second.txt`,
+    }
+    await seedAttachment({
+      conversationId: conversation.id,
+      userId: ownerId,
+      ...firstLocator,
+    })
+    await seedAttachment({
+      conversationId: conversation.id,
+      userId: ownerId,
+      ...secondLocator,
+    })
+    deleteObjectMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(
+      deleteConversationCore({
+        data: { id: conversation.id },
+        request: requestFor(ownerId),
+      }),
+    ).rejects.toMatchObject({ status: 500 })
+
+    const [retainedConversation] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.id, conversation.id))
+    const retainedLocators = await db
+      .select({ bucket: attachments.r2Bucket, key: attachments.r2Key })
+      .from(attachments)
+      .where(eq(attachments.conversationId, conversation.id))
+    expect(retainedConversation?.id).toBe(conversation.id)
+    expect(retainedLocators).toEqual(
+      expect.arrayContaining([firstLocator, secondLocator]),
+    )
+
+    deleteObjectMock.mockResolvedValue(undefined)
+    await expect(
+      deleteConversationCore({
+        data: { id: conversation.id },
+        request: requestFor(ownerId),
+      }),
+    ).resolves.toEqual({ success: true })
+    expect(
+      deleteObjectMock.mock.calls.filter(
+        ([locator]) => locator.key === firstLocator.key,
+      ),
+    ).toHaveLength(2)
+  })
+
+  it('rejects cross-user conversation deletion before storage access', async () => {
+    const { deleteConversationCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: otherId, title: 'Private stored files' })
+      .returning({ id: conversations.id })
+    await seedAttachment({
+      conversationId: conversation.id,
+      userId: otherId,
+      bucket: 'other-owner-bucket',
+      key: `other/${crypto.randomUUID()}.txt`,
+    })
+    deleteObjectMock.mockClear()
+
+    await expect(
+      deleteConversationCore({
+        data: { id: conversation.id },
+        request: requestFor(ownerId),
+      }),
+    ).rejects.toMatchObject({ status: 403 })
+    expect(deleteObjectMock).not.toHaveBeenCalled()
+  })
+
   it('loads messages ascending with generation runs and enforces ownership', async () => {
     const { getMessagesCore } = await import('../../src/server/core/messages')
     const [conversation] = await db
@@ -216,11 +466,38 @@ describe('conversation persistence', () => {
     const { deleteAllConversationsCore, getConversationsCore } = await import(
       '../../src/server/core/conversations'
     )
-    await db.insert(conversations).values([
-      { userId: ownerId, title: 'Owner chat 1' },
-      { userId: ownerId, title: 'Owner chat 2' },
-      { userId: otherId, title: 'Other chat 1' },
-    ])
+    const inserted = await db
+      .insert(conversations)
+      .values([
+        { userId: ownerId, title: 'Owner chat 1' },
+        { userId: ownerId, title: 'Owner chat 2' },
+        { userId: otherId, title: 'Other chat 1' },
+      ])
+      .returning({ id: conversations.id, userId: conversations.userId })
+    const ownerConversation = inserted.find(({ userId }) => userId === ownerId)
+    const otherConversation = inserted.find(({ userId }) => userId === otherId)
+    if (!ownerConversation || !otherConversation) {
+      throw new Error('conversation fixtures failed')
+    }
+    const ownerLocator = {
+      bucket: 'bulk-owner-bucket',
+      key: `bulk/${crypto.randomUUID()}-owner.txt`,
+    }
+    const otherLocator = {
+      bucket: 'bulk-other-bucket',
+      key: `bulk/${crypto.randomUUID()}-other.txt`,
+    }
+    await seedAttachment({
+      conversationId: ownerConversation.id,
+      userId: ownerId,
+      ...ownerLocator,
+    })
+    await seedAttachment({
+      conversationId: otherConversation.id,
+      userId: otherId,
+      ...otherLocator,
+    })
+    deleteObjectMock.mockClear()
 
     const res = await deleteAllConversationsCore({
       request: requestFor(ownerId),
@@ -238,6 +515,65 @@ describe('conversation persistence', () => {
       request: requestFor(otherId),
     })
     expect(otherChats.conversations.length).toBeGreaterThanOrEqual(1)
+    expect(deleteObjectMock).toHaveBeenCalledWith(ownerLocator)
+    expect(deleteObjectMock).not.toHaveBeenCalledWith(otherLocator)
+  })
+
+  it('retains all owned conversations and locators when bulk storage cleanup fails', async () => {
+    const { deleteAllConversationsCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const ownerConversations = await db
+      .insert(conversations)
+      .values([
+        { userId: ownerId, title: 'Bulk retry 1' },
+        { userId: ownerId, title: 'Bulk retry 2' },
+      ])
+      .returning({ id: conversations.id })
+    const locators = await Promise.all(
+      ownerConversations.map((conversation, index) =>
+        seedAttachment({
+          conversationId: conversation.id,
+          userId: ownerId,
+          bucket: 'bulk-retry-bucket',
+          key: `bulk-retry/${index}-${crypto.randomUUID()}.txt`,
+        }),
+      ),
+    )
+    deleteObjectMock.mockReset()
+    deleteObjectMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('storage unavailable'))
+
+    await expect(
+      deleteAllConversationsCore({ request: requestFor(ownerId) }),
+    ).rejects.toMatchObject({ status: 500 })
+
+    const retainedConversations = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(
+        inArray(
+          conversations.id,
+          ownerConversations.map(({ id }) => id),
+        ),
+      )
+    const retainedAttachments = await db
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(
+        inArray(
+          attachments.id,
+          locators.map(({ id }) => id),
+        ),
+      )
+    expect(retainedConversations).toHaveLength(2)
+    expect(retainedAttachments).toHaveLength(2)
+
+    deleteObjectMock.mockResolvedValue(undefined)
+    await expect(
+      deleteAllConversationsCore({ request: requestFor(ownerId) }),
+    ).resolves.toEqual({ success: true })
   })
 
   it('includes modelIds in conversations in chronological order of first use without duplicates', async () => {
@@ -290,4 +626,3 @@ describe('conversation persistence', () => {
     expect(found?.modelIds).toEqual(['gemini-3.7-flash-high', 'gpt-5.6-sol'])
   })
 })
-
