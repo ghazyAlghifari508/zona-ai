@@ -6,6 +6,7 @@ import {
   CONVERSATION_TITLE_MAX_LENGTH,
   CONVERSATIONS_MAX_PAGE_SIZE,
   CONVERSATIONS_PAGE_SIZE,
+  MAX_ARTIFACT_MENTIONS,
 } from './constants'
 
 export const skillIdSchema = z.enum(SKILL_IDS)
@@ -100,3 +101,21 @@ export const artifactSchema = z.object({
 })
 
 export type ArtifactInput = z.infer<typeof artifactSchema>
+
+export const artifactOperationSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('create'), skillId: artifactSkillIdSchema }),
+  z.object({
+    type: z.literal('revise'),
+    targets: z
+      .array(
+        z.object({
+          artifactId: z.string().uuid(),
+          versionId: z.string().uuid(),
+        }),
+      )
+      .min(1)
+      .max(MAX_ARTIFACT_MENTIONS),
+  }),
+])
+
+export type ArtifactOperation = z.infer<typeof artifactOperationSchema>

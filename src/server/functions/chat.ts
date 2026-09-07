@@ -2,10 +2,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 import {
+  artifactOperationSchema,
   artifactSchema,
   chatSchema,
   compareSchema,
 } from '../../lib/utils/validation'
+import { generateArtifactsCore } from '../core/artifact-generation'
 import { generateArtifactCore } from '../core/artifacts'
 import {
   getComparisonRunsCore,
@@ -22,6 +24,25 @@ export const generateArtifact = createServerFn({ method: 'POST' })
     const request = getRequest() as Request
     return generateArtifactCore({
       data: data as z.infer<typeof artifactSchema>,
+      request,
+    })
+  })
+
+const generateArtifactsRequestSchema = z.object({
+  conversationId: z.string().uuid().optional(),
+  modelId: z.string().min(1),
+  content: z.string().min(1).max(20000),
+  operation: artifactOperationSchema,
+  attachmentIds: z.array(z.string().uuid()).optional(),
+  enableWebSearch: z.boolean().optional().default(false),
+})
+
+export const generateArtifacts = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => generateArtifactsRequestSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return generateArtifactsCore({
+      data: data as z.infer<typeof generateArtifactsRequestSchema>,
       request,
     })
   })

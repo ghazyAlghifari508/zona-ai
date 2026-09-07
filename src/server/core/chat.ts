@@ -18,6 +18,7 @@ import {
   attachments,
   comparisonRuns,
   conversations,
+  creditTransactions,
   documentChunks,
   generationRuns,
   messages,
@@ -1452,11 +1453,21 @@ export async function stopGenerationCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   const ctrl = controllers.get(generationId)
   if (ctrl) ctrl.abort()
-  const modelEntry = getModelById(gen.modelId)
-  const cost =
-    typeof modelEntry.creditCost === 'number'
-      ? modelEntry.creditCost
-      : modelEntry.creditCost.max
+  const usageRows = await db
+    .select()
+    .from(creditTransactions)
+    .where(eq(creditTransactions.generationRunId, generationId))
+  const usageRow = usageRows.find((row) => row.type === 'usage')
+  let cancelRefund: number
+  if (usageRow) {
+    cancelRefund = Math.abs(usageRow.amount)
+  } else {
+    const modelEntry = getModelById(gen.modelId)
+    cancelRefund =
+      typeof modelEntry.creditCost === 'number'
+        ? modelEntry.creditCost
+        : modelEntry.creditCost.max
+  }
   const won = await finalizeTerminalRun({
     genId: generationId,
     status: 'cancelled',
@@ -1466,7 +1477,7 @@ export async function stopGenerationCore({
       userId: session.user.id,
       generationRunId: generationId,
       modelId: gen.modelId,
-      amount: cost,
+      amount: cancelRefund,
     })
   }
   controllers.delete(generationId)
