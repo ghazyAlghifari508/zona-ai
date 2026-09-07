@@ -354,7 +354,7 @@ const MessageItem = memo(function MessageItem({
                 errorMessage={message.errorMessage}
                 ack={message.artifactAck}
               />
-              {message.artifactStatus === 'error' &&
+              {message.artifactStatus === 'failed' &&
                 message.generationRunId &&
                 onRetryArtifact && (
                   <div className="pl-9">

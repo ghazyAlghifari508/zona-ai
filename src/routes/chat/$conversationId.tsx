@@ -283,13 +283,13 @@ function ChatThread() {
       const parser = createArtifactSseParser({
         onEvent: (event) => {
           if (event.type === 'artifact-status') {
-            if (event.phase === 'error') {
+            if (event.phase === 'failed') {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
                     ? {
                         ...m,
-                        artifactStatus: 'error',
+                        artifactStatus: 'failed',
                         errorMessage: event.message,
                         streaming: false,
                       }
@@ -342,7 +342,7 @@ function ChatThread() {
                 m.id === assistantId
                   ? {
                       ...m,
-                      artifactStatus: 'error',
+                      artifactStatus: 'failed',
                       errorMessage: event.message ?? event.code,
                       streaming: false,
                     }
@@ -356,7 +356,7 @@ function ChatThread() {
                   ? {
                       ...m,
                       artifactStatus:
-                        event.status === 'failed' ? 'error' : event.status,
+                        event.status === 'failed' ? 'failed' : event.status,
                       streaming: false,
                     }
                   : m,
@@ -368,7 +368,7 @@ function ChatThread() {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, artifactStatus: 'error' as const, streaming: false }
+                ? { ...m, artifactStatus: 'failed' as const, streaming: false }
                 : m,
             ),
           )
@@ -411,7 +411,7 @@ function ChatThread() {
             m.id === assistantId
               ? {
                   ...m,
-                  artifactStatus: 'error',
+                  artifactStatus: 'failed',
                   errorMessage:
                     err.message ||
                     (kind === 'agent-skill'
@@ -1189,7 +1189,7 @@ function ChatThread() {
             m.id === retryAckId
               ? {
                   ...m,
-                  artifactStatus: 'error',
+                  artifactStatus: 'failed',
                   errorMessage: 'Gagal menjalankan ulang pembuatan.',
                   streaming: false,
                 }
@@ -1202,14 +1202,14 @@ function ChatThread() {
       const parser = createArtifactSseParser({
         onEvent: (event) => {
           if (event.type === 'artifact-status') {
-            if (event.phase === 'error' || event.phase === 'cancelled') {
+            if (event.phase === 'failed' || event.phase === 'cancelled') {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === retryAckId
                     ? {
                         ...m,
                         artifactStatus:
-                          event.phase === 'error' ? 'error' : 'cancelled',
+                          event.phase === 'failed' ? 'failed' : 'cancelled',
                         errorMessage: event.message,
                         streaming: false,
                       }
@@ -1244,7 +1244,7 @@ function ChatThread() {
                 m.id === retryAckId
                   ? {
                       ...m,
-                      artifactStatus: 'error',
+                      artifactStatus: 'failed',
                       errorMessage: event.message ?? event.code,
                       streaming: false,
                     }
@@ -1258,7 +1258,7 @@ function ChatThread() {
                   ? {
                       ...m,
                       artifactStatus:
-                        event.status === 'failed' ? 'error' : event.status,
+                        event.status === 'failed' ? 'failed' : event.status,
                       streaming: false,
                     }
                   : m,
@@ -1272,7 +1272,7 @@ function ChatThread() {
               m.id === retryAckId
                 ? {
                     ...m,
-                    artifactStatus: 'error' as const,
+                    artifactStatus: 'failed' as const,
                     errorMessage: 'Koneksi terputus saat membuat ulang.',
                     streaming: false,
                   }
@@ -1303,7 +1303,7 @@ function ChatThread() {
           m.id === retryAckId
             ? {
                 ...m,
-                artifactStatus: 'error',
+                artifactStatus: 'failed',
                 errorMessage:
                   err.message || 'Gagal menjalankan ulang pembuatan.',
                 streaming: false,

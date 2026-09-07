@@ -183,13 +183,17 @@ describe('PRD artifact utilities', () => {
 
 describe('PRD stream protocol', () => {
   const GEN_ID = '11111111-1111-4111-8111-111111111111'
+  const MODEL_ID = 'model-internal'
+  const ROUTER_MODEL_ID = 'router/model'
 
   describe('encodeArtifactSseEvent', () => {
     it('encodes status event as SSE data line', () => {
       const event: ArtifactStreamEvent = {
         type: 'artifact-status',
         generationId: GEN_ID,
+        modelId: MODEL_ID,
         kind: 'prd',
+        operation: 'create',
         phase: 'preparing',
       }
       const encoded = encodeArtifactSseEvent(event)
@@ -200,7 +204,16 @@ describe('PRD stream protocol', () => {
       const event: ArtifactStreamEvent = {
         type: 'artifact-created',
         generationId: GEN_ID,
+        modelId: MODEL_ID,
         kind: 'prd',
+        operation: 'create',
+        artifactId: GEN_ID,
+        versionId: GEN_ID,
+        title: 'Release plan',
+        version: 1,
+        messageId: GEN_ID,
+        conversationId: GEN_ID,
+        routerModelId: ROUTER_MODEL_ID,
         summary: 'PRD selesai dibuat.',
         artifact: {
           attachmentId: GEN_ID,
@@ -222,7 +235,9 @@ describe('PRD stream protocol', () => {
       const raw = {
         type: 'artifact-status',
         generationId: GEN_ID,
+        modelId: MODEL_ID,
         kind: 'prd',
+        operation: 'create',
         phase: 'preparing',
       }
       const event = parseArtifactStreamEvent(raw)
@@ -233,7 +248,16 @@ describe('PRD stream protocol', () => {
       const raw = {
         type: 'artifact-created',
         generationId: GEN_ID,
+        modelId: MODEL_ID,
         kind: 'prd',
+        operation: 'create',
+        artifactId: GEN_ID,
+        versionId: GEN_ID,
+        title: 'Release plan',
+        version: 1,
+        messageId: GEN_ID,
+        conversationId: GEN_ID,
+        routerModelId: ROUTER_MODEL_ID,
         summary: 'PRD selesai dibuat.',
         artifact: {
           attachmentId: GEN_ID,
@@ -250,7 +274,9 @@ describe('PRD stream protocol', () => {
       const raw = {
         type: 'artifact-done',
         generationId: GEN_ID,
+        modelId: MODEL_ID,
         kind: 'prd',
+        operation: 'create',
         status: 'completed',
         messageId: GEN_ID,
         conversationId: GEN_ID,
@@ -268,7 +294,9 @@ describe('PRD stream protocol', () => {
         parseArtifactStreamEvent({
           type: 'artifact-status',
           generationId: GEN_ID,
+          modelId: MODEL_ID,
           kind: 'unknown-kind',
+          operation: 'create',
           phase: 'preparing',
         }),
       ).toThrow(ZodError)
@@ -278,7 +306,9 @@ describe('PRD stream protocol', () => {
       expect(() =>
         parseArtifactStreamEvent({
           generationId: GEN_ID,
+          modelId: MODEL_ID,
           kind: 'prd',
+          operation: 'create',
           phase: 'preparing',
         }),
       ).toThrow(ZodError)

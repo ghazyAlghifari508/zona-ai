@@ -24,11 +24,11 @@ export function getArtifactStatusText(
         return 'Menulis instruksi...'
       case 'validating':
         return 'Memvalidasi format...'
-      case 'creating_file':
+      case 'saving':
         return 'Menyiapkan file Markdown...'
       case 'completed':
         return 'Skill selesai dibuat.'
-      case 'error':
+      case 'failed':
         return 'Pembuatan skill gagal.'
       case 'cancelled':
         return 'Pembuatan skill dibatalkan.'
@@ -58,11 +58,11 @@ export function getArtifactStatusText(
       }
     case 'validating':
       return 'Memvalidasi dokumen...'
-    case 'creating_file':
+    case 'saving':
       return 'Menyiapkan file Markdown...'
     case 'completed':
       return 'PRD selesai dibuat.'
-    case 'error':
+    case 'failed':
       return 'Pembuatan PRD gagal.'
     case 'cancelled':
       return 'Pembuatan PRD dibatalkan.'
@@ -76,7 +76,7 @@ export function ArtifactProgress({
   errorMessage,
   ack,
 }: ArtifactProgressProps) {
-  const isError = phase === 'error'
+  const isError = phase === 'failed'
   const isCompleted = phase === 'completed'
   const statusText =
     isError && errorMessage

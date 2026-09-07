@@ -12,11 +12,11 @@ describe('ArtifactProgress', () => {
     ['prd', 'preparing'],
     ['prd', 'generating'],
     ['prd', 'validating'],
-    ['prd', 'creating_file'],
+    ['prd', 'saving'],
     ['agent-skill', 'preparing'],
     ['agent-skill', 'generating'],
     ['agent-skill', 'validating'],
-    ['agent-skill', 'creating_file'],
+    ['agent-skill', 'saving'],
   ] as const)(
     'renders live phase %s/%s with progress marker',
     (kind, phase) => {
@@ -29,7 +29,7 @@ describe('ArtifactProgress', () => {
     },
   )
 
-  it('renders completed and error states', () => {
+  it('renders completed and failed states', () => {
     const { unmount } = render(
       <ArtifactProgress kind="prd" phase="completed" />,
     )
@@ -38,7 +38,7 @@ describe('ArtifactProgress', () => {
     ).toBe('completed')
     unmount()
     render(
-      <ArtifactProgress kind="agent-skill" phase="error" errorMessage="boom" />,
+      <ArtifactProgress kind="agent-skill" phase="failed" errorMessage="boom" />,
     )
     expect(screen.getByTestId('artifact-progress-text').textContent).toContain(
       'boom',

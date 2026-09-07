@@ -15,12 +15,9 @@ import {
   conversations,
   generationRuns,
   messages,
-  usageRecords,
 } from '../../lib/db/schema'
-import { env } from '../../lib/env.server'
 import { getModelById, isVisionCapable } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
-import { deleteObject, putObject } from '../../lib/r2/client'
 import { retrieveContext } from '../../lib/rag/retrieve'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import { RATE_LIMIT_WINDOW_MS } from '../../lib/utils/constants'
@@ -30,6 +27,7 @@ import {
   type UsageLike,
 } from '../../lib/utils/errors'
 import type { ArtifactInput } from '../../lib/utils/validation'
+import { finalizeArtifactVersion } from './artifact-finalization'
 import { ARTIFACT_PROFILES, type ArtifactProfile } from './artifact-profiles'
 import { autoTitleConversation, controllers } from './chat'
 import { buildModelHistory } from './history'
@@ -191,9 +189,20 @@ async function executeArtifactStream(
             })
           }
           sendEvent({
+            type: 'artifact-status',
+            generationId: genId,
+            modelId,
+            kind: profile.kind,
+            operation: 'create',
+            phase: 'failed',
+            message,
+          })
+          sendEvent({
             type: 'artifact-error',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             code: 'ERR-016',
             retryable: true,
             message,
@@ -201,7 +210,9 @@ async function executeArtifactStream(
           sendEvent({
             type: 'artifact-done',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             status: 'failed',
             messageId: assistantMsgId,
             conversationId: convId,
@@ -213,7 +224,9 @@ async function executeArtifactStream(
       sendEvent({
         type: 'artifact-status',
         generationId: genId,
+        modelId,
         kind: profile.kind,
+        operation: 'create',
         phase: 'preparing',
       })
 
@@ -266,7 +279,9 @@ async function executeArtifactStream(
                   sendEvent({
                     type: 'artifact-status',
                     generationId: genId,
+                    modelId,
                     kind: profile.kind,
+                    operation: 'create',
                     phase: 'generating',
                     section: currentSection,
                   })
@@ -275,7 +290,9 @@ async function executeArtifactStream(
                   sendEvent({
                     type: 'artifact-status',
                     generationId: genId,
+                    modelId,
                     kind: profile.kind,
+                    operation: 'create',
                     phase: 'generating',
                   })
                 }
@@ -297,19 +314,21 @@ async function executeArtifactStream(
             amount: cost,
             status: 'cancelled',
           })
-          // Cancellation surfaces as an error-phase status event plus a
-          // terminal done event: the protocol has no cancelled status phase.
           sendEvent({
             type: 'artifact-status',
             generationId: genId,
+            modelId,
             kind: profile.kind,
-            phase: 'error',
+            operation: 'create',
+            phase: 'cancelled',
             message: profile.cancelledMessage,
           })
           sendEvent({
             type: 'artifact-done',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             status: 'cancelled',
             messageId: assistantMsgId,
             conversationId: convId,
@@ -326,7 +345,9 @@ async function executeArtifactStream(
         sendEvent({
           type: 'artifact-status',
           generationId: genId,
+          modelId,
           kind: profile.kind,
+          operation: 'create',
           phase: 'validating',
         })
 
@@ -352,13 +373,6 @@ async function executeArtifactStream(
           return
         }
 
-        sendEvent({
-          type: 'artifact-status',
-          generationId: genId,
-          kind: profile.kind,
-          phase: 'creating_file',
-        })
-
         const built = profile.buildArtifact(fullText, userContent)
         if (!built) {
           await failInvalid({
@@ -369,11 +383,6 @@ async function executeArtifactStream(
           return
         }
 
-        // Generate filename and upload to R2
-        const fileBuffer = Buffer.from(built.markdown, 'utf-8')
-        const attachmentId = crypto.randomUUID()
-        const r2Key = `users/${userId}/attachments/${attachmentId}/${built.fileName}`
-
         let usageData: UsageLike | null = null
         try {
           usageData = (await result.usage) as UsageLike
@@ -382,77 +391,33 @@ async function executeArtifactStream(
         const latencyMs = Date.now() - startTime
         const ttft = firstTokenAt ? firstTokenAt - startTime : null
 
+        sendEvent({
+          type: 'artifact-status',
+          generationId: genId,
+          modelId,
+          kind: profile.kind,
+          operation: 'create',
+          phase: 'saving',
+        })
+
+        let descriptor: Awaited<ReturnType<typeof finalizeArtifactVersion>>
         try {
-          await runFinalizeWithCompensation({
-            writeR2: () =>
-              putObject({
-                bucket: env.R2_BUCKET_NAME,
-                key: r2Key,
-                body: fileBuffer,
-                contentType: profile.mimeType,
-              }),
-            commitDb: () =>
-              db.transaction(async (tx) => {
-                const current = await tx
-                  .select({ status: generationRuns.status })
-                  .from(generationRuns)
-                  .where(eq(generationRuns.id, genId))
-                if (current[0]?.status !== 'streaming') {
-                  throw new AppError(
-                    'Generation no longer active',
-                    409,
-                    'ERR-003',
-                  )
-                }
-                await tx.insert(attachments).values({
-                  id: attachmentId,
-                  userId,
-                  conversationId: convId,
-                  messageId: assistantMsgId,
-                  fileName: built.fileName,
-                  fileSize: built.fileSize,
-                  mimeType: profile.mimeType,
-                  r2Key,
-                  r2Bucket: env.R2_BUCKET_NAME,
-                  processingStatus: 'completed',
-                  extractedText: built.markdown,
-                })
-                await tx
-                  .update(messages)
-                  .set({ content: built.summary })
-                  .where(eq(messages.id, assistantMsgId))
-                await tx
-                  .update(generationRuns)
-                  .set({
-                    content: built.markdown,
-                    promptTokens:
-                      usageData?.inputTokens ?? usageData?.promptTokens ?? null,
-                    completionTokens:
-                      usageData?.outputTokens ??
-                      usageData?.completionTokens ??
-                      null,
-                    totalTokens: usageData?.totalTokens ?? null,
-                    latencyMs,
-                    timeToFirstTokenMs: ttft,
-                    status: 'completed',
-                    completedAt: new Date(),
-                  })
-                  .where(eq(generationRuns.id, genId))
-                if (usageData) {
-                  await tx.insert(usageRecords).values({
-                    userId,
-                    generationRunId: genId,
-                    modelId,
-                    promptTokens:
-                      usageData.inputTokens ?? usageData.promptTokens ?? 0,
-                    completionTokens:
-                      usageData.outputTokens ?? usageData.completionTokens ?? 0,
-                    totalTokens: usageData.totalTokens ?? 0,
-                  })
-                }
-              }),
-            deleteR2: () =>
-              deleteObject({ bucket: env.R2_BUCKET_NAME, key: r2Key }),
+          descriptor = await finalizeArtifactVersion({
+            userId,
+            conversationId: convId,
+            messageId: assistantMsgId,
+            generationId: genId,
+            kind: profile.kind,
+            title: built.title,
+            modelId,
+            routerModelId,
+            fileName: built.fileName,
+            mimeType: profile.mimeType,
+            bytes: Buffer.from(built.markdown, 'utf-8'),
+            summary: built.summary,
+            usage: usageData,
+            timing: { latencyMs, timeToFirstTokenMs: ttft },
+            finalizationMode: 'create',
           })
         } catch (finalizeErr) {
           console.error(
@@ -473,9 +438,20 @@ async function executeArtifactStream(
             })
           }
           sendEvent({
+            type: 'artifact-status',
+            generationId: genId,
+            modelId,
+            kind: profile.kind,
+            operation: 'create',
+            phase: 'failed',
+            message: profile.failureMessage,
+          })
+          sendEvent({
             type: 'artifact-error',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             code: 'ERR-010',
             retryable: true,
             message: profile.failureMessage,
@@ -483,7 +459,9 @@ async function executeArtifactStream(
           sendEvent({
             type: 'artifact-done',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             status: 'failed',
             messageId: assistantMsgId,
             conversationId: convId,
@@ -496,27 +474,40 @@ async function executeArtifactStream(
         sendEvent({
           type: 'artifact-created',
           generationId: genId,
+          modelId,
           kind: profile.kind,
+          operation: 'create',
+          artifactId: descriptor.artifactId,
+          versionId: descriptor.versionId,
+          title: descriptor.title,
+          version: descriptor.version,
+          messageId: assistantMsgId,
+          conversationId: convId,
+          routerModelId,
           summary: built.summary,
           artifact: {
-            attachmentId,
-            fileName: built.fileName,
-            fileSize: built.fileSize,
-            mimeType: profile.mimeType,
+            attachmentId: descriptor.attachmentId,
+            fileName: descriptor.fileName,
+            fileSize: descriptor.fileSize,
+            mimeType: descriptor.mimeType,
           },
         })
 
         sendEvent({
           type: 'artifact-status',
           generationId: genId,
+          modelId,
           kind: profile.kind,
+          operation: 'create',
           phase: 'completed',
         })
 
         sendEvent({
           type: 'artifact-done',
           generationId: genId,
+          modelId,
           kind: profile.kind,
+          operation: 'create',
           status: 'completed',
           messageId: assistantMsgId,
           conversationId: convId,
@@ -561,30 +552,38 @@ async function executeArtifactStream(
           sendEvent({
             type: 'artifact-status',
             generationId: genId,
+            modelId,
             kind: profile.kind,
-            phase: 'error',
+            operation: 'create',
+            phase: 'cancelled',
             message: profile.cancelledMessage,
-          })
-          sendEvent({
-            type: 'artifact-error',
-            generationId: genId,
-            kind: profile.kind,
-            code: 'ERR-008',
-            retryable: false,
           })
           sendEvent({
             type: 'artifact-done',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             status: 'cancelled',
             messageId: assistantMsgId,
             conversationId: convId,
           })
         } else {
           sendEvent({
+            type: 'artifact-status',
+            generationId: genId,
+            modelId,
+            kind: profile.kind,
+            operation: 'create',
+            phase: 'failed',
+            message: profile.incompleteMessage,
+          })
+          sendEvent({
             type: 'artifact-error',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             code: 'ERR-016',
             retryable: true,
             message: profile.incompleteMessage,
@@ -592,7 +591,9 @@ async function executeArtifactStream(
           sendEvent({
             type: 'artifact-done',
             generationId: genId,
+            modelId,
             kind: profile.kind,
+            operation: 'create',
             status: 'failed',
             messageId: assistantMsgId,
             conversationId: convId,

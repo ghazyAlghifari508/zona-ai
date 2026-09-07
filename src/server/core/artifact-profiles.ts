@@ -14,6 +14,7 @@ import {
 import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import type { ArtifactKind } from '../../lib/chat/skills'
 import {
+  ARTIFACT_TITLE_MAX_LENGTH,
   RATE_LIMIT_AGENT_SKILL_PER_MINUTE,
   RATE_LIMIT_PRD_PER_MINUTE,
 } from '../../lib/utils/constants'
@@ -27,6 +28,19 @@ export type ValidatedArtifact = {
   fileName: string
   fileSize: number
   summary: string
+  title: string
+}
+
+function normalizeArtifactTitle(raw: string): string | null {
+  const title = raw.replace(/\s+/g, ' ').trim()
+  if (!title) return null
+  return title.slice(0, ARTIFACT_TITLE_MAX_LENGTH)
+}
+
+function extractPrdTitle(fullText: string): string | null {
+  const match = /^#[ \t]+(.+)$/m.exec(fullText)
+  if (!match) return null
+  return normalizeArtifactTitle(match[1])
 }
 
 export type ArtifactProfile = {
@@ -35,7 +49,7 @@ export type ArtifactProfile = {
   rateLimitKey: string
   rateLimitPerMinute: number
   maxBytes: number
-  mimeType: string
+  mimeType: 'text/markdown'
   buildSystemPrompt: (input: {
     userContent: string
     ragSuffix: string
@@ -67,6 +81,8 @@ export const prdProfile: ArtifactProfile = {
   buildArtifact: (fullText, userContent) => {
     const validation = validatePrdContent(fullText)
     if (!validation.valid) return null
+    const title = extractPrdTitle(fullText)
+    if (!title) return null
     const fileName = sanitizePrdFilename(generatePrdFilename(userContent))
     const fileSize = Buffer.byteLength(fullText, 'utf8')
     return {
@@ -74,6 +90,7 @@ export const prdProfile: ArtifactProfile = {
       fileName,
       fileSize,
       summary: 'PRD selesai dibuat.',
+      title,
     }
   },
   validationErrorMessage:
@@ -103,11 +120,14 @@ export const agentSkillProfile: ArtifactProfile = {
   buildArtifact: (fullText) => {
     const result = validateSkillDocument(fullText)
     if (!result.valid) return null
+    const title = normalizeArtifactTitle(result.document.displayName)
+    if (!title) return null
     return {
       markdown: result.document.markdown,
       fileName: result.document.fileName,
       fileSize: result.document.fileSize,
       summary: result.document.summary,
+      title,
     }
   },
   validationErrorMessage:
