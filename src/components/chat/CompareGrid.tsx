@@ -13,7 +13,15 @@ type Generation = {
   totalTokens?: number | null
   latencyMs?: number | null
   timeToFirstTokenMs?: number | null
+  error?: unknown
   artifact?: ArtifactDescriptor
+  webSources?: Array<{
+    url: string
+    title: string | null
+    snippet: string | null
+    position: number
+    score?: number | null
+  }>
 }
 
 type ComparisonRun = {
@@ -50,7 +58,11 @@ export function CompareGrid({
     ''
 
   const { containerClass, gridClass } = getCompareGridClasses(generations)
-  void onOpenArtifacts
+  const successfulArtifacts = generations.flatMap((generation) =>
+    generation.status === 'completed' && generation.artifact
+      ? [generation.artifact]
+      : [],
+  )
 
   return (
     <div className={`space-y-4 ${containerClass}`}>
@@ -61,6 +73,18 @@ export function CompareGrid({
           </div>
         </div>
       )}
+      {onOpenArtifacts && successfulArtifacts.length > 0 ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            data-testid="compare-open-all"
+            onClick={() => onOpenArtifacts(successfulArtifacts)}
+            className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-colors hover:bg-paper"
+          >
+            Open all files
+          </button>
+        </div>
+      ) : null}
       <div data-testid="compare-grid" className={gridClass}>
         {generations.map((g) => (
           <ModelColumn

@@ -21,6 +21,8 @@ export function ArtifactTabs({
   const catalog = useModelCatalog()
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!(event.target instanceof HTMLElement)) return
+    if (event.target.getAttribute('role') !== 'tab') return
     if (
       event.key !== 'ArrowRight' &&
       event.key !== 'ArrowLeft' &&

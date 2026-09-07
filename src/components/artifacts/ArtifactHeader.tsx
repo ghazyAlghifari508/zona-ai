@@ -39,6 +39,7 @@ export function ArtifactHeader({
   const downloadVersion = selected?.version ?? summary.currentVersion
 
   const handleVersionChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    if (!event.target.value) return
     onVersionChange({
       artifactId: summary.artifactId,
       versionId: event.target.value,
@@ -46,7 +47,7 @@ export function ArtifactHeader({
   }
 
   const handleCopy = () => {
-    if (!source) return
+    if (source === undefined) return
     onCopy(source)
     try {
       void navigator.clipboard?.writeText(source).catch(() => {})
@@ -87,20 +88,27 @@ export function ArtifactHeader({
         data-testid="artifact-version-select"
         value={activeVersionId}
         onChange={handleVersionChange}
+        disabled={versions.length === 0}
         className="h-8 shrink-0 rounded-md border border-hairline bg-pure-white px-2 text-[13px] text-ink"
       >
-        {versions.map((version) => (
-          <option key={version.versionId} value={version.versionId}>
-            {`Version ${version.version}`}
+        {versions.length === 0 ? (
+          <option value={activeVersionId}>
+            {`Version ${summary.currentVersion}`}
           </option>
-        ))}
+        ) : (
+          versions.map((version) => (
+            <option key={version.versionId} value={version.versionId}>
+              {`Version ${version.version}`}
+            </option>
+          ))
+        )}
       </select>
 
       <button
         type="button"
         aria-label={`Copy ${summary.title}`}
         data-testid="artifact-copy"
-        disabled={!source}
+        disabled={source === undefined}
         onClick={handleCopy}
         className="inline-flex h-8 shrink-0 items-center rounded-md border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink disabled:opacity-50"
       >

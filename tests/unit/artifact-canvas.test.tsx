@@ -19,8 +19,10 @@ vi.mock('../../src/components/chat/useModelCatalog', () => ({
     { id: 'model-a', displayName: 'Model Alpha', provider: 'zona' },
     { id: 'model-b', displayName: 'Model Beta', provider: 'zona' },
   ],
-  findCatalogEntry: (catalog: Array<{ id: string; displayName: string }>, id: string) =>
-    catalog.find((entry) => entry.id === id) ?? null,
+  findCatalogEntry: (
+    catalog: Array<{ id: string; displayName: string }>,
+    id: string,
+  ) => catalog.find((entry) => entry.id === id) ?? null,
 }))
 
 const ART_A = '11111111-1111-4111-8111-111111111111'
@@ -137,6 +139,7 @@ type CanvasCallbacks = {
   onClosePanel: ReturnType<typeof vi.fn>
   onBackToChat: ReturnType<typeof vi.fn>
   onCopy: ReturnType<typeof vi.fn>
+  onRememberScroll: ReturnType<typeof vi.fn>
 }
 
 function setup(
@@ -172,6 +175,7 @@ function setup(
     onClosePanel: vi.fn(),
     onBackToChat: vi.fn(),
     onCopy: vi.fn(),
+    onRememberScroll: vi.fn(),
   }
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -192,6 +196,7 @@ function setup(
         onClosePanel={callbacks.onClosePanel}
         onBackToChat={callbacks.onBackToChat}
         onCopy={callbacks.onCopy}
+        onRememberScroll={callbacks.onRememberScroll}
       />
     </QueryClientProvider>,
   )
@@ -210,7 +215,9 @@ describe('ArtifactCanvas', () => {
   })
 
   it('exposes the active artifact name on the selected tab', async () => {
-    setup({ bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' } })
+    setup({
+      bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
+    })
     const selectedTab = await screen.findByRole('tab', { selected: true })
     expect(selectedTab.getAttribute('aria-label')).toContain('Alpha Spec')
     expect(screen.getByRole('heading', { name: 'Alpha Spec' })).toBeTruthy()
@@ -251,6 +258,19 @@ describe('ArtifactCanvas', () => {
     expect(callbacks.onCopy).toHaveBeenCalledWith(exact)
   })
 
+  it('copies a loaded empty source without treating it as unavailable', async () => {
+    const { callbacks } = setup({
+      bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '' },
+    })
+    const copy = await screen.findByRole('button', { name: /Copy Alpha Spec/ })
+    await waitFor(() => expect(copy.hasAttribute('disabled')).toBe(false))
+
+    fireEvent.click(copy)
+
+    expect(callbacks.onCopy).toHaveBeenCalledTimes(1)
+    expect(callbacks.onCopy).toHaveBeenCalledWith('')
+  })
+
   it('keeps Download from emitting open or focus callbacks', async () => {
     const { callbacks } = setup({
       bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
@@ -262,6 +282,9 @@ describe('ArtifactCanvas', () => {
       '/api/attachments/aaaaaaaa-0000-4000-8000-000000000001?download=1',
     )
     expect(download.getAttribute('download')).toBe('alpha.md')
+    download.addEventListener('click', (event) => event.preventDefault(), {
+      once: true,
+    })
     fireEvent.click(download)
     expect(callbacks.onSelectTab).not.toHaveBeenCalled()
     expect(callbacks.onVersionChange).not.toHaveBeenCalled()
@@ -294,6 +317,7 @@ describe('ArtifactCanvas', () => {
       onClosePanel: vi.fn(),
       onBackToChat: vi.fn(),
       onCopy: vi.fn(),
+      onRememberScroll: vi.fn(),
     }
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -313,6 +337,7 @@ describe('ArtifactCanvas', () => {
           onClosePanel={callbacks.onClosePanel}
           onBackToChat={callbacks.onBackToChat}
           onCopy={callbacks.onCopy}
+          onRememberScroll={callbacks.onRememberScroll}
         />
       </QueryClientProvider>,
     )
@@ -325,15 +350,11 @@ describe('ArtifactCanvas', () => {
     })
     // Force the active query into error by refetching through the UI retry path later;
     // first prove the error surface appears after invalidation-driven refetch.
-    await waitFor(() =>
-      expect(screen.queryByRole('alert')).toBeTruthy(),
-    )
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeTruthy())
     const retry = screen.getByRole('button', { name: /Retry/ })
     rejectFirst = false
     fireEvent.click(retry)
-    await waitFor(() =>
-      expect(screen.getByText('Preview body')).toBeTruthy(),
-    )
+    await waitFor(() => expect(screen.getByText('Preview body')).toBeTruthy())
   })
 
   it('emits onBackToChat from the mobile back control', async () => {
@@ -361,6 +382,53 @@ describe('ArtifactCanvas', () => {
     expect(callbacks.onCloseTab).toHaveBeenCalledWith(ART_A)
   })
 
+  it('does not switch tabs when navigation keys originate from a close control', async () => {
+    const { callbacks } = setup({
+      bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
+    })
+    await screen.findByRole('tab', { selected: true })
+    const close = screen.getByRole('button', { name: 'Close Alpha Spec' })
+    close.focus()
+
+    fireEvent.keyDown(close, { key: 'ArrowRight' })
+
+    expect(callbacks.onSelectTab).not.toHaveBeenCalled()
+  })
+
+  it('ignores an empty version selection', async () => {
+    const { callbacks } = setup({
+      bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
+    })
+    await screen.findByRole('tab', { selected: true })
+
+    fireEvent.change(screen.getByLabelText(/Version for Alpha Spec/), {
+      target: { value: '' },
+    })
+
+    expect(callbacks.onVersionChange).not.toHaveBeenCalled()
+  })
+
+  it('records and restores version-keyed preview scroll around tab switches', async () => {
+    const { callbacks } = setup({
+      workspace: workspaceFor({
+        scrollTopByVersionKey: { [`${ART_A}:${VER_A1}`]: 37 },
+      }),
+      bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
+    })
+    const preview = await screen.findByTestId('artifact-preview')
+    await waitFor(() => expect(preview.scrollTop).toBe(37))
+    preview.scrollTop = 91
+
+    fireEvent.click(screen.getByRole('tab', { name: /Beta Spec/ }))
+
+    expect(callbacks.onRememberScroll).toHaveBeenCalledWith({
+      artifactId: ART_A,
+      versionId: VER_A1,
+      scrollTop: 91,
+    })
+    expect(callbacks.onSelectTab).toHaveBeenCalledWith(ART_B)
+  })
+
   it('renders the version selector in immutable order', async () => {
     setup({
       bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
@@ -371,9 +439,9 @@ describe('ArtifactCanvas', () => {
       selected: (option as HTMLOptionElement).selected,
     }))
     expect(options.map((option) => option.value)).toEqual([VER_A1, VER_A2])
-    expect(
-      options.find((option) => option.value === VER_A1)?.selected,
-    ).toBe(true)
+    expect(options.find((option) => option.value === VER_A1)?.selected).toBe(
+      true,
+    )
   })
 
   it('emits header close tab and close panel callbacks', async () => {
@@ -382,10 +450,14 @@ describe('ArtifactCanvas', () => {
     })
     await screen.findByRole('tab', { selected: true })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close Alpha Spec tab' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close Alpha Spec tab' }),
+    )
     expect(callbacks.onCloseTab).toHaveBeenCalledWith(ART_A)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close artifact panel' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close artifact panel' }),
+    )
     expect(callbacks.onClosePanel).toHaveBeenCalledTimes(1)
   })
 })

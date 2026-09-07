@@ -1,6 +1,10 @@
+import { useEffectEvent, useLayoutEffect, useRef } from 'react'
 import { MarkdownContent } from '@/components/chat/MarkdownContent'
 import type { ArtifactDetail, ArtifactSummary } from '@/lib/artifacts/contracts'
-import type { ArtifactWorkspaceState } from '@/lib/artifacts/workspace-state'
+import {
+  type ArtifactWorkspaceState,
+  artifactVersionKey,
+} from '@/lib/artifacts/workspace-state'
 import { ArtifactHeader } from './ArtifactHeader'
 import { ArtifactTabs } from './ArtifactTabs'
 import { useArtifactContent } from './useArtifactContent'
@@ -15,6 +19,11 @@ export type ArtifactCanvasProps = {
   onClosePanel: () => void
   onBackToChat: () => void
   onCopy: (source: string) => void
+  onRememberScroll: (input: {
+    artifactId: string
+    versionId: string
+    scrollTop: number
+  }) => void
 }
 
 export function ArtifactCanvas({
@@ -27,6 +36,7 @@ export function ArtifactCanvas({
   onClosePanel,
   onBackToChat,
   onCopy,
+  onRememberScroll,
 }: ArtifactCanvasProps) {
   const openSummaries = workspace.openArtifactIds.flatMap((artifactId) => {
     const summary = summaries.find((entry) => entry.artifactId === artifactId)
@@ -63,6 +73,7 @@ export function ArtifactCanvas({
       onClosePanel={onClosePanel}
       onBackToChat={onBackToChat}
       onCopy={onCopy}
+      onRememberScroll={onRememberScroll}
     />
   )
 }
@@ -78,6 +89,7 @@ function ActiveArtifactCanvas({
   onClosePanel,
   onBackToChat,
   onCopy,
+  onRememberScroll,
 }: {
   openSummaries: ArtifactSummary[]
   activeSummary: ArtifactSummary
@@ -89,6 +101,11 @@ function ActiveArtifactCanvas({
   onClosePanel: () => void
   onBackToChat: () => void
   onCopy: (source: string) => void
+  onRememberScroll: (input: {
+    artifactId: string
+    versionId: string
+    scrollTop: number
+  }) => void
 }) {
   const versions = detail?.versions ?? []
   const activeVersionId =
@@ -99,12 +116,63 @@ function ActiveArtifactCanvas({
     versionId: activeVersionId,
     enabled: activeVersionId.length > 0,
   })
+  const previewRef = useRef<HTMLDivElement>(null)
+  const versionKey = artifactVersionKey(
+    activeSummary.artifactId,
+    activeVersionId,
+  )
+  const savedScrollTop = workspace.scrollTopByVersionKey[versionKey] ?? 0
+  const recordedVersionKeyRef = useRef<string | null>(null)
+  const rememberOnCleanup = useEffectEvent(
+    (artifactId: string, versionId: string, key: string) => {
+      if (recordedVersionKeyRef.current === key) return
+      onRememberScroll({
+        artifactId,
+        versionId,
+        scrollTop: previewRef.current?.scrollTop ?? 0,
+      })
+    },
+  )
+
+  useLayoutEffect(() => {
+    recordedVersionKeyRef.current = null
+    if (previewRef.current) previewRef.current.scrollTop = savedScrollTop
+    return () => {
+      rememberOnCleanup(activeSummary.artifactId, activeVersionId, versionKey)
+    }
+  }, [activeSummary.artifactId, activeVersionId, savedScrollTop, versionKey])
+
+  const rememberCurrentScroll = () => {
+    recordedVersionKeyRef.current = versionKey
+    onRememberScroll({
+      artifactId: activeSummary.artifactId,
+      versionId: activeVersionId,
+      scrollTop: previewRef.current?.scrollTop ?? 0,
+    })
+  }
+  const handleSelectTab = (artifactId: string) => {
+    if (artifactId === activeSummary.artifactId) return
+    rememberCurrentScroll()
+    onSelectTab(artifactId)
+  }
+  const handleVersionChange = (input: {
+    artifactId: string
+    versionId: string
+  }) => {
+    if (input.versionId === activeVersionId) return
+    rememberCurrentScroll()
+    onVersionChange(input)
+  }
+  const handleCloseTab = (artifactId: string) => {
+    if (artifactId === activeSummary.artifactId) rememberCurrentScroll()
+    onCloseTab(artifactId)
+  }
 
   return (
     <section
       aria-label="Artifact canvas"
       data-testid="artifact-canvas"
-      className="flex h-full min-h-0 flex-col border-l border-hairline bg-paper"
+      className="flex h-full min-h-0 flex-col bg-paper"
     >
       <div className="shrink-0 border-b border-hairline bg-pure-white">
         <div className="flex shrink-0 items-center gap-2 px-2 pt-2">
@@ -120,8 +188,8 @@ function ActiveArtifactCanvas({
           <ArtifactTabs
             summaries={openSummaries}
             activeArtifactId={activeSummary.artifactId}
-            onSelectTab={onSelectTab}
-            onCloseTab={onCloseTab}
+            onSelectTab={handleSelectTab}
+            onCloseTab={handleCloseTab}
           />
         </div>
         <ArtifactHeader
@@ -129,14 +197,15 @@ function ActiveArtifactCanvas({
           versions={versions}
           activeVersionId={activeVersionId}
           source={content.source}
-          onVersionChange={onVersionChange}
-          onCloseTab={onCloseTab}
+          onVersionChange={handleVersionChange}
+          onCloseTab={handleCloseTab}
           onClosePanel={onClosePanel}
           onCopy={onCopy}
         />
       </div>
 
       <div
+        ref={previewRef}
         data-testid="artifact-preview"
         className="zona-scroll min-h-0 flex-1 overflow-y-auto bg-pure-white p-4"
       >

@@ -339,9 +339,6 @@ const MessageItem = memo(function MessageItem({
     )
   }
 
-  void onOpenArtifact
-  void onOpenArtifacts
-
   const providerName = getModelProviderName(entry, message.modelId)
   const hasVisibleContent = Boolean(
     message.content && message.content.trim().length > 0,
@@ -414,7 +411,14 @@ const MessageItem = memo(function MessageItem({
                 renderMarkdown={(text) => <MarkdownContent text={text} />}
               />
             )}
-          {message.artifact && <FileCard artifact={message.artifact} />}
+          {message.artifact && (
+            <FileCard
+              artifact={message.artifact}
+              onOpen={
+                'artifactId' in message.artifact ? onOpenArtifact : undefined
+              }
+            />
+          )}
           {message.errorMessage && !message.artifactStatus && (
             <InlineError
               code={message.errorCode}

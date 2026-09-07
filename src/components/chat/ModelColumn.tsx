@@ -12,6 +12,7 @@ import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CopyButton } from './CopyButton'
+import { FileCard } from './FileCard'
 import { InlineError } from './InlineError'
 import { MarkdownContent } from './MarkdownContent'
 import { ReasoningSection } from './ReasoningSection'
@@ -49,7 +50,6 @@ export const ModelColumn = memo(function ModelColumn({
   onCopy,
   onOpenArtifact,
 }: Props) {
-  void onOpenArtifact
   const catalog = useModelCatalog()
   const entry = findCatalogEntry(catalog, generation.modelId)
   const providerName = getModelProviderName(entry, generation.modelId)
@@ -201,6 +201,12 @@ export const ModelColumn = memo(function ModelColumn({
             {generation.webSources && generation.webSources.length > 0 && (
               <CitationDrawer sources={generation.webSources} />
             )}
+            {generation.status === 'completed' && generation.artifact ? (
+              <FileCard
+                artifact={generation.artifact}
+                onOpen={onOpenArtifact}
+              />
+            ) : null}
           </>
         )}
       </div>
