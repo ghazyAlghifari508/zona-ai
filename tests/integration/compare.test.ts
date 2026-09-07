@@ -605,4 +605,57 @@ describe.sequential('sendCompareMessage integration', () => {
     const finalStatus = await settleComparisonRunBarrier(run.id, genIds)
     expect(finalStatus).toBe('partial_failure')
   })
+
+  it('comparison barrier does not finalize to partial_failure while a generation still streams', async () => {
+    const { settleComparisonRunBarrier } = await import(
+      '../../src/server/core/chat'
+    )
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: compareUserId, title: 'Barrier timeout guard' })
+      .returning()
+    const [userMsg] = await db
+      .insert(messages)
+      .values({ conversationId: conv.id, role: 'user', content: 'barrier' })
+      .returning()
+    const [run] = await db
+      .insert(comparisonRuns)
+      .values({
+        conversationId: conv.id,
+        userMessageId: userMsg.id,
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        status: 'running',
+      })
+      .returning()
+    const genIds: string[] = []
+    const statuses = ['completed', 'streaming'] as const
+    for (let i = 0; i < 2; i++) {
+      const [assistantMsg] = await db
+        .insert(messages)
+        .values({ conversationId: conv.id, role: 'assistant', content: '' })
+        .returning()
+      const genId = crypto.randomUUID()
+      genIds.push(genId)
+      await db.insert(generationRuns).values({
+        id: genId,
+        messageId: assistantMsg.id,
+        requestMessageId: userMsg.id,
+        comparisonRunId: run.id,
+        conversationId: conv.id,
+        modelId: `model-${i}`,
+        routerModelId: `router-${i}`,
+        skillId: 'none',
+        status: statuses[i],
+        startedAt: new Date(),
+        completedAt: statuses[i] === 'completed' ? new Date() : null,
+      })
+    }
+    const finalStatus = await settleComparisonRunBarrier(run.id, genIds, 300)
+    expect(finalStatus).toBe('running')
+    const [row] = await db
+      .select()
+      .from(comparisonRuns)
+      .where(eq(comparisonRuns.id, run.id))
+    expect(row.status).toBe('running')
+  }, 40000)
 })

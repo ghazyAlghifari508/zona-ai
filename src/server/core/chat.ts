@@ -97,14 +97,20 @@ async function waitForOneCompareGenerationTerminal(
 export async function settleComparisonRunBarrier(
   comparisonRunId: string,
   generationIds: string[],
+  timeoutMs = 30000,
 ): Promise<string> {
   await Promise.allSettled(
-    generationIds.map((genId) => waitForOneCompareGenerationTerminal(genId)),
+    generationIds.map((genId) =>
+      waitForOneCompareGenerationTerminal(genId, timeoutMs),
+    ),
   )
   const gens = await db
     .select({ status: generationRuns.status })
     .from(generationRuns)
     .where(eq(generationRuns.comparisonRunId, comparisonRunId))
+  if (gens.length === 0) return 'running'
+  const terminal = gens.filter((g) => g.status !== 'streaming')
+  if (terminal.length !== gens.length) return 'running'
   const statuses = gens.map((g) => g.status)
   const completed = statuses.filter((s) => s === 'completed').length
   const failed = statuses.filter((s) => s === 'failed').length
