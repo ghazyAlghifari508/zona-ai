@@ -5,6 +5,11 @@ import {
   validateSkillDocument,
 } from '../../lib/ai/agent-skill'
 import {
+  buildChecklistArtifact,
+  CHECKLIST_MIME_TYPE,
+  validateChecklistArtifactContent,
+} from '../../lib/ai/checklist-artifact'
+import {
   detectCurrentSection,
   generatePrdFilename,
   PRD_MIME_TYPE,
@@ -15,6 +20,7 @@ import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import type { ArtifactKind } from '../../lib/chat/skills'
 import {
   ARTIFACT_TITLE_MAX_LENGTH,
+  MAX_ARTIFACT_VERSION_BYTES,
   RATE_LIMIT_AGENT_SKILL_PER_MINUTE,
   RATE_LIMIT_PRD_PER_MINUTE,
 } from '../../lib/utils/constants'
@@ -45,7 +51,7 @@ function extractPrdTitle(fullText: string): string | null {
 
 export type ArtifactProfile = {
   kind: ArtifactKind
-  skillId: 'prd-plan' | 'agent-skill'
+  skillId: 'prd-plan' | 'agent-skill' | 'checklist'
   rateLimitKey: string
   rateLimitPerMinute: number
   maxBytes: number
@@ -138,7 +144,39 @@ export const agentSkillProfile: ArtifactProfile = {
   failureMessage: 'Gagal menghasilkan skill.',
 }
 
+export const checklistProfile: ArtifactProfile = {
+  kind: 'checklist',
+  skillId: 'checklist',
+  rateLimitKey: 'checklist',
+  rateLimitPerMinute: RATE_LIMIT_PRD_PER_MINUTE,
+  maxBytes: MAX_ARTIFACT_VERSION_BYTES,
+  mimeType: CHECKLIST_MIME_TYPE,
+  buildSystemPrompt: ({ ragSuffix }) =>
+    buildSystemPrompt({ skillId: 'checklist', hasWebSources: false }) +
+    ragSuffix,
+  detectSection: () => undefined,
+  validate: (fullText) => validateChecklistArtifactContent(fullText),
+  buildArtifact: (fullText) => {
+    const built = buildChecklistArtifact(fullText)
+    if (!built) return null
+    return {
+      markdown: built.markdown,
+      fileName: built.fileName,
+      fileSize: built.fileSize,
+      summary: built.summary,
+      title: built.title,
+    }
+  },
+  validationErrorMessage:
+    'Format checklist tidak valid atau tidak lengkap dari model AI.',
+  incompleteMessage:
+    'Checklist gagal dibuat. Hasil dari model belum bisa diproses dengan benar.',
+  cancelledMessage: 'Pembuatan checklist dibatalkan.',
+  failureMessage: 'Gagal menghasilkan checklist.',
+}
+
 export const ARTIFACT_PROFILES: Record<ArtifactKind, ArtifactProfile> = {
   prd: prdProfile,
   'agent-skill': agentSkillProfile,
+  checklist: checklistProfile,
 }

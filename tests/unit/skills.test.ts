@@ -15,17 +15,17 @@ describe('skill registry', () => {
     )
   })
 
-  it('exposes exactly the two artifact skill ids', () => {
+  it('exposes exactly the three artifact skill ids', () => {
     expect([...ARTIFACT_SKILL_IDS].sort()).toEqual(
-      ['agent-skill', 'prd-plan'].sort(),
+      ['agent-skill', 'checklist', 'prd-plan'].sort(),
     )
   })
 
-  it('marks only prd-plan and agent-skill as artifact skills', () => {
+  it('marks prd-plan, agent-skill, and checklist as artifact skills', () => {
     expect(isArtifactSkill('prd-plan')).toBe(true)
     expect(isArtifactSkill('agent-skill')).toBe(true)
+    expect(isArtifactSkill('checklist')).toBe(true)
     expect(isArtifactSkill('none')).toBe(false)
-    expect(isArtifactSkill('checklist')).toBe(false)
     expect(isArtifactSkill('unknown-id')).toBe(false)
   })
 
@@ -39,6 +39,7 @@ describe('skill registry', () => {
   it('maps artifact skills to their kind and others to null', () => {
     expect(artifactKindForSkill('prd-plan')).toBe('prd')
     expect(artifactKindForSkill('agent-skill')).toBe('agent-skill')
+    expect(artifactKindForSkill('checklist')).toBe('checklist')
     expect(artifactKindForSkill('none')).toBeNull()
   })
 

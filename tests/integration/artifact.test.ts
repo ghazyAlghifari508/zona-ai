@@ -1252,3 +1252,122 @@ describe('artifact finalization boundary', () => {
     }
   })
 })
+
+describe('checklist artifact generation', () => {
+  const CHECKLIST_USERS = ['artifact-checklist-1', 'artifact-checklist-2']
+  const CHECKLIST_JSON = JSON.stringify({
+    type: 'checklist',
+    title: 'Checklist puasa',
+    items: [
+      { id: 'task-1', text: 'Sahur', completed: false },
+      { id: 'task-2', text: 'Sholat subuh', completed: false },
+    ],
+  })
+
+  beforeEach(async () => {
+    resetRateLimitForTest()
+    nextFinishReason = 'stop'
+    nextStreamGate = null
+    for (const id of CHECKLIST_USERS) {
+      await cleanUser(id)
+    }
+    for (const id of CHECKLIST_USERS) {
+      await db.insert(users).values({
+        id,
+        email: `${id}@example.com`,
+        name: id,
+        credits: 1000,
+      })
+    }
+    vi.clearAllMocks()
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.putObject).mockResolvedValue(undefined)
+    vi.mocked(r2.deleteObject).mockResolvedValue(undefined)
+  })
+
+  afterAll(async () => {
+    for (const id of CHECKLIST_USERS) {
+      await cleanUser(id)
+    }
+  })
+
+  it('creates a checklist markdown artifact without persisting model JSON', async () => {
+    const USER = 'artifact-checklist-1'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    __setNextArtifactOutput(CHECKLIST_JSON)
+    const res = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'checklist',
+        content: 'Buatkan checklist puasa',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    expect(res.headers.get('X-Artifact-Kind')).toBe('checklist')
+    const events = await readArtifactEvents(res)
+    const created = events.find((e) => e.type === 'artifact-created')
+    if (created?.type !== 'artifact-created') throw new Error('missing created')
+    expect(created.kind).toBe('checklist')
+    expect(created.title).toBe('Checklist puasa')
+    expect(created.artifact.mimeType).toBe('text/markdown')
+    expect(created.artifact.fileName.endsWith('.md')).toBe(true)
+    expect(created.summary).toContain('Checklist puasa')
+
+    const done = events.find((e) => e.type === 'artifact-done')
+    if (done?.type !== 'artifact-done') throw new Error('missing done')
+    expect(done.status).toBe('completed')
+
+    expect(r2.putObject).toHaveBeenCalledTimes(1)
+    const putArg = vi.mocked(r2.putObject).mock.calls[0][0]
+    const persisted = (putArg.body as Buffer).toString('utf8')
+    expect(persisted.startsWith('# Checklist puasa\n')).toBe(true)
+    expect(
+      persisted.split('\n').filter((line) => line.startsWith('- [ ] ')),
+    ).toHaveLength(2)
+    expect(persisted).not.toContain('"type"')
+    expect(putArg.contentType).toBe('text/markdown')
+
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, res.headers.get('X-Generation-Id') as string))
+    expect(run.skillId).toBe('checklist')
+    expect(run.content?.startsWith('# Checklist puasa')).toBe(true)
+  })
+
+  it('rejects checklist in single chat but accepts it in compare', async () => {
+    const USER = 'artifact-checklist-2'
+    const { sendCompareMessageCore, sendMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    await expect(
+      sendMessageCore({
+        data: {
+          modelId: 'auto',
+          skillId: 'checklist',
+          content: 'halo',
+        },
+        request: userRequest(USER),
+      }),
+    ).rejects.toMatchObject({ status: 400, code: 'ERR-003' })
+
+    const compareRes = (await sendCompareMessageCore({
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        skillId: 'checklist',
+        content: 'buatkan checklist puasa',
+      },
+      request: userRequest(USER),
+    })) as unknown as Response
+    expect(compareRes).toBeInstanceOf(Response)
+    expect(compareRes.headers.get('Content-Type')).toContain(
+      'text/event-stream',
+    )
+    await compareRes.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 500))
+  })
+})

@@ -10,9 +10,13 @@ import {
 
 export const skillIdSchema = z.enum(SKILL_IDS)
 
-// Literal tuple mirrors ARTIFACT_SKILL_IDS; the registry test above pins the
+// Literal tuple mirrors ARTIFACT_SKILL_IDS; the registry test pins the
 // two lists together so they cannot drift silently.
-export const artifactSkillIdSchema = z.enum(['prd-plan', 'agent-skill'])
+export const artifactSkillIdSchema = z.enum([
+  'prd-plan',
+  'agent-skill',
+  'checklist',
+])
 
 export const chatSchema = z.object({
   conversationId: z.string().uuid().optional(),

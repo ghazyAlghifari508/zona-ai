@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ARTIFACT_KINDS } from '../artifacts/contracts'
 import { ARTIFACT_TITLE_MAX_LENGTH } from '../utils/constants'
 
 export type { ArtifactKind } from '../chat/skills'
@@ -34,7 +35,7 @@ export type ArtifactDescriptor = z.infer<typeof artifactDescriptorSchema>
 const baseEventSchema = z.object({
   generationId: generationIdSchema,
   modelId: z.string().min(1),
-  kind: z.enum(['prd', 'agent-skill']),
+  kind: z.enum(ARTIFACT_KINDS),
   operation: z.enum(ARTIFACT_STREAM_OPERATIONS),
   comparisonRunId: z.string().uuid().optional(),
   sourceArtifactId: z.string().uuid().optional(),

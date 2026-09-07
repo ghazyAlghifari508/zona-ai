@@ -11,7 +11,7 @@ export type SkillId = (typeof SKILL_IDS)[number]
 
 export type SkillOutputMode = 'chat' | 'artifact'
 
-export type ArtifactKind = Exclude<ArtifactDomainKind, 'checklist'>
+export type ArtifactKind = ArtifactDomainKind
 
 export type SkillDefinition = {
   id: SkillId
@@ -38,9 +38,9 @@ export const SKILL_REGISTRY: Record<SkillId, SkillDefinition> = {
     label: 'Checklist',
     desc: 'Checklist terstruktur',
     example: 'Buatkan checklist untuk ',
-    outputMode: 'chat',
+    outputMode: 'artifact',
     supportsCompare: true,
-    artifactKind: null,
+    artifactKind: 'checklist',
   },
   'prd-plan': {
     id: 'prd-plan',
@@ -96,7 +96,11 @@ export function buildArtifactAck(
     normalized.length > ACK_SUBJECT_MAX_CHARS
       ? `${normalized.slice(0, ACK_SUBJECT_MAX_CHARS)}…`
       : normalized
-  return kind === 'agent-skill'
-    ? `Bisa. Saya buatkan skill dari permintaan: "${subject}". Saya siapkan SKILL.md-nya.`
-    : `Bisa. Saya susun PRD dari permintaan: "${subject}".`
+  if (kind === 'agent-skill') {
+    return `Bisa. Saya buatkan skill dari permintaan: "${subject}". Saya siapkan SKILL.md-nya.`
+  }
+  if (kind === 'checklist') {
+    return `Bisa. Saya buatkan checklist dari permintaan: "${subject}".`
+  }
+  return `Bisa. Saya susun PRD dari permintaan: "${subject}".`
 }
