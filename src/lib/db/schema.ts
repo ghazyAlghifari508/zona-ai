@@ -1,16 +1,33 @@
+import { sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
+  type PgTableExtraConfigValue,
   pgTable,
   real,
   text,
   timestamp,
+  unique,
+  uniqueIndex,
   uuid,
   vector,
 } from 'drizzle-orm/pg-core'
-import { EMBEDDING_DIMENSION } from '../utils/constants'
+import { ARTIFACT_KINDS, type ArtifactKind } from '../artifacts/contracts'
+import {
+  ARTIFACT_TITLE_MAX_LENGTH,
+  EMBEDDING_DIMENSION,
+} from '../utils/constants'
+
+const artifactKindSql = sql.join(
+  ARTIFACT_KINDS.map((kind) => sql.raw(`'${kind}'`)),
+  sql`, `,
+)
+const artifactTitleMaxLengthSql = sql.raw(String(ARTIFACT_TITLE_MAX_LENGTH))
 
 // users — Better Auth managed + credits
 export const users = pgTable('users', {
@@ -177,6 +194,9 @@ export const generationRuns = pgTable(
     messageId: uuid('message_id')
       .notNull()
       .references(() => messages.id, { onDelete: 'cascade' }),
+    requestMessageId: uuid('request_message_id').references(() => messages.id, {
+      onDelete: 'set null',
+    }),
     comparisonRunId: uuid('comparison_run_id').references(
       () => comparisonRuns.id,
       { onDelete: 'set null' },
@@ -184,6 +204,8 @@ export const generationRuns = pgTable(
     conversationId: uuid('conversation_id')
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
+    sourceArtifactId: uuid('source_artifact_id'),
+    sourceVersionId: uuid('source_version_id'),
     modelId: text('model_id').notNull(),
     routerModelId: text('router_model_id').notNull(),
     skillId: text('skill_id'),
@@ -200,11 +222,121 @@ export const generationRuns = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
-  (table) => [
+  (table): PgTableExtraConfigValue[] => [
     index('generation_runs_conversation_id_idx').on(table.conversationId),
     index('generation_runs_comparison_run_id_idx').on(table.comparisonRunId),
     index('generation_runs_message_id_idx').on(table.messageId),
+    index('generation_runs_request_message_id_idx').on(table.requestMessageId),
+    index('generation_runs_source_version_idx').on(
+      table.sourceVersionId,
+      table.sourceArtifactId,
+    ),
     index('generation_runs_status_idx').on(table.status),
+    foreignKey({
+      name: 'generation_runs_source_version_scope_fk',
+      columns: [table.sourceVersionId, table.sourceArtifactId],
+      foreignColumns: [artifactVersions.id, artifactVersions.artifactId],
+    }).onDelete('restrict'),
+    check(
+      'generation_runs_source_identity_check',
+      sql`(${table.sourceArtifactId} IS NULL AND ${table.sourceVersionId} IS NULL) OR (${table.sourceArtifactId} IS NOT NULL AND ${table.sourceVersionId} IS NOT NULL)`,
+    ),
+  ],
+)
+
+export const artifactVersions = pgTable(
+  'artifact_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    artifactId: uuid('artifact_id')
+      .notNull()
+      .references((): AnyPgColumn => artifacts.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    sourceVersionId: uuid('source_version_id').references(
+      (): AnyPgColumn => artifactVersions.id,
+      { onDelete: 'restrict' },
+    ),
+    attachmentId: uuid('attachment_id')
+      .notNull()
+      .references(() => attachments.id, { onDelete: 'cascade' }),
+    generationRunId: uuid('generation_run_id')
+      .notNull()
+      .references((): AnyPgColumn => generationRuns.id, {
+        onDelete: 'cascade',
+      }),
+    title: text('title').notNull(),
+    contentSha256: text('content_sha256'),
+    createdByModelId: text('created_by_model_id').notNull(),
+    createdByRouterModelId: text('created_by_router_model_id').notNull(),
+    changeSummary: text('change_summary').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('artifact_versions_artifact_id_version_unique').on(
+      table.artifactId,
+      table.version.desc(),
+    ),
+    unique('artifact_versions_id_artifact_id_unique').on(
+      table.id,
+      table.artifactId,
+    ),
+    uniqueIndex('artifact_versions_attachment_id_unique').on(
+      table.attachmentId,
+    ),
+    uniqueIndex('artifact_versions_generation_run_id_unique').on(
+      table.generationRunId,
+    ),
+    index('artifact_versions_source_version_id_idx').on(table.sourceVersionId),
+    check(
+      'artifact_versions_version_positive_check',
+      sql`${table.version} > 0`,
+    ),
+    check(
+      'artifact_versions_title_length_check',
+      sql`char_length(${table.title}) <= ${artifactTitleMaxLengthSql}`,
+    ),
+  ],
+)
+
+export const artifacts = pgTable(
+  'artifacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    kind: text('kind').$type<ArtifactKind>().notNull(),
+    title: text('title').notNull(),
+    currentVersionId: uuid('current_version_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('artifacts_user_id_conversation_id_idx').on(
+      table.userId,
+      table.conversationId,
+    ),
+    index('artifacts_conversation_id_updated_at_idx').on(
+      table.conversationId,
+      table.updatedAt.desc(),
+    ),
+    index('artifacts_conversation_id_kind_idx').on(
+      table.conversationId,
+      table.kind,
+    ),
+    check('artifacts_kind_check', sql`${table.kind} IN (${artifactKindSql})`),
+    check(
+      'artifacts_title_length_check',
+      sql`char_length(${table.title}) <= ${artifactTitleMaxLengthSql}`,
+    ),
+    foreignKey({
+      name: 'artifacts_current_version_scope_fk',
+      columns: [table.currentVersionId, table.id],
+      foreignColumns: [artifactVersions.id, artifactVersions.artifactId],
+    }).onDelete('restrict'),
   ],
 )
 

@@ -1,3 +1,5 @@
+import type { ArtifactKind as ArtifactDomainKind } from '../artifacts/contracts'
+
 export const SKILL_IDS = [
   'none',
   'checklist',
@@ -9,7 +11,7 @@ export type SkillId = (typeof SKILL_IDS)[number]
 
 export type SkillOutputMode = 'chat' | 'artifact'
 
-export type ArtifactKind = 'prd' | 'agent-skill'
+export type ArtifactKind = Exclude<ArtifactDomainKind, 'checklist'>
 
 export type SkillDefinition = {
   id: SkillId
