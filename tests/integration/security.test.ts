@@ -32,12 +32,12 @@ const serverFunctionFiles = [
 ]
 
 // Layer-aware exemption: these server/core modules handle no request
-// boundary themselves. artifact-profiles.ts holds pure profile data,
-// history.ts is a DB helper, and prd.ts delegates to generateArtifactCore.
-// Auth is enforced at the entry cores, which the checks below still
-// require to call getAuthSession.
+// boundary themselves. Auth is enforced by their request-owning callers,
+// which the checks below still require to call getAuthSession.
 const NO_REQUEST_BOUNDARY = new Set([
   'artifact-profiles.ts',
+  'artifact-repository.ts',
+  'artifact-workspace.ts',
   'history.ts',
   'prd.ts',
 ])
