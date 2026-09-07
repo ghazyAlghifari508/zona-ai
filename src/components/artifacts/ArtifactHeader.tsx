@@ -34,9 +34,19 @@ export function ArtifactHeader({
     findCatalogEntry(catalog, summary.modelId)?.displayName ?? summary.modelId
   const selected =
     versions.find((version) => version.versionId === activeVersionId) ?? null
-  const downloadAttachmentId = selected?.attachmentId ?? summary.attachmentId
-  const downloadFileName = selected?.fileName ?? summary.fileName
-  const downloadVersion = selected?.version ?? summary.currentVersion
+  const download = selected
+    ? {
+        attachmentId: selected.attachmentId,
+        fileName: selected.fileName,
+        version: selected.version,
+      }
+    : activeVersionId === summary.currentVersionId
+      ? {
+          attachmentId: summary.attachmentId,
+          fileName: summary.fileName,
+          version: summary.currentVersion,
+        }
+      : null
 
   const handleVersionChange = (event: ChangeEvent<HTMLSelectElement>) => {
     if (!event.target.value) return
@@ -114,15 +124,27 @@ export function ArtifactHeader({
       >
         Copy
       </button>
-      <a
-        href={`/api/attachments/${downloadAttachmentId}?download=1`}
-        download={downloadFileName}
-        aria-label={`Download ${summary.title} version ${downloadVersion}`}
-        data-testid="artifact-download"
-        className="inline-flex h-8 shrink-0 items-center rounded-md border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink"
-      >
-        Download
-      </a>
+      {download ? (
+        <a
+          href={`/api/attachments/${download.attachmentId}?download=1`}
+          download={download.fileName}
+          aria-label={`Download ${summary.title} version ${download.version}`}
+          data-testid="artifact-download"
+          className="inline-flex h-8 shrink-0 items-center rounded-md border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink"
+        >
+          Download
+        </a>
+      ) : (
+        <button
+          type="button"
+          aria-label={`Download ${summary.title} unavailable`}
+          data-testid="artifact-download"
+          disabled
+          className="inline-flex h-8 shrink-0 items-center rounded-md border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink opacity-50"
+        >
+          Download
+        </button>
+      )}
       <button
         type="button"
         aria-label={`Close ${summary.title} tab`}

@@ -63,6 +63,7 @@ export type ChatMessage = {
   artifact?: ChatMessageArtifact
   compareGenerations?: Array<{
     id: string
+    serverGenerationId?: string
     modelId: string
     status: string
     content: string

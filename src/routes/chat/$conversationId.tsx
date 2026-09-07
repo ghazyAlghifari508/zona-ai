@@ -15,6 +15,11 @@ import {
   createArtifactSseParser,
 } from '@/lib/ai/artifact-stream'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
+import {
+  consumeArtifactEventResponse,
+  stopConfirmedCompareGenerations,
+  updateArtifactGenerationFromEvent,
+} from '@/lib/artifacts/compare-stream'
 import type {
   ArtifactDescriptor,
   ArtifactDetail,
@@ -263,6 +268,53 @@ function ChatThread() {
     })
     handleOpenArtifact(descriptor)
     return descriptor
+  }
+
+  const applyCompareArtifactEvent = (
+    event: ArtifactStreamEvent,
+    updateGeneration: (
+      event: Pick<ArtifactStreamEvent, 'generationId' | 'modelId'>,
+      update: (
+        generation: NonNullable<ChatMessage['compareGenerations']>[number],
+      ) => NonNullable<ChatMessage['compareGenerations']>[number],
+    ) => void,
+  ) => {
+    if (event.type === 'artifact-status') {
+      updateGeneration(event, (generation) =>
+        event.phase === 'failed' || event.phase === 'cancelled'
+          ? {
+              ...generation,
+              status: event.phase,
+              error:
+                event.phase === 'failed'
+                  ? { message: event.message, code: 'ERR-016' }
+                  : undefined,
+            }
+          : generation,
+      )
+    } else if (event.type === 'artifact-created') {
+      const descriptor = mergeCreatedArtifact(event)
+      updateGeneration(event, (generation) => ({
+        ...generation,
+        content: event.summary,
+        artifact: descriptor,
+      }))
+    } else if (event.type === 'artifact-error') {
+      updateGeneration(event, (generation) => ({
+        ...generation,
+        status: 'failed',
+        error: { message: event.message ?? event.code, code: event.code },
+      }))
+    } else if (event.type === 'artifact-done') {
+      updateGeneration(event, (generation) => ({
+        ...generation,
+        status: event.status,
+        error:
+          event.status === 'failed' && !generation.error
+            ? { message: 'Artifact generation failed.', code: 'ERR-016' }
+            : generation.error,
+      }))
+    }
   }
 
   const handleResetCredits = async () => {
@@ -779,11 +831,10 @@ function ChatThread() {
           message.id === compareAssistantId && message.compareGenerations
             ? {
                 ...message,
-                compareGenerations: message.compareGenerations.map(
-                  (generation) =>
-                    generation.modelId === event.modelId
-                      ? update({ ...generation, id: event.generationId })
-                      : generation,
+                compareGenerations: updateArtifactGenerationFromEvent(
+                  message.compareGenerations,
+                  event,
+                  update,
                 ),
               }
             : message,
@@ -811,42 +862,7 @@ function ChatThread() {
       }
       const decoder = new TextDecoder()
       const parser = createArtifactSseParser({
-        onEvent: (event) => {
-          if (event.type === 'artifact-status') {
-            if (event.phase === 'failed' || event.phase === 'cancelled') {
-              updateGeneration(event, (generation) => ({
-                ...generation,
-                status: event.phase,
-                error:
-                  event.phase === 'failed'
-                    ? { message: event.message, code: 'ERR-016' }
-                    : undefined,
-              }))
-            }
-          } else if (event.type === 'artifact-created') {
-            const descriptor = mergeCreatedArtifact(event)
-            updateGeneration(event, (generation) => ({
-              ...generation,
-              content: event.summary,
-              artifact: descriptor,
-            }))
-          } else if (event.type === 'artifact-error') {
-            updateGeneration(event, (generation) => ({
-              ...generation,
-              status: 'failed',
-              error: { message: event.message ?? event.code, code: event.code },
-            }))
-          } else if (event.type === 'artifact-done') {
-            updateGeneration(event, (generation) => ({
-              ...generation,
-              status: event.status,
-              error:
-                event.status === 'failed' && !generation.error
-                  ? { message: 'Artifact generation failed.', code: 'ERR-016' }
-                  : generation.error,
-            }))
-          }
-        },
+        onEvent: (event) => applyCompareArtifactEvent(event, updateGeneration),
         onError: () => {},
       })
 
@@ -1035,7 +1051,13 @@ function ChatThread() {
                   genIdToIndex.set(event.generationId, modelIdx)
                   updateCompareGen((gens) =>
                     gens.map((g, i) =>
-                      i === modelIdx ? { ...g, id: event.generationId } : g,
+                      i === modelIdx
+                        ? {
+                            ...g,
+                            id: event.generationId,
+                            serverGenerationId: event.generationId,
+                          }
+                        : g,
                     ),
                   )
                 }
@@ -1284,26 +1306,31 @@ function ChatThread() {
         m.streaming && m.compareGenerations && m.compareGenerations.length > 0,
     )
     if (streamingCompareMsg?.compareGenerations) {
-      for (const g of streamingCompareMsg.compareGenerations) {
-        if (g.status === 'streaming') {
-          try {
-            await stopGeneration({ data: { generationId: g.id } })
-          } catch {}
-        }
-      }
+      const stopResult = await stopConfirmedCompareGenerations(
+        streamingCompareMsg.compareGenerations,
+        (confirmedGenerationId) =>
+          stopGeneration({
+            data: { generationId: confirmedGenerationId },
+          }),
+      )
+      const stopped = new Set(stopResult.stoppedGenerationIds)
       setMessages((prev) =>
         prev.map((m) =>
           m.id === streamingCompareMsg.id
             ? {
                 ...m,
-                streaming: false,
+                streaming: stopResult.hasUnstoppedGeneration,
                 compareGenerations: m.compareGenerations?.map((g) =>
-                  g.status === 'streaming' ? { ...g, status: 'cancelled' } : g,
+                  g.serverGenerationId && stopped.has(g.serverGenerationId)
+                    ? { ...g, status: 'cancelled' }
+                    : g,
                 ),
               }
             : m,
         ),
       )
+      setIsStreaming(stopResult.hasUnstoppedGeneration)
+      return
     }
 
     if (generationId) {
@@ -1319,16 +1346,29 @@ function ChatThread() {
   }
 
   const handleStopPerModel = async (genId: string) => {
-    try {
-      await stopGeneration({ data: { generationId: genId } })
-    } catch {}
+    const generation = messages
+      .flatMap((message) => message.compareGenerations ?? [])
+      .find(
+        (candidate) =>
+          candidate.id === genId || candidate.serverGenerationId === genId,
+      )
+    if (!generation) return
+    const stopResult = await stopConfirmedCompareGenerations(
+      [generation],
+      (confirmedGenerationId) =>
+        stopGeneration({ data: { generationId: confirmedGenerationId } }),
+    )
+    if (stopResult.stoppedGenerationIds.length === 0) return
+    const stoppedGenerationId = stopResult.stoppedGenerationIds[0]
     setMessages((prev) =>
       prev.map((m) =>
         m.compareGenerations
           ? {
               ...m,
               compareGenerations: m.compareGenerations.map((g) =>
-                g.id === genId ? { ...g, status: 'cancelled' } : g,
+                g.serverGenerationId === stoppedGenerationId
+                  ? { ...g, status: 'cancelled' }
+                  : g,
               ),
             }
           : m,
@@ -1337,13 +1377,35 @@ function ChatThread() {
   }
 
   const handleRetry = async (genId: string) => {
+    const retryMessage = messages.find((message) =>
+      message.compareGenerations?.some(
+        (generation) =>
+          generation.id === genId || generation.serverGenerationId === genId,
+      ),
+    )
+    const targetGeneration = retryMessage?.compareGenerations?.find(
+      (generation) =>
+        generation.id === genId || generation.serverGenerationId === genId,
+    )
+    if (!retryMessage || !targetGeneration) return
+    setIsStreaming(true)
     setMessages((prev) =>
       prev.map((m) =>
-        m.compareGenerations
+        m.id === retryMessage.id && m.compareGenerations
           ? {
               ...m,
+              streaming: true,
               compareGenerations: m.compareGenerations.map((g) =>
-                g.id === genId ? { ...g, status: 'streaming', content: '' } : g,
+                g.id === targetGeneration.id
+                  ? {
+                      ...g,
+                      status: 'streaming',
+                      content: '',
+                      error: undefined,
+                      artifact: undefined,
+                      serverGenerationId: undefined,
+                    }
+                  : g,
               ),
             }
           : m,
@@ -1353,6 +1415,50 @@ function ChatThread() {
       const response = (await retryGeneration({
         data: { generationId: genId },
       })) as Response
+      if (response.headers.get('X-Artifact-Kind')) {
+        const updateRetriedArtifactGeneration = (
+          event: Pick<ArtifactStreamEvent, 'generationId' | 'modelId'>,
+          update: (
+            generation: NonNullable<ChatMessage['compareGenerations']>[number],
+          ) => NonNullable<ChatMessage['compareGenerations']>[number],
+        ) => {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === retryMessage.id && message.compareGenerations
+                ? {
+                    ...message,
+                    compareGenerations: updateArtifactGenerationFromEvent(
+                      message.compareGenerations,
+                      event,
+                      update,
+                      genId,
+                    ),
+                  }
+                : message,
+            ),
+          )
+        }
+
+        await consumeArtifactEventResponse(
+          response,
+          (event) =>
+            applyCompareArtifactEvent(event, updateRetriedArtifactGeneration),
+          async () => {
+            const persisted = await getMessages({ data: { conversationId } })
+            setMessages(
+              hydrateMessages(
+                persisted as Parameters<typeof hydrateMessages>[0],
+              ),
+            )
+            void queryClient.invalidateQueries({
+              queryKey: ['conversation-artifacts', conversationId],
+            })
+            refreshConversationList()
+            void refreshCredits()
+          },
+        )
+        return
+      }
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
@@ -1442,6 +1548,15 @@ function ChatThread() {
                 ),
               }
             : m,
+        ),
+      )
+    } finally {
+      setIsStreaming(false)
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === retryMessage.id
+            ? { ...message, streaming: false }
+            : message,
         ),
       )
     }

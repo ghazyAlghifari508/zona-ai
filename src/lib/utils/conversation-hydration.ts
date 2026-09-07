@@ -166,6 +166,7 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
 
       compareGenerations.push({
         id: r.id,
+        serverGenerationId: r.id,
         modelId: r.modelId,
         status: finalStatus,
         content: isFailed && !hasContent ? '' : rawContent,

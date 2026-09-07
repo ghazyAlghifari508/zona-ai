@@ -147,6 +147,8 @@ function setup(
     workspace?: ArtifactWorkspaceState
     bodies?: Record<string, string>
     status?: number
+    summaries?: ArtifactSummary[]
+    detailsByArtifactId?: Record<string, ArtifactDetail>
   } = {},
 ) {
   const fetchMock = vi.fn((url: string) => {
@@ -184,11 +186,13 @@ function setup(
   render(
     <QueryClientProvider client={client}>
       <ArtifactCanvas
-        summaries={[summaryA, summaryB]}
-        detailsByArtifactId={{
-          [ART_A]: detailFor(summaryA),
-          [ART_B]: detailFor(summaryB),
-        }}
+        summaries={options.summaries ?? [summaryA, summaryB]}
+        detailsByArtifactId={
+          options.detailsByArtifactId ?? {
+            [ART_A]: detailFor(summaryA),
+            [ART_B]: detailFor(summaryB),
+          }
+        }
         workspace={workspace}
         onSelectTab={callbacks.onSelectTab}
         onVersionChange={callbacks.onVersionChange}
@@ -289,6 +293,29 @@ describe('ArtifactCanvas', () => {
     expect(callbacks.onSelectTab).not.toHaveBeenCalled()
     expect(callbacks.onVersionChange).not.toHaveBeenCalled()
     expect(callbacks.onCloseTab).not.toHaveBeenCalled()
+  })
+
+  it('keeps historical Download unavailable until its exact version loads', async () => {
+    const currentSummary = summaryFor({
+      artifactId: ART_A,
+      currentVersionId: VER_A2,
+      currentVersion: 2,
+      attachmentId: 'aaaaaaaa-0000-4000-8000-000000000002',
+    })
+    setup({
+      summaries: [currentSummary],
+      detailsByArtifactId: {},
+      workspace: workspaceFor({
+        openArtifactIds: [ART_A],
+        activeArtifactId: ART_A,
+        activeVersionByArtifactId: { [ART_A]: VER_A1 },
+      }),
+    })
+
+    const unavailableDownload = await screen.findByRole('button', {
+      name: /Download/,
+    })
+    expect((unavailableDownload as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('isolates preview loading, error, and retry to the active artifact', async () => {
