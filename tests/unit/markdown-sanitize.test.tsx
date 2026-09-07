@@ -1,9 +1,23 @@
 import { render, screen } from '@testing-library/react'
 import React from 'react'
 import { describe, expect, it } from 'vitest'
+import { MarkdownContent } from '../../src/components/chat/MarkdownContent'
 import { MessageList } from '../../src/components/chat/MessageList'
 
 describe('markdown XSS sanitization (MessageList + rehype-sanitize)', () => {
+  it('keeps script and iframe HTML inert in the shared renderer', () => {
+    render(
+      <MarkdownContent
+        text={
+          '<script>document.body.dataset.markdownScriptExecuted = "true"</script><iframe src="https://evil.example"></iframe>'
+        }
+      />,
+    )
+
+    expect(document.querySelector('script, iframe')).toBeNull()
+    expect(document.body.dataset.markdownScriptExecuted).toBeUndefined()
+  })
+
   it('strips script tags from assistant markdown', () => {
     render(
       React.createElement(MessageList, {

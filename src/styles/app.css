@@ -330,6 +330,20 @@ textarea::-webkit-scrollbar-button {
 .chat-prose li > ol {
   margin-top: 0.4em;
 }
+.chat-prose table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.chat-prose th,
+.chat-prose td {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--hairline-strong);
+  text-align: left;
+  vertical-align: top;
+}
+.chat-prose li > input[type="checkbox"] {
+  margin-right: 0.5em;
+}
 .chat-prose blockquote {
   padding-left: 1em;
   border-left: 2px solid var(--hairline-strong);

@@ -3,6 +3,7 @@ import { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
+import remarkGfm from 'remark-gfm'
 import {
   chatHighlightOptions,
   extractRawText,
@@ -12,6 +13,10 @@ import { CodeBlock } from './CodeBlock'
 export const CHAT_MARKDOWN_PLUGINS: NonNullable<
   ComponentProps<typeof ReactMarkdown>['rehypePlugins']
 > = [rehypeSanitize, [rehypeHighlight, chatHighlightOptions]]
+
+export const CHAT_MARKDOWN_REMARK_PLUGINS: NonNullable<
+  ComponentProps<typeof ReactMarkdown>['remarkPlugins']
+> = [remarkGfm]
 
 export const CHAT_MARKDOWN_COMPONENTS: NonNullable<
   ComponentProps<typeof ReactMarkdown>['components']
@@ -52,6 +57,7 @@ export const MarkdownContent = memo(function MarkdownContent({
       }
     >
       <ReactMarkdown
+        remarkPlugins={CHAT_MARKDOWN_REMARK_PLUGINS}
         rehypePlugins={CHAT_MARKDOWN_PLUGINS}
         components={CHAT_MARKDOWN_COMPONENTS}
       >
