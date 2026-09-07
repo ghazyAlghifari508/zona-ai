@@ -491,4 +491,118 @@ describe.sequential('sendCompareMessage integration', () => {
       ),
     ).toBe(true)
   })
+
+  it('comparison barrier finalizes only after every worker is terminal', async () => {
+    const { settleComparisonRunBarrier } = await import(
+      '../../src/server/core/chat'
+    )
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: compareUserId, title: 'Barrier fixture' })
+      .returning()
+    const [userMsg] = await db
+      .insert(messages)
+      .values({ conversationId: conv.id, role: 'user', content: 'barrier' })
+      .returning()
+    const [run] = await db
+      .insert(comparisonRuns)
+      .values({
+        conversationId: conv.id,
+        userMessageId: userMsg.id,
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        status: 'running',
+      })
+      .returning()
+    const genIds: string[] = []
+    for (const modelId of ['gemini-3.7-flash-high', 'gpt-5.6-sol']) {
+      const [assistantMsg] = await db
+        .insert(messages)
+        .values({ conversationId: conv.id, role: 'assistant', content: '' })
+        .returning()
+      const genId = crypto.randomUUID()
+      genIds.push(genId)
+      await db.insert(generationRuns).values({
+        id: genId,
+        messageId: assistantMsg.id,
+        requestMessageId: userMsg.id,
+        comparisonRunId: run.id,
+        conversationId: conv.id,
+        modelId,
+        routerModelId: `${modelId}-router`,
+        skillId: 'none',
+        status: 'streaming',
+        startedAt: new Date(),
+      })
+    }
+    const barrier = settleComparisonRunBarrier(run.id, genIds)
+    await new Promise((r) => setTimeout(r, 300))
+    const [mid] = await db
+      .select()
+      .from(comparisonRuns)
+      .where(eq(comparisonRuns.id, run.id))
+    expect(mid.status).toBe('running')
+    await db
+      .update(generationRuns)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(eq(generationRuns.id, genIds[0]))
+    await db
+      .update(generationRuns)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(eq(generationRuns.id, genIds[1]))
+    const finalStatus = await barrier
+    expect(finalStatus).toBe('completed')
+    const [late] = await db
+      .select()
+      .from(comparisonRuns)
+      .where(eq(comparisonRuns.id, run.id))
+    expect(late.status).toBe('completed')
+  })
+
+  it('comparison barrier derives partial_failure for mixed terminal states', async () => {
+    const { settleComparisonRunBarrier } = await import(
+      '../../src/server/core/chat'
+    )
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: compareUserId, title: 'Barrier mixed' })
+      .returning()
+    const [userMsg] = await db
+      .insert(messages)
+      .values({ conversationId: conv.id, role: 'user', content: 'barrier' })
+      .returning()
+    const [run] = await db
+      .insert(comparisonRuns)
+      .values({
+        conversationId: conv.id,
+        userMessageId: userMsg.id,
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        status: 'running',
+      })
+      .returning()
+    const genIds: string[] = []
+    const statuses = ['completed', 'failed'] as const
+    for (let i = 0; i < 2; i++) {
+      const [assistantMsg] = await db
+        .insert(messages)
+        .values({ conversationId: conv.id, role: 'assistant', content: '' })
+        .returning()
+      const genId = crypto.randomUUID()
+      genIds.push(genId)
+      await db.insert(generationRuns).values({
+        id: genId,
+        messageId: assistantMsg.id,
+        requestMessageId: userMsg.id,
+        comparisonRunId: run.id,
+        conversationId: conv.id,
+        modelId: `model-${i}`,
+        routerModelId: `router-${i}`,
+        skillId: 'none',
+        status: statuses[i],
+        startedAt: new Date(),
+        completedAt: new Date(),
+      })
+    }
+    const finalStatus = await settleComparisonRunBarrier(run.id, genIds)
+    expect(finalStatus).toBe('partial_failure')
+  })
 })

@@ -270,3 +270,117 @@ describe('planArtifactOperations', () => {
     expect(revised[0].type).toBe('revise')
   })
 })
+
+describe('planCompareArtifactOperations', () => {
+  beforeEach(async () => {
+    await cleanUser(OP_USER)
+    await db.insert(users).values({
+      id: OP_USER,
+      email: `${OP_USER}@example.com`,
+      name: OP_USER,
+      credits: 1000,
+    })
+    vi.clearAllMocks()
+  })
+
+  afterAll(async () => {
+    await cleanUser(OP_USER)
+  })
+
+  const FOUR_MODELS = [
+    'gemini-3.7-flash-high',
+    'gpt-5.6-sol',
+    'qwen3.8-flash',
+    'mimo-v2.5',
+  ]
+
+  it('expands one create target across four models into four generations and one comparison run', async () => {
+    const { planCompareArtifactOperations } = await import(
+      '../../src/server/core/artifact-operations'
+    )
+    const plan = await planCompareArtifactOperations({
+      userId: OP_USER,
+      operation: { type: 'create', skillId: 'checklist' },
+      modelIds: FOUR_MODELS,
+    })
+    expect(plan.targets).toHaveLength(1)
+    expect(plan.generations).toHaveLength(4)
+    expect(plan.comparisonRunCount).toBe(1)
+    const pairs = plan.generations.map((g) => `${g.targetIndex}:${g.modelId}`)
+    expect(new Set(pairs).size).toBe(4)
+  })
+
+  it('expands two revision targets across four models into eight generations and two comparison runs', async () => {
+    const first = await seedVersion({ userId: OP_USER, kind: 'checklist' })
+    const second = await seedVersion({ userId: OP_USER, kind: 'checklist' })
+    const { planCompareArtifactOperations } = await import(
+      '../../src/server/core/artifact-operations'
+    )
+    const plan = await planCompareArtifactOperations({
+      userId: OP_USER,
+      operation: {
+        type: 'revise',
+        targets: [
+          { artifactId: first.artifactId, versionId: first.versionId },
+          { artifactId: second.artifactId, versionId: second.versionId },
+        ],
+      },
+      modelIds: FOUR_MODELS,
+    })
+    expect(plan.targets).toHaveLength(2)
+    expect(plan.generations).toHaveLength(8)
+    expect(plan.comparisonRunCount).toBe(2)
+  })
+
+  it('rejects fewer than two models', async () => {
+    const { planCompareArtifactOperations } = await import(
+      '../../src/server/core/artifact-operations'
+    )
+    await expect(
+      planCompareArtifactOperations({
+        userId: OP_USER,
+        operation: { type: 'create', skillId: 'checklist' },
+        modelIds: ['gemini-3.7-flash-high'],
+      }),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects more than four models', async () => {
+    const { planCompareArtifactOperations } = await import(
+      '../../src/server/core/artifact-operations'
+    )
+    await expect(
+      planCompareArtifactOperations({
+        userId: OP_USER,
+        operation: { type: 'create', skillId: 'checklist' },
+        modelIds: [...FOUR_MODELS, 'glm-5.3-flash'],
+      }),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects auto in compare', async () => {
+    const { planCompareArtifactOperations } = await import(
+      '../../src/server/core/artifact-operations'
+    )
+    await expect(
+      planCompareArtifactOperations({
+        userId: OP_USER,
+        operation: { type: 'create', skillId: 'checklist' },
+        modelIds: ['auto', 'gemini-3.7-flash-high'],
+      }),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('rejects duplicate models', async () => {
+    const { planCompareArtifactOperations } = await import(
+      '../../src/server/core/artifact-operations'
+    )
+    await expect(
+      planCompareArtifactOperations({
+        userId: OP_USER,
+        operation: { type: 'create', skillId: 'checklist' },
+        modelIds: ['gemini-3.7-flash-high', 'gemini-3.7-flash-high'],
+      }),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+})

@@ -119,3 +119,26 @@ export const artifactOperationSchema = z.discriminatedUnion('type', [
 ])
 
 export type ArtifactOperation = z.infer<typeof artifactOperationSchema>
+
+export const compareArtifactSchema = z
+  .object({
+    conversationId: z.string().uuid().optional(),
+    modelIds: z
+      .array(z.string().min(1))
+      .min(COMPARE_MIN_MODELS)
+      .max(COMPARE_MAX_MODELS),
+    content: z.string().min(1).max(20000),
+    operation: artifactOperationSchema,
+    attachmentIds: z.array(z.string().uuid()).optional(),
+    enableWebSearch: z.boolean().optional().default(false),
+  })
+  .refine((d) => !d.modelIds.includes('auto'), {
+    message: 'Auto tidak tersedia di Compare',
+    path: ['modelIds'],
+  })
+  .refine((d) => new Set(d.modelIds).size === d.modelIds.length, {
+    message: 'Model tidak boleh duplikat',
+    path: ['modelIds'],
+  })
+
+export type CompareArtifactInput = z.infer<typeof compareArtifactSchema>

@@ -5,9 +5,13 @@ import {
   artifactOperationSchema,
   artifactSchema,
   chatSchema,
+  compareArtifactSchema,
   compareSchema,
 } from '../../lib/utils/validation'
-import { generateArtifactsCore } from '../core/artifact-generation'
+import {
+  generateArtifactsCore,
+  generateCompareArtifactsCore,
+} from '../core/artifact-generation'
 import { generateArtifactCore } from '../core/artifacts'
 import {
   getComparisonRunsCore,
@@ -47,6 +51,16 @@ export const generateArtifacts = createServerFn({ method: 'POST' })
     })
   })
 
+export const generateCompareArtifacts = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => compareArtifactSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return generateCompareArtifactsCore({
+      data: data as z.infer<typeof compareArtifactSchema>,
+      request,
+    })
+  })
+
 export const generatePrdArtifact = createServerFn({ method: 'POST' })
   .validator((data: unknown) => chatSchema.parse(data))
   .handler(async ({ data }) => {
@@ -68,38 +82,13 @@ export const sendMessage = createServerFn({ method: 'POST' })
   })
 
 export const sendCompareMessage = createServerFn({ method: 'POST' })
-  .validator((data: unknown) => {
-    console.log(
-      '[SERVER] sendCompareMessage validator input:',
-      JSON.stringify(data),
-    )
-    try {
-      return compareSchema.parse(data)
-    } catch (err) {
-      console.error('[SERVER] sendCompareMessage validation error:', err)
-      throw err
-    }
-  })
+  .validator((data: unknown) => compareSchema.parse(data))
   .handler(async ({ data }) => {
-    console.log(
-      '[SERVER] sendCompareMessage handler invoked with:',
-      JSON.stringify(data),
-    )
     const request = getRequest() as Request
-    try {
-      const res = await sendCompareMessageCore({
-        data: data as z.infer<typeof compareSchema>,
-        request,
-      })
-      console.log(
-        '[SERVER] sendCompareMessageCore returned successfully status:',
-        res.status,
-      )
-      return res
-    } catch (err) {
-      console.error('[SERVER] sendCompareMessageCore thrown error:', err)
-      throw err
-    }
+    return sendCompareMessageCore({
+      data: data as z.infer<typeof compareSchema>,
+      request,
+    })
   })
 
 export const getComparisonRuns = createServerFn({ method: 'GET' })

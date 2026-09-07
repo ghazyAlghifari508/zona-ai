@@ -78,6 +78,50 @@ function getRows<T>(result: unknown): T[] {
   return (result as { rows: T[] }).rows
 }
 
+async function waitForOneCompareGenerationTerminal(
+  genId: string,
+  timeoutMs = 30000,
+): Promise<string> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const [row] = await db
+      .select({ status: generationRuns.status })
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    if (row && row.status !== 'streaming') return row.status
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`Generation ${genId} did not reach terminal in time`)
+}
+
+export async function settleComparisonRunBarrier(
+  comparisonRunId: string,
+  generationIds: string[],
+): Promise<string> {
+  await Promise.allSettled(
+    generationIds.map((genId) => waitForOneCompareGenerationTerminal(genId)),
+  )
+  const gens = await db
+    .select({ status: generationRuns.status })
+    .from(generationRuns)
+    .where(eq(generationRuns.comparisonRunId, comparisonRunId))
+  const statuses = gens.map((g) => g.status)
+  const completed = statuses.filter((s) => s === 'completed').length
+  const failed = statuses.filter((s) => s === 'failed').length
+  const cancelled = statuses.filter((s) => s === 'cancelled').length
+  let finalStatus: string
+  if (gens.length > 0 && completed === gens.length) finalStatus = 'completed'
+  else if (gens.length > 0 && failed === gens.length) finalStatus = 'failed'
+  else if (gens.length > 0 && cancelled === gens.length)
+    finalStatus = 'cancelled'
+  else finalStatus = 'partial_failure'
+  await db
+    .update(comparisonRuns)
+    .set({ status: finalStatus, completedAt: new Date() })
+    .where(eq(comparisonRuns.id, comparisonRunId))
+  return finalStatus
+}
+
 // Core logic testable without Start context
 export async function sendMessageCore({
   data,
@@ -1144,36 +1188,7 @@ export async function sendCompareMessageCore({
 
   const multiplexed = createMultiplexStream(streams)
 
-  // After all streams settle, update comparisonRuns status
-  // We fire and forget but ensure status updates after streams complete
-  ;(async () => {
-    // Wait for multiplex to finish consuming? Instead use Promise.allSettled on per-model promises
-    // For now we approximate by waiting for all generationRuns to reach terminal state via polling? Simpler: after multiplex completes, query generationRuns
-    // We'll use a timeout to allow onFinish to settle then determine status
-    // Instead, attach to multiplex completion via reading it: we have already created multiplex; we need to watch its completion
-    // We'll wrap multiplex reading to detect close
-    // For simplicity, just delay 500ms then check DB; real impl would use Promise.allSettled inside stream creation
-    // However spec expects Promise.allSettled parallel; we already do per-stream Promise internally
-    // We'll schedule status update after 1 second to allow mocks to finish (20ms)
-    await new Promise((r) => setTimeout(r, 800))
-    try {
-      const gens = await db
-        .select()
-        .from(generationRuns)
-        .where(eq(generationRuns.comparisonRunId, compRun.id))
-      const statuses = gens.map((g) => g.status)
-      const completed = statuses.filter((s) => s === 'completed').length
-      const failed = statuses.filter((s) => s === 'failed').length
-      let finalStatus: string
-      if (completed === gens.length) finalStatus = 'completed'
-      else if (failed === gens.length) finalStatus = 'failed'
-      else finalStatus = 'partial_failure'
-      await db
-        .update(comparisonRuns)
-        .set({ status: finalStatus, completedAt: new Date() })
-        .where(eq(comparisonRuns.id, compRun.id))
-    } catch {}
-  })()
+  void settleComparisonRunBarrier(compRun.id, genIds).catch(() => {})
 
   const sseStream = new ReadableStream({
     async start(controller) {

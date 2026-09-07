@@ -13,10 +13,14 @@ import {
 } from '../../lib/ai/credits'
 import type { ArtifactKind } from '../../lib/artifacts/contracts'
 import { getAuthSession } from '../../lib/auth/session'
-import { artifactKindForSkill } from '../../lib/chat/skills'
+import {
+  artifactKindForSkill,
+  skillSupportsCompare,
+} from '../../lib/chat/skills'
 import { db } from '../../lib/db/index'
 import {
   attachments,
+  comparisonRuns,
   conversations,
   generationRuns,
   messages,
@@ -31,9 +35,15 @@ import {
   throwZonaError,
   type UsageLike,
 } from '../../lib/utils/errors'
-import type { ArtifactOperation } from '../../lib/utils/validation'
+import type {
+  ArtifactOperation,
+  CompareArtifactInput,
+} from '../../lib/utils/validation'
 import { finalizeArtifactVersion } from './artifact-finalization'
-import { planArtifactOperations } from './artifact-operations'
+import {
+  planArtifactOperations,
+  planCompareArtifactOperations,
+} from './artifact-operations'
 import type { ArtifactProfile } from './artifact-profiles'
 import {
   getOwnedArtifact,
@@ -127,13 +137,14 @@ async function refundOnce({
 
 export type ArtifactWorkerInput = {
   profile: ArtifactProfile
-  operation: 'create' | 'revise'
+  operation: 'create' | 'revise' | 'fork'
   userId: string
   convId: string
   assistantMsgId: string
   genId: string
   modelId: string
   routerModelId: string
+  comparisonRunId?: string
   routingReason?: string
   cost: number
   userContent: string
@@ -188,6 +199,16 @@ export async function executeArtifactGeneration(
 
   const encoder = new TextEncoder()
 
+  const eventScope: {
+    comparisonRunId?: string
+    sourceArtifactId?: string
+    sourceVersionId?: string
+  } = {}
+  if (input.comparisonRunId) eventScope.comparisonRunId = input.comparisonRunId
+  if (input.sourceArtifactId)
+    eventScope.sourceArtifactId = input.sourceArtifactId
+  if (input.sourceVersionId) eventScope.sourceVersionId = input.sourceVersionId
+
   logArtifactLifecycle({
     generationId: genId,
     conversationId: convId,
@@ -206,7 +227,7 @@ export async function executeArtifactGeneration(
     async start(controller) {
       const sendEvent = (event: ArtifactStreamEvent) => {
         try {
-          const parsed = parseArtifactStreamEvent(event)
+          const parsed = parseArtifactStreamEvent({ ...event, ...eventScope })
           controller.enqueue(encoder.encode(encodeArtifactSseEvent(parsed)))
         } catch {}
       }
@@ -542,10 +563,19 @@ export async function executeArtifactGeneration(
                   expectedCurrentVersionId:
                     input.expectedCurrentVersionId as string,
                 })
-              : await finalizeArtifactVersion({
-                  ...baseFinalize,
-                  finalizationMode: 'create',
-                })
+              : operation === 'fork'
+                ? await finalizeArtifactVersion({
+                    ...baseFinalize,
+                    finalizationMode: 'fork',
+                    sourceArtifactId: input.sourceArtifactId as string,
+                    sourceVersionId: input.sourceVersionId as string,
+                    expectedCurrentVersionId:
+                      input.expectedCurrentVersionId as string,
+                  })
+                : await finalizeArtifactVersion({
+                    ...baseFinalize,
+                    finalizationMode: 'create',
+                  })
         } catch (finalizeErr) {
           console.error(
             `[ARTIFACT_DIAG] stage=finalize_failed kind=${profile.kind} modelId=${modelId} routerModelId=${routerModelId} genId=${genId} errorName=${finalizeErr instanceof Error ? finalizeErr.name : 'unknown'}`,
@@ -1253,4 +1283,568 @@ export async function generateArtifactsCore({
     workerInputs.map((worker) => executeArtifactGeneration(worker)),
   )
   return multiplexArtifactResponses(responses, preflight.convId)
+}
+
+export type CompareTerminalStatus =
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'partial_failure'
+  | 'running'
+
+export function deriveCompareTerminalStatus(
+  statuses: string[],
+): CompareTerminalStatus {
+  if (statuses.length === 0) return 'running'
+  if (statuses.every((s) => s === 'completed')) return 'completed'
+  if (statuses.every((s) => s === 'failed')) return 'failed'
+  if (statuses.every((s) => s === 'cancelled')) return 'cancelled'
+  if (statuses.some((s) => s === 'streaming')) return 'running'
+  return 'partial_failure'
+}
+
+async function waitForOneGenerationTerminal(
+  genId: string,
+  timeoutMs = 30000,
+): Promise<string> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const [row] = await db
+      .select({ status: generationRuns.status })
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    if (row && row.status !== 'streaming') return row.status
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`Generation ${genId} did not reach terminal in time`)
+}
+
+async function settleCompareArtifactRuns(args: {
+  comparisonRunIds: string[]
+  generationIds: string[]
+}): Promise<void> {
+  await Promise.allSettled(
+    args.generationIds.map((genId) => waitForOneGenerationTerminal(genId)),
+  )
+  for (const runId of args.comparisonRunIds) {
+    try {
+      const gens = await db
+        .select({ status: generationRuns.status })
+        .from(generationRuns)
+        .where(eq(generationRuns.comparisonRunId, runId))
+      const terminal = gens.filter((g) => g.status !== 'streaming')
+      if (terminal.length !== gens.length || gens.length === 0) continue
+      const status = deriveCompareTerminalStatus(gens.map((g) => g.status))
+      if (status === 'running') continue
+      await db
+        .update(comparisonRuns)
+        .set({ status, completedAt: new Date() })
+        .where(eq(comparisonRuns.id, runId))
+    } catch (err) {
+      console.error('Compare artifact barrier update failed:', err)
+    }
+  }
+}
+
+export async function multiplexCompareArtifactResponses(
+  responses: Response[],
+  opts: {
+    conversationId: string
+    comparisonRunIds: string[]
+    artifactKind: string
+  },
+): Promise<Response> {
+  const merged = await multiplexArtifactResponses(
+    responses,
+    opts.conversationId,
+  )
+  const headers = new Headers(merged.headers)
+  headers.delete('X-Generation-Id')
+  headers.delete('X-Router-Model-Id')
+  headers.delete('X-Routing-Reason')
+  headers.set('X-Conversation-Id', opts.conversationId)
+  headers.set('X-Comparison-Run-Ids', opts.comparisonRunIds.join(','))
+  headers.set('X-Artifact-Kind', opts.artifactKind)
+  return new Response(merged.body, { headers })
+}
+
+export async function generateCompareArtifactsCore({
+  data,
+  request,
+}: {
+  data: CompareArtifactInput
+  request: Request
+}): Promise<Response> {
+  const session = await getAuthSession(request)
+  const userId = session.user.id
+
+  const comparePlan = await planCompareArtifactOperations({
+    userId,
+    operation: data.operation,
+    modelIds: data.modelIds,
+    content: data.content,
+  })
+  const planned = comparePlan.targets
+
+  const distinctProfiles = new Map<string, ArtifactProfile>()
+  for (const target of planned) {
+    distinctProfiles.set(target.profile.rateLimitKey, target.profile)
+  }
+  for (const profile of distinctProfiles.values()) {
+    enforceRateLimit({
+      key: `${profile.rateLimitKey}:${userId}`,
+      limit: profile.rateLimitPerMinute,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+    })
+  }
+
+  if (data.operation.type === 'create') {
+    if (!skillSupportsCompare(data.operation.skillId)) {
+      throw new AppError(
+        'Skill ini hanya tersedia untuk mode single model.',
+        400,
+        'ERR-003',
+      )
+    }
+  } else {
+    for (const target of planned) {
+      if (!skillSupportsCompare(target.profile.skillId)) {
+        throw new AppError(
+          'Skill ini hanya tersedia untuk mode single model.',
+          400,
+          'ERR-003',
+        )
+      }
+    }
+  }
+
+  const modelCosts = new Map<string, { cost: number; routerModelId: string }>()
+  for (const modelId of data.modelIds) {
+    const entry = getModelById(modelId)
+    const cost =
+      typeof entry.creditCost === 'number'
+        ? entry.creditCost
+        : entry.creditCost.max
+    modelCosts.set(modelId, { cost, routerModelId: entry.routerModelId })
+  }
+
+  const creditRes = await db.execute(
+    sql`SELECT credits FROM users WHERE id=${userId}`,
+  )
+  const creditRows = getRows<{ credits: number }>(creditRes)
+  const currentCredits = creditRows[0]?.credits ?? 0
+  const totalCost = comparePlan.generations.reduce(
+    (sum, g) => sum + (modelCosts.get(g.modelId)?.cost ?? 0),
+    0,
+  )
+  if (currentCredits < totalCost) {
+    throwZonaError('ERR-019')
+  }
+
+  const revisionCount = planned.filter((p) => p.type === 'revise').length
+  const fanOut = comparePlan.generations.length
+
+  type LoadedSource = {
+    artifactId: string
+    versionId: string
+    expectedCurrentVersionId: string
+    sourceMarkdown: string
+    kind: ArtifactKind
+    profile: ArtifactProfile
+  }
+  const loadedSources: LoadedSource[] = []
+  if (revisionCount > 0) {
+    if (!data.conversationId) {
+      throw new AppError('Conversation required for revision', 400, 'ERR-003')
+    }
+    const [conv] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, data.conversationId))
+    if (!conv || conv.userId !== userId) {
+      throw new AppError('Forbidden', 403, 'ERR-003')
+    }
+    for (const target of planned) {
+      if (target.type !== 'revise') continue
+      const owned = await getOwnedArtifactVersion({
+        userId,
+        artifactId: target.artifactId,
+        versionId: target.versionId,
+      })
+      if (owned.conversationId !== data.conversationId) {
+        throw new AppError('Forbidden', 403, 'ERR-003')
+      }
+      const detail = await getOwnedArtifact({
+        userId,
+        artifactId: target.artifactId,
+      })
+      if (detail.currentVersionId !== target.versionId) {
+        throw new AppError(
+          'Artifact changed during generation. Review the latest version and retry.',
+          409,
+          'ERR-003',
+        )
+      }
+      const { bytes } = await readArtifactVersionContentCore({
+        userId,
+        artifactId: target.artifactId,
+        versionId: target.versionId,
+      })
+      loadedSources.push({
+        artifactId: target.artifactId,
+        versionId: target.versionId,
+        expectedCurrentVersionId: detail.currentVersionId,
+        sourceMarkdown: Buffer.from(bytes).toString('utf8'),
+        kind: owned.kind,
+        profile: target.profile,
+      })
+    }
+  }
+
+  let createRagSuffix = ''
+  const createFileParts: Array<{
+    type: 'file'
+    data: string
+    mediaType: string
+  }> = []
+  const needsCreateContext = planned.some((p) => p.type === 'create')
+  if (needsCreateContext && data.conversationId) {
+    try {
+      const ragContext = await retrieveContext({
+        conversationId: data.conversationId,
+        query: data.content,
+      })
+      if (ragContext.length) {
+        const joined = ragContext.map((c, i) => `[${i + 1}] ${c}`).join('\n\n')
+        const truncated = joined.length > 4000 ? joined.slice(0, 4000) : joined
+        createRagSuffix = `\n\nContext from documents:\n${truncated}`
+      }
+    } catch (e) {
+      console.error('retrieve failed in artifact compare pipeline', e)
+    }
+  }
+
+  let createAttachmentIds: string[] | undefined
+  if (needsCreateContext && data.attachmentIds?.length) {
+    const convForAttach = data.conversationId
+    if (!convForAttach) {
+      throw new AppError(
+        'Conversation required for attachments',
+        400,
+        'ERR-003',
+      )
+    }
+    const atts = await db
+      .select()
+      .from(attachments)
+      .where(
+        and(
+          inArray(attachments.id, data.attachmentIds),
+          eq(attachments.userId, userId),
+        ),
+      )
+    if (atts.length !== data.attachmentIds.length) {
+      throw new AppError('Forbidden', 403, 'ERR-003')
+    }
+    for (const a of atts) {
+      if (a.conversationId !== convForAttach) {
+        throw new AppError('Attachment not in conversation', 400, 'ERR-003')
+      }
+    }
+    const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
+    if (hasImage) {
+      for (const modelId of data.modelIds) {
+        if (!isVisionCapable(modelId)) {
+          throw new AppError(
+            'Model tidak mendukung vision. Pilih model vision-capable.',
+            400,
+            'ERR-003',
+          )
+        }
+      }
+    }
+    const { getObject } = await import('../../lib/r2/client')
+    for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
+      const { body } = await getObject({ bucket: a.r2Bucket, key: a.r2Key })
+      createFileParts.push({
+        type: 'file',
+        data: (body as Buffer).toString('base64'),
+        mediaType: a.mimeType,
+      })
+    }
+    createAttachmentIds = data.attachmentIds
+  }
+
+  type PreflightRow = {
+    assistantMsgId: string
+    genId: string
+    targetIndex: number
+    modelId: string
+    comparisonRunId: string
+  }
+  const preflight = await db.transaction(async (tx) => {
+    let convId = data.conversationId
+    let createdNew = false
+    if (convId) {
+      const rows = await tx
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, convId))
+      const conv = rows[0]
+      if (!conv || conv.userId !== userId) {
+        throw new AppError('Forbidden', 403, 'ERR-003')
+      }
+      await tx
+        .update(conversations)
+        .set({ mode: 'compare', updatedAt: new Date() })
+        .where(
+          and(eq(conversations.id, convId), eq(conversations.userId, userId)),
+        )
+    } else {
+      const inserted = await tx
+        .insert(conversations)
+        .values({ userId, title: 'New Chat', mode: 'compare' })
+        .returning()
+      convId = inserted[0].id
+      createdNew = true
+    }
+    const resolvedConvId = convId as string
+
+    const [userMsg] = await tx
+      .insert(messages)
+      .values({
+        conversationId: resolvedConvId,
+        role: 'user',
+        content: data.content,
+      })
+      .returning()
+
+    if (createAttachmentIds?.length) {
+      for (const id of createAttachmentIds) {
+        await tx
+          .update(attachments)
+          .set({ messageId: userMsg.id })
+          .where(eq(attachments.id, id))
+      }
+    }
+
+    const comparisonRunIds: string[] = []
+    const runIdByTarget = new Map<number, string>()
+    for (let t = 0; t < planned.length; t++) {
+      const [run] = await tx
+        .insert(comparisonRuns)
+        .values({
+          conversationId: resolvedConvId,
+          userMessageId: userMsg.id,
+          modelIds: data.modelIds,
+          status: 'running',
+        })
+        .returning()
+      comparisonRunIds.push(run.id)
+      runIdByTarget.set(t, run.id)
+    }
+
+    const rows: PreflightRow[] = []
+    const reservations: Array<{
+      generationRunId: string
+      modelId: string
+      amount: number
+    }> = []
+    for (const gen of comparePlan.generations) {
+      const target = planned[gen.targetIndex]
+      const pricing = modelCosts.get(gen.modelId)
+      if (!pricing) throw new AppError('Model tidak valid.', 400, 'ERR-003')
+      const [assistantMsg] = await tx
+        .insert(messages)
+        .values({
+          conversationId: resolvedConvId,
+          role: 'assistant',
+          content: '',
+        })
+        .returning()
+      const genId = crypto.randomUUID()
+      const source =
+        target.type === 'revise'
+          ? loadedSources.find((s) => s.artifactId === target.artifactId)
+          : undefined
+      await tx.insert(generationRuns).values({
+        id: genId,
+        messageId: assistantMsg.id,
+        requestMessageId: userMsg.id,
+        comparisonRunId: runIdByTarget.get(gen.targetIndex) as string,
+        conversationId: resolvedConvId,
+        modelId: gen.modelId,
+        routerModelId: pricing.routerModelId,
+        skillId: target.profile.skillId,
+        status: 'streaming',
+        startedAt: new Date(),
+        sourceArtifactId: source?.artifactId ?? null,
+        sourceVersionId: source?.versionId ?? null,
+      })
+      reservations.push({
+        generationRunId: genId,
+        modelId: gen.modelId,
+        amount: pricing.cost,
+      })
+      rows.push({
+        assistantMsgId: assistantMsg.id,
+        genId,
+        targetIndex: gen.targetIndex,
+        modelId: gen.modelId,
+        comparisonRunId: runIdByTarget.get(gen.targetIndex) as string,
+      })
+    }
+
+    await reserveGenerationBatchCredits(tx, { userId, reservations })
+
+    return {
+      convId: resolvedConvId,
+      userMsgId: userMsg.id,
+      rows,
+      comparisonRunIds,
+      createdNew,
+    }
+  })
+
+  const shouldAutoTitle = !data.conversationId || preflight.createdNew
+  if (shouldAutoTitle) {
+    void autoTitleConversation(preflight.convId, data.content)
+  } else {
+    const [existing] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, preflight.convId))
+    if (!existing?.title || existing.title === 'New Chat') {
+      void autoTitleConversation(preflight.convId, data.content)
+    }
+  }
+
+  const workerInputs: ArtifactWorkerInput[] = []
+  for (const row of preflight.rows) {
+    const target = planned[row.targetIndex]
+    const pricing = modelCosts.get(row.modelId)
+    if (!pricing) throw new AppError('Model tidak valid.', 400, 'ERR-003')
+    const aiMessages: ModelMessage[] = await buildModelHistory(preflight.convId)
+    let systemPrompt: string
+    let workerOperation: 'create' | 'fork' = 'create'
+    let sourceIds: Pick<
+      ArtifactWorkerInput,
+      | 'artifactId'
+      | 'sourceArtifactId'
+      | 'sourceVersionId'
+      | 'expectedCurrentVersionId'
+    > = {}
+    if (target.type === 'revise') {
+      const source = loadedSources.find(
+        (s) => s.artifactId === target.artifactId,
+      )
+      if (!source) throw new AppError('Source not loaded', 500, 'ERR-013')
+      systemPrompt = target.profile.buildRevisionSystemPrompt({
+        instruction: data.content,
+        sourceMarkdown: source.sourceMarkdown,
+        ragSuffix: '',
+      })
+      workerOperation = 'fork'
+      sourceIds = {
+        sourceArtifactId: source.artifactId,
+        sourceVersionId: source.versionId,
+        expectedCurrentVersionId: source.expectedCurrentVersionId,
+      }
+    } else {
+      systemPrompt = target.profile.buildSystemPrompt({
+        userContent: data.content,
+        ragSuffix: createRagSuffix,
+      })
+      if (createFileParts.length) {
+        for (let i = aiMessages.length - 1; i >= 0; i--) {
+          if (aiMessages[i].role === 'user') {
+            const current = aiMessages[i]
+            if (typeof current.content === 'string') {
+              current.content = [
+                { type: 'text', text: data.content },
+                ...createFileParts,
+              ] as ModelMessage['content']
+            }
+            break
+          }
+        }
+      }
+    }
+    workerInputs.push({
+      profile: target.profile,
+      operation: workerOperation,
+      userId,
+      convId: preflight.convId,
+      assistantMsgId: row.assistantMsgId,
+      genId: row.genId,
+      modelId: row.modelId,
+      routerModelId: pricing.routerModelId,
+      comparisonRunId: row.comparisonRunId,
+      cost: pricing.cost,
+      userContent: data.content,
+      aiMessages,
+      systemPrompt,
+      startTime: Date.now(),
+      fanOut,
+      revisionCount,
+      contextCount: 0,
+      mentionCount: 0,
+      ...sourceIds,
+    })
+  }
+
+  const settled = await Promise.allSettled(
+    workerInputs.map((worker) => executeArtifactGeneration(worker)),
+  )
+  const responses: Response[] = []
+  const generationIds = preflight.rows.map((r) => r.genId)
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i]
+    if (result.status === 'fulfilled') {
+      responses.push(result.value)
+    } else {
+      const worker = workerInputs[i]
+      try {
+        const won = await finalizeTerminalRun({
+          genId: worker.genId,
+          status: 'failed',
+          error: { message: worker.profile.failureMessage, code: 'ERR-016' },
+        })
+        if (won) {
+          await refundCredits({
+            userId,
+            generationRunId: worker.genId,
+            modelId: worker.modelId,
+            amount: worker.cost,
+          })
+        }
+      } catch (err) {
+        console.error('Compare worker start cleanup failed:', err)
+      }
+      logArtifactLifecycle({
+        generationId: worker.genId,
+        conversationId: worker.convId,
+        messageId: worker.assistantMsgId,
+        operation: worker.operation,
+        kind: worker.profile.kind,
+        phase: 'terminal',
+        status: 'failed',
+        code: 'ERR-016',
+      })
+    }
+  }
+  if (responses.length === 0) {
+    throw new AppError('Gagal memulai generasi Compare.', 500, 'ERR-016')
+  }
+
+  void settleCompareArtifactRuns({
+    comparisonRunIds: preflight.comparisonRunIds,
+    generationIds,
+  }).catch((err) => console.error('Compare artifact barrier failed:', err))
+
+  return multiplexCompareArtifactResponses(responses, {
+    conversationId: preflight.convId,
+    comparisonRunIds: preflight.comparisonRunIds,
+    artifactKind: planned[0].kind,
+  })
 }
