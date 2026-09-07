@@ -27,29 +27,42 @@ export const artifactDescriptorSchema = z.object({
 
 export type ArtifactDescriptor = z.infer<typeof artifactDescriptorSchema>
 
-export type ArtifactVersionDescriptor = Omit<
-  ArtifactDescriptor,
-  'artifactId' | 'kind'
-> & {
-  sourceVersionId: string | null
-  changeSummary: string
-  createdAt: Date
-}
+export const artifactVersionDescriptorSchema = artifactDescriptorSchema
+  .omit({ artifactId: true, kind: true })
+  .extend({
+    sourceVersionId: artifactVersionIdSchema.nullable(),
+    changeSummary: z.string().min(1),
+    createdAt: z.date(),
+  })
 
-export type ArtifactSummary = Pick<
-  ArtifactDescriptor,
-  | 'artifactId'
-  | 'kind'
-  | 'title'
-  | 'attachmentId'
-  | 'fileName'
-  | 'fileSize'
-  | 'mimeType'
-  | 'modelId'
-  | 'routerModelId'
-> & {
-  currentVersionId: string
-  currentVersion: number
-  versionCount: number
-  updatedAt: Date
-}
+export type ArtifactVersionDescriptor = z.infer<
+  typeof artifactVersionDescriptorSchema
+>
+
+export const artifactSummarySchema = artifactDescriptorSchema
+  .pick({
+    artifactId: true,
+    kind: true,
+    title: true,
+    attachmentId: true,
+    fileName: true,
+    fileSize: true,
+    mimeType: true,
+    modelId: true,
+    routerModelId: true,
+  })
+  .extend({
+    currentVersionId: artifactVersionIdSchema,
+    currentVersion: z.number().int().positive(),
+    versionCount: z.number().int().positive(),
+    updatedAt: z.date(),
+  })
+
+export type ArtifactSummary = z.infer<typeof artifactSummarySchema>
+
+export const artifactDetailSchema = artifactSummarySchema.extend({
+  createdAt: z.date(),
+  versions: z.array(artifactVersionDescriptorSchema),
+})
+
+export type ArtifactDetail = z.infer<typeof artifactDetailSchema>

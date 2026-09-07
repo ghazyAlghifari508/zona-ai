@@ -25,6 +25,7 @@ import { Route as ApiAttachmentsReprocessRouteImport } from './routes/api/attach
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
+import { Route as ApiArtifactsArtifactIdVersionsVersionIdRouteImport } from './routes/api/artifacts/$artifactId/versions/$versionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -107,6 +108,12 @@ const ApiFilesUploadRoute = ApiFilesUploadRouteImport.update({
   path: '/api/files/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiArtifactsArtifactIdVersionsVersionIdRoute =
+  ApiArtifactsArtifactIdVersionsVersionIdRouteImport.update({
+    id: '/api/artifacts/$artifactId/versions/$versionId',
+    path: '/api/artifacts/$artifactId/versions/$versionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments/': typeof ApiAttachmentsIndexRoute
+  '/api/artifacts/$artifactId/versions/$versionId': typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -143,6 +151,7 @@ export interface FileRoutesByTo {
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments': typeof ApiAttachmentsIndexRoute
+  '/api/artifacts/$artifactId/versions/$versionId': typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,6 +171,7 @@ export interface FileRoutesById {
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments/': typeof ApiAttachmentsIndexRoute
+  '/api/artifacts/$artifactId/versions/$versionId': typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/api/auth/session'
     | '/api/files/upload'
     | '/api/attachments/'
+    | '/api/artifacts/$artifactId/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/api/auth/session'
     | '/api/files/upload'
     | '/api/attachments'
+    | '/api/artifacts/$artifactId/versions/$versionId'
   id:
     | '__root__'
     | '/'
@@ -218,6 +230,7 @@ export interface FileRouteTypes {
     | '/api/auth/session'
     | '/api/files/upload'
     | '/api/attachments/'
+    | '/api/artifacts/$artifactId/versions/$versionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -237,6 +250,7 @@ export interface RootRouteChildren {
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiFilesUploadRoute: typeof ApiFilesUploadRoute
   ApiAttachmentsIndexRoute: typeof ApiAttachmentsIndexRoute
+  ApiArtifactsArtifactIdVersionsVersionIdRoute: typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -353,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFilesUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/artifacts/$artifactId/versions/$versionId': {
+      id: '/api/artifacts/$artifactId/versions/$versionId'
+      path: '/api/artifacts/$artifactId/versions/$versionId'
+      fullPath: '/api/artifacts/$artifactId/versions/$versionId'
+      preLoaderRoute: typeof ApiArtifactsArtifactIdVersionsVersionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -373,6 +394,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiFilesUploadRoute: ApiFilesUploadRoute,
   ApiAttachmentsIndexRoute: ApiAttachmentsIndexRoute,
+  ApiArtifactsArtifactIdVersionsVersionIdRoute:
+    ApiArtifactsArtifactIdVersionsVersionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -259,6 +259,7 @@ describe('artifact generation', () => {
 
     expect(r2.putObject).toHaveBeenCalledTimes(1)
     const putArg = vi.mocked(r2.putObject).mock.calls[0][0]
+    expect(putArg.bucket).toBe(process.env.R2_BUCKET_NAME)
     expect(putArg.key.startsWith(`users/${USER}/attachments/`)).toBe(true)
     expect((putArg.body as Buffer).toString('utf8')).toContain(
       'name: frontend-design',

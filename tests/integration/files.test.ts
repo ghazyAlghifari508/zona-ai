@@ -176,6 +176,13 @@ describe('files API', () => {
       .where(eq(attachments.id, res.id))
     expect(dbRow).toBeDefined()
     expect(dbRow.r2Key).toBe(res.r2Key)
+    const r2 = await import('../../src/lib/r2/client')
+    expect(r2.putObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucket: process.env.R2_BUCKET_NAME,
+        key: res.r2Key,
+      }),
+    )
   })
 
   it('rejects unsupported mime 400', async () => {
@@ -306,6 +313,10 @@ describe('files API', () => {
     const att = (await uploadFileCore({
       request: req1,
     })) as unknown as typeof attachments.$inferSelect
+    await db
+      .update(attachments)
+      .set({ r2Bucket: 'persisted-delete-bucket' })
+      .where(eq(attachments.id, att.id))
     const reqDel = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -320,7 +331,55 @@ describe('files API', () => {
       .where(eq(attachments.id, att.id))
     expect(after).toBeUndefined()
     const r2 = await import('../../src/lib/r2/client')
-    expect(r2.deleteObject).toHaveBeenCalled()
+    expect(r2.deleteObject).toHaveBeenCalledWith({
+      bucket: 'persisted-delete-bucket',
+      key: att.r2Key,
+    })
+  })
+
+  it('returns only the safe attachment list projection', async () => {
+    const { getAttachmentsCore } = await import(
+      '../../src/server/functions/files'
+    )
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Safe attachment list' })
+      .returning()
+    await db.insert(attachments).values({
+      userId: mockUserId,
+      conversationId: conv.id,
+      fileName: 'private.txt',
+      fileSize: 7,
+      mimeType: 'text/plain',
+      r2Key: 'secret/storage/key',
+      r2Bucket: 'secret-storage-bucket',
+      processingStatus: 'completed',
+      extractedText: 'private extracted content',
+    })
+
+    const rows = await getAttachmentsCore({
+      data: { conversationId: conv.id },
+      request: new Request('http://localhost/api/attachments', {
+        headers: { 'x-test-user': mockUserId },
+      }),
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(Object.keys(rows[0]).sort()).toEqual(
+      [
+        'id',
+        'messageId',
+        'conversationId',
+        'fileName',
+        'fileSize',
+        'mimeType',
+        'processingStatus',
+        'createdAt',
+      ].sort(),
+    )
+    expect(JSON.stringify(rows)).not.toContain('secret/storage/key')
+    expect(JSON.stringify(rows)).not.toContain('secret-storage-bucket')
+    expect(JSON.stringify(rows)).not.toContain('private extracted content')
   })
 
   it('sendMessage with image + vision injects file parts', async () => {
@@ -395,6 +454,10 @@ describe('files API', () => {
       .find((c) => c.type === 'file')
     expect(filePart).toBeDefined()
     expect(typeof filePart?.data).toBe('string')
+    expect(r2.getObject).toHaveBeenCalledWith({
+      bucket: att.r2Bucket,
+      key: att.r2Key,
+    })
     // verify attachment linked to message
     const [updatedAtt] = await db
       .select()

@@ -47,25 +47,41 @@ describe('extract', () => {
     vi.mocked(getObject).mockResolvedValueOnce({
       body: Buffer.from('%PDF-1.4 Hello world'),
       contentType: 'application/pdf',
-    } as never)
-    const t = await extractText({ r2Key: 'k', mimeType: 'application/pdf' })
+    })
+    const t = await extractText({
+      r2Bucket: 'persisted-bucket',
+      r2Key: 'k',
+      mimeType: 'application/pdf',
+    })
     expect(t).toContain('Hello world')
+    expect(getObject).toHaveBeenCalledWith({
+      bucket: 'persisted-bucket',
+      key: 'k',
+    })
   })
 
   it('corrupted pdf throws ERR-013', async () => {
     vi.mocked(getObject).mockResolvedValueOnce({
       body: Buffer.from('corrupted-not-pdf'),
       contentType: 'application/pdf',
-    } as never)
+    })
     await expect(
-      extractText({ r2Key: 'k', mimeType: 'application/pdf' }),
+      extractText({
+        r2Bucket: 'persisted-bucket',
+        r2Key: 'k',
+        mimeType: 'application/pdf',
+      }),
     ).rejects.toMatchObject({
       code: 'ERR-013',
     })
   })
 
   it('image skip returns empty', async () => {
-    const t = await extractText({ r2Key: 'k', mimeType: 'image/png' })
+    const t = await extractText({
+      r2Bucket: 'persisted-bucket',
+      r2Key: 'k',
+      mimeType: 'image/png',
+    })
     expect(t).toBe('')
     expect(getObject).not.toHaveBeenCalled()
   })
@@ -76,8 +92,9 @@ describe('extract', () => {
       body: fakeDocx,
       contentType:
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    } as never)
+    })
     const t = await extractText({
+      r2Bucket: 'persisted-bucket',
       r2Key: 'k',
       mimeType:
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -89,8 +106,12 @@ describe('extract', () => {
     vi.mocked(getObject).mockResolvedValueOnce({
       body: Buffer.from('hello txt content'),
       contentType: 'text/plain',
-    } as never)
-    const t = await extractText({ r2Key: 'k', mimeType: 'text/plain' })
+    })
+    const t = await extractText({
+      r2Bucket: 'persisted-bucket',
+      r2Key: 'k',
+      mimeType: 'text/plain',
+    })
     expect(t).toBe('hello txt content')
   })
 
@@ -98,8 +119,12 @@ describe('extract', () => {
     vi.mocked(getObject).mockResolvedValueOnce({
       body: Buffer.from('a,b,c\n1,2,3'),
       contentType: 'text/csv',
-    } as never)
-    const t = await extractText({ r2Key: 'k', mimeType: 'text/csv' })
+    })
+    const t = await extractText({
+      r2Bucket: 'persisted-bucket',
+      r2Key: 'k',
+      mimeType: 'text/csv',
+    })
     expect(t).toBe('a,b,c\n1,2,3')
   })
 })

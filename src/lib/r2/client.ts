@@ -4,98 +4,74 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { env } from '../env.server'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/lib/r2/client.ts is server-only')
 }
 
+export type StoredObjectLocator = {
+  bucket: string
+  key: string
+}
+
+export type PutStoredObjectInput = StoredObjectLocator & {
+  body: Uint8Array
+  contentType: string
+}
+
 const s3 = new S3Client({
   region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID as string}.r2.cloudflarestorage.com`,
+  endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
   },
 })
 
 export async function putObject({
+  bucket,
   key,
   body,
   contentType,
-}: {
-  key: string
-  body: Buffer | Uint8Array | ReadableStream | unknown
-  contentType: string
-}) {
+}: PutStoredObjectInput): Promise<void> {
   await s3.send(
     new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME as string,
+      Bucket: bucket,
       Key: key,
-      // cast boundary: S3 Body union includes Buffer/Uint8Array
-      Body: body as Uint8Array,
+      Body: body,
       ContentType: contentType,
     }),
   )
 }
 
-export async function getObject(
-  key: string,
-): Promise<{ body: Buffer; contentType: string }> {
-  const res = await s3.send(
+export async function getObject({
+  bucket,
+  key,
+}: StoredObjectLocator): Promise<{ body: Buffer; contentType: string }> {
+  const response = await s3.send(
     new GetObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME as string,
+      Bucket: bucket,
       Key: key,
     }),
   )
-  const bodyStream = res.Body as unknown
-  let buffer: Buffer
-  if (!bodyStream) {
-    buffer = Buffer.alloc(0)
-  } else if (Buffer.isBuffer(bodyStream)) {
-    buffer = bodyStream
-  } else if (bodyStream instanceof Uint8Array) {
-    buffer = Buffer.from(bodyStream)
-  } else if (
-    typeof (bodyStream as Record<string, unknown>).transformToByteArray ===
-    'function'
-  ) {
-    const arr = await (
-      bodyStream as { transformToByteArray: () => Promise<Uint8Array> }
-    ).transformToByteArray()
-    buffer = Buffer.from(arr)
-  } else if (
-    typeof (bodyStream as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] ===
-    'function'
-  ) {
-    const chunks: Uint8Array[] = []
-    for await (const chunk of bodyStream as AsyncIterable<Uint8Array>) {
-      chunks.push(chunk)
-    }
-    buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)))
-  } else if (typeof (bodyStream as ReadableStream).getReader === 'function') {
-    const reader = (bodyStream as ReadableStream<Uint8Array>).getReader()
-    const chunks: Uint8Array[] = []
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (value) chunks.push(value)
-    }
-    buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)))
-  } else {
-    // Fallback: treat as string or unknown
-    buffer = Buffer.from(String(bodyStream))
-  }
+  const bytes = response.Body
+    ? await response.Body.transformToByteArray()
+    : new Uint8Array()
 
   return {
-    body: buffer,
-    contentType: (res.ContentType as string) ?? 'application/octet-stream',
+    body: Buffer.from(bytes),
+    contentType: response.ContentType ?? 'application/octet-stream',
   }
 }
 
-export async function deleteObject(key: string) {
+export async function deleteObject({
+  bucket,
+  key,
+}: StoredObjectLocator): Promise<void> {
   await s3.send(
     new DeleteObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME as string,
+      Bucket: bucket,
       Key: key,
     }),
   )

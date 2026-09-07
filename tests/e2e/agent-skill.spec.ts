@@ -4,6 +4,7 @@ import { makeSignature } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import { auth } from '../../src/lib/auth/auth'
 import { db } from '../../src/lib/db'
+import { env } from '../../src/lib/env.server'
 import {
   attachments,
   conversations,
@@ -12,14 +13,18 @@ import {
   sessions,
   users,
 } from '../../src/lib/db/schema'
-import { deleteObject, putObject } from '../../src/lib/r2/client'
+import {
+  deleteObject,
+  putObject,
+  type StoredObjectLocator,
+} from '../../src/lib/r2/client'
 
 test.use({ acceptDownloads: true })
 
 const scopedUserId = () => `agent-skill-e2e-${test.info().project.name}`
 const scopedEmail = (id: string) => `${id}@example.com`
 
-const pendingR2Keys: string[] = []
+const pendingR2Objects: StoredObjectLocator[] = []
 
 async function clearConversations() {
   await db.delete(conversations).where(eq(conversations.userId, scopedUserId()))
@@ -69,10 +74,10 @@ test.beforeEach(async ({ context }) => {
 })
 
 test.afterEach(async () => {
-  const keys = pendingR2Keys.splice(0)
-  for (const key of keys) {
+  const objects = pendingR2Objects.splice(0)
+  for (const locator of objects) {
     try {
-      await deleteObject(key)
+      await deleteObject(locator)
     } catch {
       // best-effort cleanup of seeded R2 bytes
     }
@@ -188,11 +193,12 @@ test('seeded artifact survives reload and downloads intact', async ({
   const attachmentId = crypto.randomUUID()
   const r2Key = `users/${userId}/attachments/${attachmentId}/${fileName}`
   await putObject({
+    bucket: env.R2_BUCKET_NAME,
     key: r2Key,
     body: Buffer.from(SEEDED_MARKDOWN, 'utf8'),
     contentType: 'text/markdown',
   })
-  pendingR2Keys.push(r2Key)
+  pendingR2Objects.push({ bucket: env.R2_BUCKET_NAME, key: r2Key })
 
   const [conversation] = await db
     .insert(conversations)

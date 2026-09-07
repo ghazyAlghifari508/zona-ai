@@ -5,9 +5,11 @@ if (typeof window !== 'undefined') {
 import { getObject } from '../r2/client'
 
 export async function extractText({
+  r2Bucket,
   r2Key,
   mimeType,
 }: {
+  r2Bucket: string
   r2Key: string
   mimeType: string
 }): Promise<string> {
@@ -15,8 +17,7 @@ export async function extractText({
     return ''
   }
 
-  const { body } = await getObject(r2Key)
-  const buf = body as Buffer
+  const { body: buf } = await getObject({ bucket: r2Bucket, key: r2Key })
 
   try {
     if (mimeType === 'application/pdf') {

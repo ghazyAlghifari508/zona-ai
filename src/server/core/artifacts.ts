@@ -386,6 +386,7 @@ async function executeArtifactStream(
           await runFinalizeWithCompensation({
             writeR2: () =>
               putObject({
+                bucket: env.R2_BUCKET_NAME,
                 key: r2Key,
                 body: fileBuffer,
                 contentType: profile.mimeType,
@@ -450,7 +451,8 @@ async function executeArtifactStream(
                   })
                 }
               }),
-            deleteR2: () => deleteObject(r2Key),
+            deleteR2: () =>
+              deleteObject({ bucket: env.R2_BUCKET_NAME, key: r2Key }),
           })
         } catch (finalizeErr) {
           console.error(
@@ -747,7 +749,10 @@ export async function generateArtifactCore({
     }
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
-      const { body } = await getObject(a.r2Key)
+      const { body } = await getObject({
+        bucket: a.r2Bucket,
+        key: a.r2Key,
+      })
       fileParts.push({
         type: 'file',
         data: (body as Buffer).toString('base64'),

@@ -209,7 +209,10 @@ export async function sendMessageCore({
     }
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
-      const { body } = await getObject(a.r2Key)
+      const { body } = await getObject({
+        bucket: a.r2Bucket,
+        key: a.r2Key,
+      })
       fileParts.push({
         type: 'file',
         data: (body as Buffer).toString('base64'),
@@ -616,7 +619,10 @@ export async function sendCompareMessageCore({
     }
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
-      const { body } = await getObject(a.r2Key)
+      const { body } = await getObject({
+        bucket: a.r2Bucket,
+        key: a.r2Key,
+      })
       fileParts.push({
         type: 'file',
         data: (body as Buffer).toString('base64'),

@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
 import { attachments, conversations } from '../../lib/db/schema'
+import { env } from '../../lib/env.server'
 import { deleteObject, getObject, putObject } from '../../lib/r2/client'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import {
@@ -85,7 +86,12 @@ export async function uploadFileCore({ request }: { request: Request }) {
   const r2Key = `users/${userId}/attachments/${attachmentId}/${sanitized}`
 
   try {
-    await putObject({ key: r2Key, body: buffer, contentType: mime })
+    await putObject({
+      bucket: env.R2_BUCKET_NAME,
+      key: r2Key,
+      body: buffer,
+      contentType: mime,
+    })
   } catch (_e) {
     throw httpError(500, 'File upload failed. Please try again.', 'ERR-010')
   }
@@ -101,7 +107,7 @@ export async function uploadFileCore({ request }: { request: Request }) {
       fileSize: file.size,
       mimeType: mime,
       r2Key,
-      r2Bucket: process.env.R2_BUCKET_NAME as string,
+      r2Bucket: env.R2_BUCKET_NAME,
       processingStatus: 'pending',
       extractedText: null,
     })
@@ -151,7 +157,10 @@ export async function getAttachmentCore({
   if (!att) throw httpError(404, 'Not found')
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
-  const { body, contentType } = await getObject(att.r2Key)
+  const { body, contentType } = await getObject({
+    bucket: att.r2Bucket,
+    key: att.r2Key,
+  })
   const buffer = body
   const disposition = parsed.data.download ? 'attachment' : 'inline'
   return new Response(new Uint8Array(buffer), {
@@ -189,7 +198,7 @@ export async function deleteAttachmentCore({
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
   try {
-    await deleteObject(att.r2Key)
+    await deleteObject({ bucket: att.r2Bucket, key: att.r2Key })
   } catch {
     // ignore if not found
   }
@@ -214,7 +223,16 @@ export async function getAttachmentsCore({
     .where(eq(conversations.id, data.conversationId))
   if (!conv || conv.userId !== userId) throw httpError(403, 'Forbidden')
   const rows = await db
-    .select()
+    .select({
+      id: attachments.id,
+      messageId: attachments.messageId,
+      conversationId: attachments.conversationId,
+      fileName: attachments.fileName,
+      fileSize: attachments.fileSize,
+      mimeType: attachments.mimeType,
+      processingStatus: attachments.processingStatus,
+      createdAt: attachments.createdAt,
+    })
     .from(attachments)
     .where(eq(attachments.conversationId, data.conversationId))
   return rows
