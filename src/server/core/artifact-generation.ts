@@ -805,7 +805,7 @@ export type GenerateArtifactsInput = {
   enableWebSearch?: boolean
 }
 
-async function multiplexArtifactResponses(
+export async function multiplexArtifactResponses(
   responses: Response[],
   fallbackConvId: string,
 ): Promise<Response> {
@@ -813,15 +813,34 @@ async function multiplexArtifactResponses(
   const merged = new ReadableStream({
     async start(controller) {
       const forward = async (res: Response) => {
-        const text = await res.text()
-        for (const frame of text.split('\n\n')) {
+        const reader = res.body?.getReader()
+        if (!reader) return
+        const decoder = new TextDecoder()
+        let buffer = ''
+        const flushFrame = (frame: string) => {
           const line = frame.split('\n').find((l) => l.startsWith('data:'))
-          if (!line) continue
+          if (!line) return
           const payload = line.slice(5).trim()
-          if (!payload || payload === '[DONE]') continue
+          if (!payload || payload === '[DONE]') return
           try {
             const event = parseArtifactStreamEvent(JSON.parse(payload))
             controller.enqueue(encoder.encode(encodeArtifactSseEvent(event)))
+          } catch {}
+        }
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const parts = buffer.split('\n\n')
+            buffer = parts.pop() ?? ''
+            for (const part of parts) flushFrame(part)
+          }
+          buffer += decoder.decode()
+          if (buffer.trim()) flushFrame(buffer)
+        } finally {
+          try {
+            reader.releaseLock()
           } catch {}
         }
       }
