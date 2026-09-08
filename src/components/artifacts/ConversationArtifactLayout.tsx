@@ -4,9 +4,13 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
+
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 export type ConversationArtifactLayoutProps = {
   canvasOpen: boolean
@@ -61,7 +65,7 @@ export function ConversationArtifactLayout({
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rafRef = useRef<number | null>(null)
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
@@ -81,15 +85,13 @@ export function ConversationArtifactLayout({
       setIsExpanded(false)
 
       rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = requestAnimationFrame(() => {
-          setIsExpanded(true)
-        })
+        setIsExpanded(true)
       })
     } else {
       setIsExpanded(false)
       closeTimeoutRef.current = setTimeout(() => {
         setIsMounted(false)
-      }, 250)
+      }, 190)
     }
 
     return () => {
@@ -207,8 +209,8 @@ export function ConversationArtifactLayout({
             isDragging
               ? ''
               : isExpanded
-                ? 'transition-opacity duration-280 ease-[cubic-bezier(0.16,1,0.3,1)]'
-                : 'transition-opacity duration-240 ease-[cubic-bezier(0.4,0,0.2,1)]'
+                ? 'transition-opacity duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]'
+                : 'transition-opacity duration-180 ease-[cubic-bezier(0.4,0,0.2,1)]'
           } ${isExpanded ? 'opacity-100' : 'opacity-0'}`}
         >
           <div className="h-full w-px bg-hairline group-hover:bg-hairline-strong group-active:bg-accent group-focus-visible:bg-accent transition-colors" />
@@ -228,8 +230,8 @@ export function ConversationArtifactLayout({
           isDragging
             ? ''
             : isExpanded
-              ? 'transition-[width] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)]'
-              : 'transition-[width] duration-240 ease-[cubic-bezier(0.4,0,0.2,1)]'
+              ? 'transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]'
+              : 'transition-[width] duration-180 ease-[cubic-bezier(0.4,0,0.2,1)]'
         }`}
       >
         <div
@@ -238,8 +240,8 @@ export function ConversationArtifactLayout({
             isDragging
               ? ''
               : isExpanded
-                ? 'transition-[transform,opacity] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)]'
-                : 'transition-[transform,opacity] duration-240 ease-[cubic-bezier(0.4,0,0.2,1)]'
+                ? 'transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]'
+                : 'transition-[transform,opacity] duration-180 ease-[cubic-bezier(0.4,0,0.2,1)]'
           } ${
             isExpanded
               ? 'translate-x-0 opacity-100'

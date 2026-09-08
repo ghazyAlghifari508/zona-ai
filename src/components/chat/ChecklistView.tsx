@@ -1,4 +1,4 @@
-﻿import { CheckIcon } from '@hugeicons/core-free-icons'
+import { CheckIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo, useState } from 'react'
 import type { Checklist } from '@/lib/chat/checklist'
@@ -80,7 +80,7 @@ export function ChecklistView({
                 />
               </span>
               <span
-                className={`min-w-0 flex-1 text-[14px] leading-[1.55] [overflow-wrap:anywhere] transition-colors duration-200 ${
+                className={`min-w-0 flex-1 whitespace-pre-line text-[14px] leading-[1.55] [overflow-wrap:anywhere] transition-colors duration-200 ${
                   item.completed ? 'text-stone line-through' : 'text-ink'
                 }`}
               >
