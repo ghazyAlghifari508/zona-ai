@@ -180,6 +180,7 @@ function ChatHome() {
     skillId: string,
     _attachmentIds?: string[],
     enableWebSearch = false,
+    _artifactMentions?: unknown[],
   ) => {
     if (!activeSession?.user) {
       await signIn(content)
@@ -212,6 +213,7 @@ function ChatHome() {
     skillId: string,
     _attachmentIds?: string[],
     enableWebSearch = false,
+    _artifactMentions?: unknown[],
   ) => {
     if (!isCompareSelectionValid(modelIds)) return
     if (!activeSession?.user) {

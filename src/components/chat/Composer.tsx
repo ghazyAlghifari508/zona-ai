@@ -10,9 +10,25 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
+import { ArtifactMentionChips } from '@/components/artifacts/ArtifactMentionChips'
+import { ArtifactMentionPicker } from '@/components/artifacts/ArtifactMentionPicker'
+import type { ArtifactSummary } from '@/lib/artifacts/contracts'
+import {
+  type ArtifactMentionCandidate,
+  type ArtifactMentionDraft,
+  type ArtifactMentionDraftState,
+  type ArtifactMentionInput,
+  addArtifactMention,
+  filterArtifactMentions,
+  findActiveMentionQuery,
+  removeArtifactMention,
+  replaceActiveMentionQuery,
+  setArtifactMentionMode,
+} from '@/lib/artifacts/mentions'
 import { canSendCompareWith } from '@/lib/chat/compare-selection'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
 import { skillSupportsCompare } from '@/lib/chat/skills'
@@ -29,6 +45,7 @@ type Props = {
     skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
+    artifactMentions?: ArtifactMentionInput[],
   ) => void
   onSendCompare?: (
     content: string,
@@ -36,6 +53,7 @@ type Props = {
     skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
+    artifactMentions?: ArtifactMentionInput[],
   ) => void
   onStop?: () => void
   isStreaming?: boolean
@@ -55,6 +73,9 @@ type Props = {
   onModelChange?: (id: string) => void
   skillValue?: string
   onSkillChange?: (id: string) => void
+  availableArtifacts?: readonly ArtifactSummary[]
+  mentionsValue?: ArtifactMentionDraft[]
+  onMentionsChange?: (mentions: ArtifactMentionDraft[]) => void
 }
 
 const MIN_TEXTAREA_HEIGHT = 56
@@ -81,6 +102,9 @@ export function Composer({
   onModelChange,
   skillValue,
   onSkillChange,
+  availableArtifacts = [],
+  mentionsValue,
+  onMentionsChange,
 }: Props) {
   const [content, setContent] = useState(initialContent)
   const [internalModelId, setInternalModelId] = useState(() =>
@@ -89,6 +113,25 @@ export function Composer({
   const [internalSkillId, setInternalSkillId] = useState(() =>
     getDefaultSkillPreference(),
   )
+  const [internalMentions, setInternalMentions] = useState<
+    ArtifactMentionDraft[]
+  >([])
+  const [mentionFeedback, setMentionFeedback] = useState<string | null>(null)
+  const [mentionPickerActive, setMentionPickerActive] = useState(false)
+  const [activeQueryRange, setActiveQueryRange] = useState<{
+    start: number
+    end: number
+    query: string
+  } | null>(null)
+  const [pickerSelectedIndex, setPickerSelectedIndex] = useState(0)
+
+  const mentions = mentionsValue ?? internalMentions
+  const setMentions = (newMentions: ArtifactMentionDraft[]) => {
+    if (mentionsValue === undefined) {
+      setInternalMentions(newMentions)
+    }
+    onMentionsChange?.(newMentions)
+  }
 
   const modelId = modelValue ?? internalModelId
   const changeModel = (id: string) => {
@@ -378,6 +421,54 @@ export function Composer({
     }
   }
 
+  const mentionCandidates: ArtifactMentionCandidate[] = useMemo(() => {
+    return availableArtifacts.map((artifact) => {
+      const kindLabel =
+        artifact.kind === 'prd'
+          ? 'PRD'
+          : artifact.kind === 'agent-skill'
+            ? 'Agent Skill'
+            : 'Checklist'
+      const modelEntry = findCatalogEntry(catalog, artifact.modelId)
+      const modelDisplayName = modelEntry?.displayName ?? artifact.modelId
+      return {
+        artifact,
+        kindLabel,
+        modelDisplayName,
+      }
+    })
+  }, [availableArtifacts, catalog])
+
+  const filteredCandidates = useMemo(() => {
+    if (!activeQueryRange) return []
+    return filterArtifactMentions(mentionCandidates, activeQueryRange.query)
+  }, [mentionCandidates, activeQueryRange])
+
+  const handleSelectCandidate = (candidate: ArtifactMentionCandidate) => {
+    const currentState: ArtifactMentionDraftState = {
+      mentions,
+      activeQuery: activeQueryRange,
+      selectedIndex: pickerSelectedIndex,
+      feedback: mentionFeedback,
+    }
+    const nextState = addArtifactMention(currentState, candidate, 'context')
+    setMentions(nextState.mentions)
+    setMentionFeedback(nextState.feedback)
+    if (activeQueryRange) {
+      const replaced = replaceActiveMentionQuery(content, activeQueryRange)
+      setContent(replaced.text)
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.selectionStart = replaced.caret
+          textareaRef.current.selectionEnd = replaced.caret
+          textareaRef.current.focus()
+        }
+      }, 0)
+    }
+    setMentionPickerActive(false)
+    setActiveQueryRange(null)
+  }
+
   const handleSend = () => {
     const trimmed = content.trim()
     if ((!trimmed && attachmentIds.length === 0) || isStreaming) return
@@ -407,6 +498,13 @@ export function Composer({
         }
       }
     }
+
+    const payloadMentions: ArtifactMentionInput[] = mentions.map((m) => ({
+      artifactId: m.artifactId,
+      versionId: m.versionId,
+      mode: m.mode,
+    }))
+
     if (compareEnabled) {
       if (!canSendCompare) return
       if (onSendCompare)
@@ -416,6 +514,7 @@ export function Composer({
           skillId,
           attachmentIds,
           enableWebSearch,
+          payloadMentions,
         )
       else
         onSend(
@@ -424,13 +523,25 @@ export function Composer({
           skillId,
           attachmentIds,
           enableWebSearch,
+          payloadMentions,
         )
     } else {
-      onSend(trimmed, modelId, skillId, attachmentIds, enableWebSearch)
+      onSend(
+        trimmed,
+        modelId,
+        skillId,
+        attachmentIds,
+        enableWebSearch,
+        payloadMentions,
+      )
     }
     setContent('')
     setAttachments([])
     setAttachmentIds([])
+    setMentions([])
+    setMentionPickerActive(false)
+    setActiveQueryRange(null)
+    setMentionFeedback(null)
     setError(null)
     if (textareaRef.current) {
       textareaRef.current.style.height = `${MIN_TEXTAREA_HEIGHT}px`
@@ -439,6 +550,44 @@ export function Composer({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionPickerActive && filteredCandidates.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setPickerSelectedIndex((prev) => (prev + 1) % filteredCandidates.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setPickerSelectedIndex(
+          (prev) =>
+            (prev - 1 + filteredCandidates.length) % filteredCandidates.length,
+        )
+        return
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const target = filteredCandidates[pickerSelectedIndex]
+        if (target) {
+          handleSelectCandidate(target)
+        }
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMentionPickerActive(false)
+        setActiveQueryRange(null)
+        return
+      }
+    }
+
+    if (e.key === 'Backspace' && !content && mentions.length > 0) {
+      const last = mentions[mentions.length - 1]
+      if (last) {
+        setMentions(mentions.slice(0, -1))
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -446,7 +595,19 @@ export function Composer({
   }
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value)
+    const val = e.target.value
+    setContent(val)
+    const caret = e.target.selectionStart ?? val.length
+    const query = findActiveMentionQuery(val, caret)
+    if (query && availableArtifacts.length > 0) {
+      setActiveQueryRange(query)
+      setMentionPickerActive(true)
+      setPickerSelectedIndex(0)
+    } else {
+      setActiveQueryRange(null)
+      setMentionPickerActive(false)
+    }
+
     const el = e.target
     el.style.height = '0px'
     const scrollHeight = el.scrollHeight
@@ -517,6 +678,57 @@ export function Composer({
               className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-ink/40 bg-paper text-[15px] font-medium text-stone"
             >
               Drop files here
+            </div>
+          )}
+          {mentionPickerActive && (
+            <ArtifactMentionPicker
+              candidates={filteredCandidates}
+              selectedIndex={pickerSelectedIndex}
+              onSelect={handleSelectCandidate}
+              onClose={() => {
+                setMentionPickerActive(false)
+                setActiveQueryRange(null)
+              }}
+            />
+          )}
+          {mentions.length > 0 && (
+            <ArtifactMentionChips
+              mentions={mentions}
+              onRemove={(id) => {
+                const nextState = removeArtifactMention(
+                  {
+                    mentions,
+                    activeQuery: activeQueryRange,
+                    selectedIndex: pickerSelectedIndex,
+                    feedback: mentionFeedback,
+                  },
+                  id,
+                )
+                setMentions(nextState.mentions)
+                setMentionFeedback(nextState.feedback)
+              }}
+              onModeChange={(id, mode) => {
+                const nextState = setArtifactMentionMode(
+                  {
+                    mentions,
+                    activeQuery: activeQueryRange,
+                    selectedIndex: pickerSelectedIndex,
+                    feedback: mentionFeedback,
+                  },
+                  id,
+                  mode,
+                )
+                setMentions(nextState.mentions)
+                setMentionFeedback(nextState.feedback)
+              }}
+            />
+          )}
+          {mentionFeedback && (
+            <div
+              role="alert"
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] text-amber-800"
+            >
+              {mentionFeedback}
             </div>
           )}
           {attachments.length > 0 && (

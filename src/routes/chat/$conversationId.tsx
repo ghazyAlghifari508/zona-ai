@@ -27,6 +27,11 @@ import type {
 } from '@/lib/artifacts/contracts'
 import { artifactDescriptorSchema } from '@/lib/artifacts/contracts'
 import {
+  type ArtifactMentionDraft,
+  type ArtifactMentionInput,
+  resolveArtifactDispatch,
+} from '@/lib/artifacts/mentions'
+import {
   closeArtifactPanel,
   closeArtifactTab,
   createInitialArtifactWorkspace,
@@ -45,11 +50,7 @@ import {
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
-import {
-  artifactKindForSkill,
-  buildArtifactAck,
-  isArtifactSkill,
-} from '@/lib/chat/skills'
+import { artifactKindForSkill, buildArtifactAck } from '@/lib/chat/skills'
 import { getDefaultModelPreference } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
@@ -58,6 +59,7 @@ import {
 } from '@/server/functions/artifacts'
 import {
   generateArtifact,
+  generateArtifacts,
   generateCompareArtifacts,
   retryGeneration,
   sendCompareMessage,
@@ -192,6 +194,9 @@ function ChatThread() {
   const [credits, setCredits] = useState(creditBalance)
   const [resettingCredits, setResettingCredits] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [composerMentions, setComposerMentions] = useState<
+    ArtifactMentionDraft[]
+  >([])
 
   const handleOpenArtifact = (artifact: ArtifactDescriptor) => {
     setArtifactWorkspace((current) =>
@@ -609,18 +614,295 @@ function ChatThread() {
     }
   }
 
+  const handleSendArtifactRevise = async (
+    content: string,
+    modelId: string,
+    targets: ArtifactMentionInput[],
+    contextMentions: ArtifactMentionInput[],
+    attachmentIds?: string[],
+    enableWebSearch?: boolean,
+  ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
+    }
+    const assistantIds = targets.map(() => crypto.randomUUID())
+    const assistantMsgs: ChatMessage[] = targets.map((target, idx) => {
+      const summary = artifactSummaries.find(
+        (s) => s.artifactId === target.artifactId,
+      )
+      const kind = summary?.kind ?? 'prd'
+      return {
+        id: assistantIds[idx],
+        role: 'assistant',
+        content: '',
+        modelId,
+        streaming: true,
+        artifactStatus: 'preparing',
+        artifactKind: kind,
+        artifactAck: buildArtifactAck(kind, content),
+      }
+    })
+    setMessages((prev) => [...prev, userMsg, ...assistantMsgs])
+    setIsStreaming(true)
+
+    try {
+      const response = (await generateArtifacts({
+        data: {
+          conversationId,
+          modelId,
+          content,
+          operation: {
+            type: 'revise',
+            targets,
+            context: contextMentions,
+          },
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
+      })) as Response
+
+      const genId = response.headers.get('X-Generation-Id')
+      if (genId) setGenerationId(genId)
+
+      refreshConversationList()
+      setTimeout(refreshConversationList, 3000)
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('Response stream not readable')
+
+      const decoder = new TextDecoder()
+      const parser = createArtifactSseParser({
+        onEvent: (event) => {
+          if (event.type === 'artifact-created') {
+            const descriptor = mergeCreatedArtifact(event)
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.role !== 'assistant') return msg
+                if (msg.artifactKind === event.kind) {
+                  return {
+                    ...msg,
+                    artifact: descriptor,
+                    artifactStatus: 'completed' as const,
+                    content: event.summary,
+                    streaming: false,
+                  }
+                }
+                return msg
+              }),
+            )
+          } else if (event.type === 'artifact-status') {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (
+                  msg.role === 'assistant' &&
+                  event.generationId === msg.generationRunId
+                ) {
+                  return {
+                    ...msg,
+                    artifactStatus: event.phase,
+                    artifactSection: event.section,
+                  }
+                }
+                return msg
+              }),
+            )
+          } else if (event.type === 'artifact-error') {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (
+                  msg.role === 'assistant' &&
+                  event.generationId === msg.generationRunId
+                ) {
+                  return {
+                    ...msg,
+                    artifactStatus: 'failed' as const,
+                    errorMessage: event.message ?? 'Revisi artifact gagal.',
+                    streaming: false,
+                  }
+                }
+                return msg
+              }),
+            )
+          }
+        },
+        onError: () => {},
+      })
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.push(decoder.decode(value, { stream: true }))
+      }
+      parser.flush()
+
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      refreshConversationList()
+      void refreshCredits()
+    } catch (e) {
+      const err = e as Error & { status?: number; code?: string }
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          (assistantIds as readonly string[]).includes(m.id)
+            ? {
+                ...m,
+                artifactStatus: 'failed',
+                errorMessage: err.message || 'Revisi artifact gagal.',
+                streaming: false,
+              }
+            : m,
+        ),
+      )
+    } finally {
+      setIsStreaming(false)
+      setGenerationId(null)
+    }
+  }
+
+  const handleSendCompareArtifactRevise = async (
+    content: string,
+    modelIds: string[],
+    targets: ArtifactMentionInput[],
+    contextMentions: ArtifactMentionInput[],
+    attachmentIds?: string[],
+    enableWebSearch?: boolean,
+  ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
+    }
+    const compareAssistantId = crypto.randomUUID()
+    const initialGens = modelIds.map((mid) => ({
+      id: crypto.randomUUID(),
+      modelId: mid,
+      status: 'streaming',
+      content: '',
+    }))
+    const compareMsg: ChatMessage = {
+      id: compareAssistantId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      compareGenerations: initialGens,
+    }
+    setMessages((prev) => [...prev, userMsg, compareMsg])
+    setIsStreaming(true)
+
+    try {
+      const response = (await generateCompareArtifacts({
+        data: {
+          conversationId,
+          modelIds,
+          content,
+          operation: {
+            type: 'revise',
+            targets,
+            context: contextMentions,
+          },
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
+      })) as Response
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('Response stream not readable')
+
+      const createdArtifacts: ArtifactDescriptor[] = []
+      const decoder = new TextDecoder()
+      const parser = createArtifactSseParser({
+        onEvent: (event) => {
+          if (event.type === 'artifact-created') {
+            const descriptor = mergeCreatedArtifact(event)
+            createdArtifacts.push(descriptor)
+          }
+        },
+        onError: () => {},
+      })
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.push(decoder.decode(value, { stream: true }))
+      }
+      parser.flush()
+
+      if (createdArtifacts.length > 0) {
+        handleOpenArtifacts(createdArtifacts)
+      }
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      refreshConversationList()
+      void refreshCredits()
+    } catch (e) {
+      const err = e as Error & { status?: number; code?: string }
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
+      }
+    } finally {
+      setIsStreaming(false)
+      setGenerationId(null)
+    }
+  }
+
   const handleSend = async (
     content: string,
     modelId: string,
     skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
+    artifactMentions: ArtifactMentionInput[] = [],
   ) => {
-    if (isArtifactSkill(skillId)) {
+    const dispatch = resolveArtifactDispatch({
+      skillId: skillId as Parameters<
+        typeof resolveArtifactDispatch
+      >[0]['skillId'],
+      mentions: artifactMentions,
+    })
+
+    if (dispatch.type === 'artifact-revise') {
+      return handleSendArtifactRevise(
+        content,
+        modelId,
+        dispatch.targets,
+        dispatch.context,
+        attachmentIds,
+        enableWebSearch,
+      )
+    }
+
+    if (dispatch.type === 'artifact-create') {
       return handleSendArtifact(
         content,
         modelId,
-        skillId,
+        dispatch.skillId,
         attachmentIds,
         enableWebSearch,
       )
@@ -629,6 +911,15 @@ function ChatThread() {
       id: crypto.randomUUID(),
       role: 'user',
       content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
     }
     const assistantId = crypto.randomUUID()
     const assistantMsg: ChatMessage = {
@@ -649,6 +940,7 @@ function ChatThread() {
           content,
           attachmentIds,
           enableWebSearch: enableWebSearch ?? false,
+          artifactMentions,
         },
       })) as Response
       const genId = response.headers.get('X-Generation-Id')
@@ -921,17 +1213,37 @@ function ChatThread() {
     skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
+    artifactMentions: ArtifactMentionInput[] = [],
   ) => {
     if (!isCompareSelectionValid(modelIds)) return
     setMode('compare')
     void setConversationMode({
       data: { id: conversationId, mode: 'compare' },
     }).catch(() => {})
-    if (isArtifactSkill(skillId)) {
+
+    const dispatch = resolveArtifactDispatch({
+      skillId: skillId as Parameters<
+        typeof resolveArtifactDispatch
+      >[0]['skillId'],
+      mentions: artifactMentions,
+    })
+
+    if (dispatch.type === 'artifact-revise') {
+      return handleSendCompareArtifactRevise(
+        content,
+        modelIds,
+        dispatch.targets,
+        dispatch.context,
+        attachmentIds,
+        enableWebSearch,
+      )
+    }
+
+    if (dispatch.type === 'artifact-create') {
       return handleSendCompareArtifact(
         content,
         modelIds,
-        skillId,
+        dispatch.skillId,
         attachmentIds,
         enableWebSearch,
       )
@@ -940,6 +1252,15 @@ function ChatThread() {
       id: crypto.randomUUID(),
       role: 'user',
       content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
     }
     const compareAssistantId = crypto.randomUUID()
     const initialGens = modelIds.map((mid) => ({
@@ -981,6 +1302,7 @@ function ChatThread() {
           content,
           attachmentIds,
           enableWebSearch: enableWebSearch ?? false,
+          artifactMentions,
         },
       })) as Response
 
@@ -1875,6 +2197,9 @@ function ChatThread() {
                     onCompareModelIdsChange={setCompareModelIds}
                     conversationId={conversationId}
                     placement="inline"
+                    availableArtifacts={artifactSummaries}
+                    mentionsValue={composerMentions}
+                    onMentionsChange={setComposerMentions}
                   />
                 </div>
               </div>
