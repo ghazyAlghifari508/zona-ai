@@ -18,6 +18,7 @@ import {
   vector,
 } from 'drizzle-orm/pg-core'
 import { ARTIFACT_KINDS, type ArtifactKind } from '../artifacts/contracts'
+import type { ArtifactMentionMode } from '../artifacts/mentions'
 import {
   ARTIFACT_TITLE_MAX_LENGTH,
   EMBEDDING_DIMENSION,
@@ -420,6 +421,60 @@ export const artifacts = pgTable(
       columns: [table.currentVersionId, table.id],
       foreignColumns: [artifactVersions.id, artifactVersions.artifactId],
     }).onDelete('restrict'),
+  ],
+)
+
+export const messageArtifactMentions = pgTable(
+  'message_artifact_mentions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id').notNull(),
+    artifactId: uuid('artifact_id').notNull(),
+    versionId: uuid('version_id').notNull(),
+    mode: text('mode').$type<ArtifactMentionMode>().notNull(),
+    position: integer('position').notNull(),
+    titleSnapshot: text('title_snapshot').notNull(),
+    kindSnapshot: text('kind_snapshot').$type<ArtifactKind>().notNull(),
+    versionSnapshot: integer('version_snapshot').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('message_artifact_mentions_message_artifact_unique').on(
+      table.messageId,
+      table.artifactId,
+    ),
+    uniqueIndex('message_artifact_mentions_message_position_unique').on(
+      table.messageId,
+      table.position,
+    ),
+    index('message_artifact_mentions_message_id_idx').on(table.messageId),
+    index('message_artifact_mentions_artifact_id_idx').on(table.artifactId),
+    index('message_artifact_mentions_version_id_idx').on(table.versionId),
+    foreignKey({
+      name: 'message_artifact_mentions_message_scope_fk',
+      columns: [table.messageId, table.conversationId],
+      foreignColumns: [messages.id, messages.conversationId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'message_artifact_mentions_artifact_version_scope_fk',
+      columns: [table.versionId, table.artifactId, table.conversationId],
+      foreignColumns: [
+        artifactVersions.id,
+        artifactVersions.artifactId,
+        artifactVersions.conversationId,
+      ],
+    }).onDelete('cascade'),
+    check(
+      'message_artifact_mentions_mode_check',
+      sql`${table.mode} IN ('context', 'revise')`,
+    ),
+    check(
+      'message_artifact_mentions_position_nonnegative_check',
+      sql`${table.position} >= 0`,
+    ),
   ],
 )
 

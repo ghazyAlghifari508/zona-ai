@@ -67,7 +67,7 @@ export async function generateArtifactCore({
       conversationId: data.conversationId,
       modelId: data.modelId,
       content: data.content,
-      operation: { type: 'create', skillId: data.skillId },
+      operation: { type: 'create', skillId: data.skillId, context: [] },
       attachmentIds: data.attachmentIds,
       enableWebSearch: data.enableWebSearch,
     },
