@@ -157,7 +157,8 @@ function ChatHome() {
   useEffect(() => setDraft(takeGuestDraft()), [])
 
   const signIn = async (content?: string) => {
-    if (content) saveGuestDraft(content)
+    const draftToSave = content ?? draft
+    if (draftToSave) saveGuestDraft(draftToSave)
     setSigningIn(true)
     setAuthError(null)
     try {
@@ -342,8 +343,9 @@ function ChatHome() {
                   key={composerKey}
                   placement="inline"
                   guest={authStatus === 'unauthenticated'}
-                  onSignIn={() => void signIn()}
+                  onSignIn={() => void signIn(draft)}
                   initialContent={draft}
+                  onDraftChange={setDraft}
                   isStreaming={submitting}
                   autoFocusInput
                   credits={credits}

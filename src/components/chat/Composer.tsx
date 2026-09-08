@@ -66,6 +66,9 @@ type Props = {
   conversationId?: string
   guest?: boolean
   onSignIn?: () => void
+  value?: string
+  onChange?: (val: string) => void
+  onDraftChange?: (draft: string) => void
   initialContent?: string
   placement?: 'fixed' | 'inline'
   autoFocusInput?: boolean
@@ -95,6 +98,9 @@ export function Composer({
   conversationId,
   guest = false,
   onSignIn,
+  value,
+  onChange,
+  onDraftChange,
   initialContent = '',
   placement = 'fixed',
   autoFocusInput = false,
@@ -106,7 +112,20 @@ export function Composer({
   mentionsValue,
   onMentionsChange,
 }: Props) {
-  const [content, setContent] = useState(initialContent)
+  const [internalContent, setInternalContent] = useState(initialContent)
+  const isControlled = value !== undefined
+  const content = isControlled ? value : internalContent
+
+  const updateContent = useCallback(
+    (val: string) => {
+      if (!isControlled) {
+        setInternalContent(val)
+      }
+      onChange?.(val)
+      onDraftChange?.(val)
+    },
+    [isControlled, onChange, onDraftChange],
+  )
   const [internalModelId, setInternalModelId] = useState(() =>
     initialModel !== 'auto' ? initialModel : getDefaultModelPreference(),
   )
@@ -172,7 +191,21 @@ export function Composer({
     el.style.overflowY = scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden'
   }, [])
 
-  useEffect(() => setContent(initialContent), [initialContent])
+  const prevInitialContentRef = useRef(initialContent)
+  useEffect(() => {
+    if (prevInitialContentRef.current !== initialContent) {
+      const prev = prevInitialContentRef.current
+      prevInitialContentRef.current = initialContent
+      if (!isControlled) {
+        setInternalContent((current) => {
+          if (!current || current === prev) {
+            return initialContent
+          }
+          return current
+        })
+      }
+    }
+  }, [initialContent, isControlled])
 
   useLayoutEffect(() => {
     void content
@@ -456,7 +489,7 @@ export function Composer({
     setMentionFeedback(nextState.feedback)
     if (activeQueryRange) {
       const replaced = replaceActiveMentionQuery(content, activeQueryRange)
-      setContent(replaced.text)
+      updateContent(replaced.text)
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = replaced.caret
@@ -535,7 +568,7 @@ export function Composer({
         payloadMentions,
       )
     }
-    setContent('')
+    updateContent('')
     setAttachments([])
     setAttachmentIds([])
     setMentions([])
@@ -596,7 +629,7 @@ export function Composer({
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
-    setContent(val)
+    updateContent(val)
     const caret = e.target.selectionStart ?? val.length
     const query = findActiveMentionQuery(val, caret)
     if (query && availableArtifacts.length > 0) {
