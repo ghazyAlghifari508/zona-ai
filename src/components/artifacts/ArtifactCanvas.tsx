@@ -7,9 +7,8 @@ import {
 } from 'react'
 import { MarkdownContent } from '@/components/chat/MarkdownContent'
 import {
-  getStoredArtifactMarkdown,
-  setStoredArtifactMarkdown,
-  toggleMarkdownTask,
+  getStoredArtifactChecklist,
+  setStoredArtifactChecklist,
 } from '@/lib/artifacts/checklist-toggle'
 import type { ArtifactDetail, ArtifactSummary } from '@/lib/artifacts/contracts'
 import {
@@ -145,20 +144,28 @@ function ActiveArtifactCanvas({
     activeSummary.artifactId,
     activeVersionId,
   )
-  const [localMarkdown, setLocalMarkdown] = useState<string | null>(() =>
-    getStoredArtifactMarkdown(versionKey),
+  const [checklistState, setChecklistState] = useState<Record<string, boolean>>(
+    () => getStoredArtifactChecklist(activeSummary.artifactId, activeVersionId),
   )
 
   useEffect(() => {
-    setLocalMarkdown(getStoredArtifactMarkdown(versionKey))
-  }, [versionKey])
+    setChecklistState(
+      getStoredArtifactChecklist(activeSummary.artifactId, activeVersionId),
+    )
+  }, [activeSummary.artifactId, activeVersionId])
 
-  const activeSource = localMarkdown ?? content.source ?? ''
+  const activeSource = content.source ?? ''
 
-  const handleToggleTask = (taskIndex: number, nextChecked: boolean) => {
-    const updated = toggleMarkdownTask(activeSource, taskIndex, nextChecked)
-    setLocalMarkdown(updated)
-    setStoredArtifactMarkdown(versionKey, updated)
+  const handleToggleTask = (itemId: string, nextChecked: boolean) => {
+    setChecklistState((prev) => {
+      const next = { ...prev, [itemId]: nextChecked }
+      setStoredArtifactChecklist(
+        activeSummary.artifactId,
+        activeVersionId,
+        next,
+      )
+      return next
+    })
   }
 
   const savedScrollTop = workspace.scrollTopByVersionKey[versionKey] ?? 0
@@ -270,6 +277,7 @@ function ActiveArtifactCanvas({
         ) : (
           <MarkdownContent
             text={activeSource}
+            taskOverrides={checklistState}
             onToggleTask={handleToggleTask}
           />
         )}

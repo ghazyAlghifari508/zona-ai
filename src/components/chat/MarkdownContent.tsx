@@ -1,9 +1,15 @@
-import type { ComponentProps, ReactNode } from 'react'
-import { memo } from 'react'
+import {
+  Children,
+  type ComponentProps,
+  isValidElement,
+  memo,
+  type ReactNode,
+} from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
+import { createChecklistItemId } from '@/lib/artifacts/checklist-toggle'
 import {
   chatHighlightOptions,
   extractRawText,
@@ -88,27 +94,87 @@ export const CHAT_MARKDOWN_COMPONENTS: NonNullable<
     className?: string
   }) => {
     const isTaskItem = className?.includes('task-list-item')
+    if (!isTaskItem) {
+      return (
+        <li className={`list-item ${className ?? ''}`} {...props}>
+          {children}
+        </li>
+      )
+    }
+
+    let baseChecked = false
+    const inlineChildren: ReactNode[] = []
+    const blockChildren: ReactNode[] = []
+
+    Children.forEach(children, (child) => {
+      if (isValidElement<{ checked?: boolean; type?: string }>(child)) {
+        if (
+          child.props &&
+          ('checked' in child.props || child.props.type === 'checkbox')
+        ) {
+          baseChecked = Boolean(child.props.checked)
+          return
+        }
+        if (child.type === 'ul' || child.type === 'ol') {
+          blockChildren.push(child)
+          return
+        }
+      }
+      inlineChildren.push(child)
+    })
+
     return (
-      <li
-        className={`${isTaskItem ? 'list-none' : 'list-item'} ${className ?? ''}`}
-        {...props}
-      >
-        {children}
+      <li className={`list-none my-1.5 ${className ?? ''}`} {...props}>
+        <label className="group inline-flex items-start gap-2.5 cursor-default select-none">
+          <input
+            type="checkbox"
+            checked={baseChecked}
+            disabled
+            className="mt-1 h-4 w-4 shrink-0 rounded border border-hairline accent-notion-blue align-middle"
+          />
+          <span
+            className={`min-w-0 flex-1 text-[15px] leading-[1.6] transition-colors duration-150 [overflow-wrap:anywhere] ${
+              baseChecked ? 'line-through text-stone' : 'text-ink'
+            }`}
+          >
+            {inlineChildren}
+          </span>
+        </label>
+        {blockChildren}
       </li>
     )
   },
+  input: ({
+    type,
+    checked,
+    disabled,
+    ...rest
+  }: {
+    type?: string
+    checked?: boolean
+    disabled?: boolean
+  }) => {
+    if (type === 'checkbox') {
+      return null
+    }
+    return <input type={type} checked={checked} disabled={disabled} {...rest} />
+  },
+}
+
+export type MarkdownContentProps = {
+  text: string
+  className?: string
+  taskOverrides?: Record<string, boolean>
+  onToggleTask?: (itemId: string, checked: boolean) => void
 }
 
 export const MarkdownContent = memo(function MarkdownContent({
   text,
   className,
+  taskOverrides,
   onToggleTask,
-}: {
-  text: string
-  className?: string
-  onToggleTask?: (taskIndex: number, checked: boolean) => void
-}) {
-  let taskCounter = 0
+}: MarkdownContentProps) {
+  const occurrenceMap = new Map<string, number>()
 
   return (
     <div
@@ -122,24 +188,86 @@ export const MarkdownContent = memo(function MarkdownContent({
         rehypePlugins={CHAT_MARKDOWN_PLUGINS}
         components={{
           ...CHAT_MARKDOWN_COMPONENTS,
+          li: ({ children, className, ...props }) => {
+            const isTaskItem = className?.includes('task-list-item')
+            if (!isTaskItem) {
+              return (
+                <li className={`list-item ${className ?? ''}`} {...props}>
+                  {children}
+                </li>
+              )
+            }
+
+            let baseChecked = false
+            const inlineChildren: ReactNode[] = []
+            const blockChildren: ReactNode[] = []
+
+            Children.forEach(children, (child) => {
+              if (isValidElement<{ checked?: boolean; type?: string }>(child)) {
+                if (
+                  child.props &&
+                  ('checked' in child.props || child.props.type === 'checkbox')
+                ) {
+                  baseChecked = Boolean(child.props.checked)
+                  return
+                }
+                if (child.type === 'ul' || child.type === 'ol') {
+                  blockChildren.push(child)
+                  return
+                }
+              }
+              inlineChildren.push(child)
+            })
+
+            const rawText = extractRawText(inlineChildren).trim()
+            const occurrence = occurrenceMap.get(rawText) ?? 0
+            occurrenceMap.set(rawText, occurrence + 1)
+            const itemId = createChecklistItemId(rawText, occurrence)
+
+            const isChecked = taskOverrides?.[itemId] ?? baseChecked
+
+            return (
+              <li
+                className={`list-none my-1.5 ${className ?? ''}`}
+                data-testid={`task-item-${itemId}`}
+                data-completed={isChecked}
+                {...props}
+              >
+                <label
+                  className={`group inline-flex items-start gap-2.5 ${
+                    onToggleTask
+                      ? 'cursor-pointer select-none'
+                      : 'cursor-default'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    disabled={!onToggleTask}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      onToggleTask?.(itemId, e.target.checked)
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`mt-1 h-4 w-4 shrink-0 rounded border border-hairline accent-notion-blue align-middle transition-colors ${
+                      onToggleTask ? 'cursor-pointer' : 'cursor-default'
+                    }`}
+                  />
+                  <span
+                    className={`min-w-0 flex-1 text-[15px] leading-[1.6] transition-colors duration-150 [overflow-wrap:anywhere] ${
+                      isChecked ? 'line-through text-stone' : 'text-ink'
+                    }`}
+                  >
+                    {inlineChildren}
+                  </span>
+                </label>
+                {blockChildren}
+              </li>
+            )
+          },
           input: ({ type, checked, disabled, ...rest }) => {
             if (type === 'checkbox') {
-              const index = taskCounter++
-              return (
-                <input
-                  type="checkbox"
-                  checked={Boolean(checked)}
-                  disabled={!onToggleTask}
-                  onChange={(e) => {
-                    e.stopPropagation()
-                    onToggleTask?.(index, e.target.checked)
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className={`mr-2 h-4 w-4 rounded border border-hairline accent-notion-blue align-middle transition-colors ${
-                    onToggleTask ? 'cursor-pointer' : 'cursor-default'
-                  }`}
-                />
-              )
+              return null
             }
             return (
               <input
