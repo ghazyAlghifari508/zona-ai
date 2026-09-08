@@ -35,7 +35,9 @@ const serverFunctionFiles = [
 // boundary themselves. Auth is enforced by their request-owning callers,
 // which the checks below still require to call getAuthSession.
 const NO_REQUEST_BOUNDARY = new Set([
+  'artifact-catalog-context.ts',
   'artifact-finalization.ts',
+  'artifact-mentions.ts',
   'artifact-operations.ts',
   'artifact-profiles.ts',
   'artifact-repository.ts',
