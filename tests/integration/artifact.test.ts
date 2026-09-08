@@ -394,7 +394,11 @@ describe('artifact generation', () => {
       .from(attachments)
       .where(eq(attachments.conversationId, convId))
     expect(attRows.length).toBe(0)
-    expect(r2.deleteObject).not.toHaveBeenCalled()
+    const [attemptedWrite] = vi.mocked(r2.putObject).mock.calls[0] ?? []
+    if (!attemptedWrite) throw new Error('missing attempted R2 write')
+    expect(vi.mocked(r2.deleteObject).mock.calls).toEqual([
+      [{ bucket: attemptedWrite.bucket, key: attemptedWrite.key }],
+    ])
     const [run] = await db
       .select()
       .from(generationRuns)
@@ -539,9 +543,7 @@ describe('artifact generation', () => {
     expect(
       retryEvents.some((e) => e.type === 'artifact-error' && e.retryable),
     ).toBe(true)
-    expect(
-      retryEvents.some((e) => e.type === 'artifact-created'),
-    ).toBe(false)
+    expect(retryEvents.some((e) => e.type === 'artifact-created')).toBe(false)
     expect(await getCredits(USER)).toBe(creditsBefore)
   })
 })
@@ -821,9 +823,11 @@ describe('artifact finalization boundary', () => {
       .insert(conversations)
       .values({ userId, title: 'Finalize fixture', mode: 'normal' })
       .returning()
-    await db
-      .insert(messages)
-      .values({ conversationId: conv.id, role: 'user', content: 'Buatkan artefak' })
+    await db.insert(messages).values({
+      conversationId: conv.id,
+      role: 'user',
+      content: 'Buatkan artefak',
+    })
     return conv.id
   }
 
@@ -944,7 +948,9 @@ describe('artifact finalization boundary', () => {
       .select()
       .from(messages)
       .where(eq(messages.id, seed.assistantMsgId))
-    expect(assistantMsg.content).toBe('Skill `Finalize Fixture` selesai dibuat.')
+    expect(assistantMsg.content).toBe(
+      'Skill `Finalize Fixture` selesai dibuat.',
+    )
 
     const [run] = await db
       .select()
@@ -972,7 +978,9 @@ describe('artifact finalization boundary', () => {
     const created = await finalizeArtifactVersion(createInput(USER, seed))
 
     const next = await seedStreamingGeneration(USER, seed.convId)
-    const revisedBytes = new TextEncoder().encode('# Finalize fixture\n\nRevised bytes.\n')
+    const revisedBytes = new TextEncoder().encode(
+      '# Finalize fixture\n\nRevised bytes.\n',
+    )
     const revised = await finalizeArtifactVersion({
       userId: USER,
       conversationId: next.convId,
@@ -1211,7 +1219,11 @@ describe('artifact finalization boundary', () => {
     )
     const { stopGenerationCore } = await import('../../src/server/core/chat')
     let releaseGate!: () => void
-    __setNextStreamGate(new Promise<void>((resolve) => { releaseGate = resolve }))
+    __setNextStreamGate(
+      new Promise<void>((resolve) => {
+        releaseGate = resolve
+      }),
+    )
     __setNextArtifactOutput(FRONTEND_SKILL)
     try {
       const res = await generateArtifactCore({
@@ -1334,7 +1346,9 @@ describe('checklist artifact generation', () => {
     const [run] = await db
       .select()
       .from(generationRuns)
-      .where(eq(generationRuns.id, res.headers.get('X-Generation-Id') as string))
+      .where(
+        eq(generationRuns.id, res.headers.get('X-Generation-Id') as string),
+      )
     expect(run.skillId).toBe('checklist')
     expect(run.content?.startsWith('# Checklist puasa')).toBe(true)
   })
