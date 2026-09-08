@@ -71,7 +71,9 @@ export const ModelColumn = memo(function ModelColumn({
 
   const isFailedOrEmptyCompleted =
     generation.status === 'failed' ||
-    (generation.status === 'completed' && !hasVisibleContent)
+    (generation.status === 'completed' &&
+      !hasVisibleContent &&
+      !generation.artifact)
 
   const errorToHumanize =
     generation.error ??
