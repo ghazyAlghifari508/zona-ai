@@ -1,5 +1,5 @@
 import mermaid from 'mermaid'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { CodeBlock } from './CodeBlock'
 
 type Props = {
@@ -59,6 +59,19 @@ export function MermaidBlock({ code }: Props) {
     }
   }, [code, elementId])
 
+  const svgContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (mode !== 'preview' || !svgContainerRef.current) return
+    if (svg) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(svg, 'image/svg+xml')
+      svgContainerRef.current.replaceChildren(doc.documentElement)
+    } else {
+      svgContainerRef.current.replaceChildren()
+    }
+  }, [svg, mode])
+
   if (error) {
     return (
       <div data-testid="mermaid-fallback" className="my-3">
@@ -108,10 +121,9 @@ export function MermaidBlock({ code }: Props) {
       </div>
 
       {mode === 'preview' ? (
-        <div className="flex min-w-0 max-w-full justify-center overflow-x-auto p-4 [&>svg]:h-auto [&>svg]:max-w-full">
+        <div className="flex min-w-0 max-w-full justify-center overflow-x-auto p-4 [&>div>svg]:h-auto [&>div>svg]:max-w-full [&>svg]:h-auto [&>svg]:max-w-full">
           {svg ? (
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized output from mermaid.render
-            <div dangerouslySetInnerHTML={{ __html: svg }} />
+            <div ref={svgContainerRef} />
           ) : (
             <span className="text-[13px] text-stone">Memuat diagram...</span>
           )}
