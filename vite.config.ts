@@ -7,6 +7,10 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   server: {
     port: 3000,
+    watch: {
+      // Test output must never trigger dev HMR.
+      ignored: ['**/test-results/**', '**/playwright-report/**'],
+    },
   },
   resolve: {
     tsconfigPaths: true,
