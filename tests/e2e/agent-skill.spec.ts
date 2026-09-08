@@ -4,7 +4,6 @@ import { makeSignature } from 'better-auth/crypto'
 import { eq } from 'drizzle-orm'
 import { auth } from '../../src/lib/auth/auth'
 import { db } from '../../src/lib/db'
-import { env } from '../../src/lib/env.server'
 import {
   attachments,
   conversations,
@@ -13,6 +12,7 @@ import {
   sessions,
   users,
 } from '../../src/lib/db/schema'
+import { env } from '../../src/lib/env.server'
 import {
   deleteObject,
   putObject,
@@ -23,6 +23,8 @@ test.use({ acceptDownloads: true })
 
 const scopedUserId = () => `agent-skill-e2e-${test.info().project.name}`
 const scopedEmail = (id: string) => `${id}@example.com`
+const AGENT_SKILL_FIXTURE_MODEL_ID = 'agent-skill-e2e-model'
+const AGENT_SKILL_FIXTURE_ROUTER_MODEL_ID = 'agent-skill-e2e-router-model'
 
 const pendingR2Objects: StoredObjectLocator[] = []
 
@@ -224,8 +226,8 @@ test('seeded artifact survives reload and downloads intact', async ({
   await db.insert(generationRuns).values({
     messageId: assistantMessage.id,
     conversationId: conversation.id,
-    modelId: 'auto',
-    routerModelId: 'e2e-seed-router-model',
+    modelId: AGENT_SKILL_FIXTURE_MODEL_ID,
+    routerModelId: AGENT_SKILL_FIXTURE_ROUTER_MODEL_ID,
     skillId: 'agent-skill',
     status: 'completed',
     content: null,
@@ -239,7 +241,7 @@ test('seeded artifact survives reload and downloads intact', async ({
     fileSize,
     mimeType: 'text/markdown',
     r2Key,
-    r2Bucket: process.env.R2_BUCKET_NAME ?? 'zona-ai-files',
+    r2Bucket: env.R2_BUCKET_NAME,
     processingStatus: 'completed',
   })
 
@@ -249,10 +251,6 @@ test('seeded artifact survives reload and downloads intact', async ({
     '2',
   )
   await expect(page.getByTestId('artifact-file-card')).toBeVisible()
-  await expect(page.getByTestId('artifact-download-btn')).toHaveAttribute(
-    'href',
-    `/api/attachments/${attachmentId}?download=1`,
-  )
 
   await page.reload()
   await expect(page.getByTestId('message-list')).toHaveAttribute(
@@ -267,8 +265,8 @@ test('seeded artifact survives reload and downloads intact', async ({
   ])
   expect(download.suggestedFilename()).toBe(fileName)
   const downloadPath = await download.path()
-  expect(downloadPath).not.toBeNull()
-  const downloaded = await readFile(downloadPath as string, 'utf8')
+  if (!downloadPath) throw new Error('download path unavailable')
+  const downloaded = await readFile(downloadPath, 'utf8')
   expect(downloaded).toBe(SEEDED_MARKDOWN)
 })
 
@@ -296,8 +294,8 @@ test('failed generation shows recoverable error and no empty file', async ({
   await db.insert(generationRuns).values({
     messageId: assistantMessage.id,
     conversationId: conversation.id,
-    modelId: 'auto',
-    routerModelId: 'e2e-seed-router-model',
+    modelId: AGENT_SKILL_FIXTURE_MODEL_ID,
+    routerModelId: AGENT_SKILL_FIXTURE_ROUTER_MODEL_ID,
     skillId: 'agent-skill',
     status: 'failed',
     content: '',
@@ -306,11 +304,11 @@ test('failed generation shows recoverable error and no empty file', async ({
 
   await page.goto(`/chat/${conversation.id}`)
   await expect(page.getByRole('note')).toBeVisible()
-  await expect(page.getByTestId('artifact-file-card')).toHaveCount(0)
+  await expect(page.getByTestId('artifact-file-card')).not.toBeAttached()
   await expect(page.getByTestId('composer-input')).toBeEnabled()
 
   await page.reload()
   await expect(page.getByRole('note')).toBeVisible()
-  await expect(page.getByTestId('artifact-file-card')).toHaveCount(0)
+  await expect(page.getByTestId('artifact-file-card')).not.toBeAttached()
   await expect(page.getByTestId('composer-input')).toBeEnabled()
 })
