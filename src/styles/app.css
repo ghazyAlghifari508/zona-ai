@@ -319,16 +319,48 @@ textarea::-webkit-scrollbar-button {
 .chat-prose h1 + p {
   margin-top: 0.5em;
 }
-.chat-prose ul,
+.chat-prose ul {
+  list-style-type: disc;
+  padding-left: 1.6em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
 .chat-prose ol {
-  padding-left: 1.5em;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4em;
+  list-style-type: decimal;
+  padding-left: 1.6em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.chat-prose ul ul {
+  list-style-type: circle;
+}
+.chat-prose ul ul ul {
+  list-style-type: square;
+}
+.chat-prose ol ol {
+  list-style-type: lower-alpha;
+}
+.chat-prose li {
+  display: list-item;
+}
+.chat-prose li + li {
+  margin-top: 0.35em;
 }
 .chat-prose li > ul,
 .chat-prose li > ol {
-  margin-top: 0.4em;
+  margin-top: 0.35em;
+  margin-bottom: 0;
+  padding-left: 1.4em;
+}
+.chat-prose ul.contains-task-list,
+.chat-prose ul:has(> li.task-list-item),
+.chat-prose ul:has(> li > input[type="checkbox"]) {
+  list-style-type: none;
+  padding-left: 0.25em;
+}
+.chat-prose li.task-list-item,
+.chat-prose li:has(> input[type="checkbox"]) {
+  list-style-type: none;
 }
 .chat-prose table {
   width: 100%;

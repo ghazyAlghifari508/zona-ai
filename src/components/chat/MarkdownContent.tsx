@@ -44,6 +44,59 @@ export const CHAT_MARKDOWN_COMPONENTS: NonNullable<
     )
   },
   pre: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  ul: ({
+    children,
+    className,
+    ...props
+  }: {
+    children?: ReactNode
+    className?: string
+  }) => {
+    const isTaskList = className?.includes('contains-task-list')
+    return (
+      <ul
+        className={`${
+          isTaskList ? 'list-none pl-1' : 'list-disc pl-6'
+        } my-2 space-y-1 ${className ?? ''}`}
+        {...props}
+      >
+        {children}
+      </ul>
+    )
+  },
+  ol: ({
+    children,
+    className,
+    ...props
+  }: {
+    children?: ReactNode
+    className?: string
+  }) => (
+    <ol
+      className={`list-decimal pl-6 my-2 space-y-1 ${className ?? ''}`}
+      {...props}
+    >
+      {children}
+    </ol>
+  ),
+  li: ({
+    children,
+    className,
+    ...props
+  }: {
+    children?: ReactNode
+    className?: string
+  }) => {
+    const isTaskItem = className?.includes('task-list-item')
+    return (
+      <li
+        className={`${isTaskItem ? 'list-none' : 'list-item'} ${className ?? ''}`}
+        {...props}
+      >
+        {children}
+      </li>
+    )
+  },
 }
 
 export const MarkdownContent = memo(function MarkdownContent({

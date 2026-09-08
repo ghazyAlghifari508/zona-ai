@@ -23,6 +23,42 @@ describe('shared markdown renderer', () => {
     expect(screen.getByRole('cell', { name: 'PRD' })).toBeTruthy()
     expect(screen.getByRole('checkbox')).not.toBeChecked()
   })
+
+  it('renders unordered list with bullet list items', () => {
+    const { container } = render(
+      React.createElement(MarkdownContent, {
+        text: '- First item\n- Second item\n- Third item',
+      }),
+    )
+    const ul = container.querySelector('ul')
+    expect(ul).toBeTruthy()
+    const items = container.querySelectorAll('li')
+    expect(items.length).toBe(3)
+  })
+
+  it('renders ordered list with numbered list items', () => {
+    const { container } = render(
+      React.createElement(MarkdownContent, {
+        text: '1. Step one\n2. Step two\n3. Step three',
+      }),
+    )
+    const ol = container.querySelector('ol')
+    expect(ol).toBeTruthy()
+    const items = container.querySelectorAll('li')
+    expect(items.length).toBe(3)
+  })
+
+  it('renders nested lists preserving hierarchical list structure', () => {
+    const { container } = render(
+      React.createElement(MarkdownContent, {
+        text: '- Parent 1\n  - Child 1A\n  - Child 1B\n- Parent 2',
+      }),
+    )
+    const lists = container.querySelectorAll('ul')
+    expect(lists.length).toBe(2)
+    const innerUl = container.querySelector('li > ul')
+    expect(innerUl).toBeTruthy()
+  })
 })
 
 describe('markdown code block', () => {
