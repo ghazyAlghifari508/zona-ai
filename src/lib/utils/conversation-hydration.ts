@@ -1,11 +1,13 @@
 import type { ChatMessage } from '../../components/chat/MessageList'
 import type { ArtifactDescriptor } from '../artifacts/contracts'
+import type { SafeArtifactMention } from '../artifacts/mentions'
 import { artifactKindForSkill } from '../chat/skills'
 
 type PersistedMessage = {
   id: string
   role: string
   content: string
+  artifactMentions?: SafeArtifactMention[]
   attachments?: Array<{
     id: string
     fileName: string
@@ -53,6 +55,9 @@ export function hydrateMessages(messages: PersistedMessage[]): ChatMessage[] {
         id: message.id,
         role: message.role as ChatMessage['role'],
         content: message.content,
+        ...(message.artifactMentions?.length
+          ? { artifactMentions: message.artifactMentions }
+          : {}),
         ...(run
           ? {
               modelId: run.modelId,

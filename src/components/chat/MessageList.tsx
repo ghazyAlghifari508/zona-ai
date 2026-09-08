@@ -13,6 +13,7 @@ import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
 import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
+import type { SafeArtifactMention } from '@/lib/artifacts/mentions'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
@@ -47,6 +48,7 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  artifactMentions?: SafeArtifactMention[]
   modelId?: string
   routerModelId?: string
   routingReason?: string

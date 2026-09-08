@@ -5,6 +5,7 @@
 import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { ArtifactDescriptor } from '../../lib/artifacts/contracts'
+import type { SafeArtifactMention } from '../../lib/artifacts/mentions'
 import { getAuthSession } from '../../lib/auth/session'
 import { ARTIFACT_SKILL_IDS } from '../../lib/chat/skills'
 import { db } from '../../lib/db'
@@ -14,6 +15,7 @@ import {
   attachments,
   conversations,
   generationRuns,
+  messageArtifactMentions,
   messages,
   webSources,
 } from '../../lib/db/schema'
@@ -37,82 +39,102 @@ export async function getMessagesCore({
   if (conversation.userId !== session.user.id)
     throw new AppError('Forbidden', 403)
 
-  const [messageRows, runRows, webSourceRows, attachmentRows, artifactRows] =
-    await Promise.all([
-      db
-        .select()
-        .from(messages)
-        .where(eq(messages.conversationId, data.conversationId))
-        .orderBy(asc(messages.createdAt), asc(messages.id)),
-      db
-        .select({
-          id: generationRuns.id,
-          messageId: generationRuns.messageId,
-          comparisonRunId: generationRuns.comparisonRunId,
-          modelId: generationRuns.modelId,
-          routerModelId: generationRuns.routerModelId,
-          skillId: generationRuns.skillId,
-          status: generationRuns.status,
-          content: generationRuns.content,
-          reasoningContent: generationRuns.reasoningContent,
-          promptTokens: generationRuns.promptTokens,
-          completionTokens: generationRuns.completionTokens,
-          totalTokens: generationRuns.totalTokens,
-          latencyMs: generationRuns.latencyMs,
-          timeToFirstTokenMs: generationRuns.timeToFirstTokenMs,
-          startedAt: generationRuns.startedAt,
-          completedAt: generationRuns.completedAt,
-          error: generationRuns.error,
-        })
-        .from(generationRuns)
-        .where(eq(generationRuns.conversationId, data.conversationId)),
-      db
-        .select()
-        .from(webSources)
-        .where(eq(webSources.conversationId, data.conversationId)),
-      db
-        .select({
-          id: attachments.id,
-          messageId: attachments.messageId,
-          fileName: attachments.fileName,
-          fileSize: attachments.fileSize,
-          mimeType: attachments.mimeType,
-          processingStatus: attachments.processingStatus,
-        })
-        .from(attachments)
-        .where(eq(attachments.conversationId, data.conversationId)),
-      db
-        .select({
-          generationId: artifactVersions.generationRunId,
-          artifactId: artifactVersions.artifactId,
-          versionId: artifactVersions.id,
-          attachmentId: artifactVersions.attachmentId,
-          title: artifactVersions.title,
-          version: artifactVersions.version,
-          modelId: artifactVersions.createdByModelId,
-          routerModelId: artifactVersions.createdByRouterModelId,
-          kind: artifacts.kind,
-          fileName: attachments.fileName,
-          fileSize: attachments.fileSize,
-          mimeType: attachments.mimeType,
-        })
-        .from(artifactVersions)
-        .innerJoin(
-          artifacts,
-          and(
-            eq(artifacts.id, artifactVersions.artifactId),
-            eq(artifacts.conversationId, data.conversationId),
-          ),
-        )
-        .innerJoin(
-          attachments,
-          and(
-            eq(attachments.id, artifactVersions.attachmentId),
-            eq(attachments.conversationId, data.conversationId),
-          ),
-        )
-        .where(eq(artifactVersions.conversationId, data.conversationId)),
-    ])
+  const [
+    messageRows,
+    runRows,
+    webSourceRows,
+    attachmentRows,
+    artifactRows,
+    mentionRows,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, data.conversationId))
+      .orderBy(asc(messages.createdAt), asc(messages.id)),
+    db
+      .select({
+        id: generationRuns.id,
+        messageId: generationRuns.messageId,
+        comparisonRunId: generationRuns.comparisonRunId,
+        modelId: generationRuns.modelId,
+        routerModelId: generationRuns.routerModelId,
+        skillId: generationRuns.skillId,
+        status: generationRuns.status,
+        content: generationRuns.content,
+        reasoningContent: generationRuns.reasoningContent,
+        promptTokens: generationRuns.promptTokens,
+        completionTokens: generationRuns.completionTokens,
+        totalTokens: generationRuns.totalTokens,
+        latencyMs: generationRuns.latencyMs,
+        timeToFirstTokenMs: generationRuns.timeToFirstTokenMs,
+        startedAt: generationRuns.startedAt,
+        completedAt: generationRuns.completedAt,
+        error: generationRuns.error,
+      })
+      .from(generationRuns)
+      .where(eq(generationRuns.conversationId, data.conversationId)),
+    db
+      .select()
+      .from(webSources)
+      .where(eq(webSources.conversationId, data.conversationId)),
+    db
+      .select({
+        id: attachments.id,
+        messageId: attachments.messageId,
+        fileName: attachments.fileName,
+        fileSize: attachments.fileSize,
+        mimeType: attachments.mimeType,
+        processingStatus: attachments.processingStatus,
+      })
+      .from(attachments)
+      .where(eq(attachments.conversationId, data.conversationId)),
+    db
+      .select({
+        generationId: artifactVersions.generationRunId,
+        artifactId: artifactVersions.artifactId,
+        versionId: artifactVersions.id,
+        attachmentId: artifactVersions.attachmentId,
+        title: artifactVersions.title,
+        version: artifactVersions.version,
+        modelId: artifactVersions.createdByModelId,
+        routerModelId: artifactVersions.createdByRouterModelId,
+        kind: artifacts.kind,
+        fileName: attachments.fileName,
+        fileSize: attachments.fileSize,
+        mimeType: attachments.mimeType,
+      })
+      .from(artifactVersions)
+      .innerJoin(
+        artifacts,
+        and(
+          eq(artifacts.id, artifactVersions.artifactId),
+          eq(artifacts.conversationId, data.conversationId),
+        ),
+      )
+      .innerJoin(
+        attachments,
+        and(
+          eq(attachments.id, artifactVersions.attachmentId),
+          eq(attachments.conversationId, data.conversationId),
+        ),
+      )
+      .where(eq(artifactVersions.conversationId, data.conversationId)),
+    db
+      .select({
+        messageId: messageArtifactMentions.messageId,
+        artifactId: messageArtifactMentions.artifactId,
+        versionId: messageArtifactMentions.versionId,
+        mode: messageArtifactMentions.mode,
+        position: messageArtifactMentions.position,
+        title: messageArtifactMentions.titleSnapshot,
+        kind: messageArtifactMentions.kindSnapshot,
+        version: messageArtifactMentions.versionSnapshot,
+      })
+      .from(messageArtifactMentions)
+      .where(eq(messageArtifactMentions.conversationId, data.conversationId))
+      .orderBy(asc(messageArtifactMentions.position)),
+  ])
   const artifactByGeneration = new Map<string, ArtifactDescriptor>()
   for (const row of artifactRows) {
     if (row.mimeType !== 'text/markdown') continue
@@ -177,9 +199,24 @@ export async function getMessagesCore({
       attachmentsByMessage.set(att.messageId, arr)
     }
   }
+  const mentionsByMessage = new Map<string, SafeArtifactMention[]>()
+  for (const m of mentionRows) {
+    const arr = mentionsByMessage.get(m.messageId) ?? []
+    arr.push({
+      artifactId: m.artifactId,
+      versionId: m.versionId,
+      mode: m.mode,
+      position: m.position,
+      title: m.title,
+      kind: m.kind,
+      version: m.version,
+    })
+    mentionsByMessage.set(m.messageId, arr)
+  }
   return messageRows.map((message) => ({
     ...message,
     generationRuns: runsByMessage.get(message.id) ?? [],
     attachments: attachmentsByMessage.get(message.id) ?? [],
+    artifactMentions: mentionsByMessage.get(message.id) ?? [],
   }))
 }

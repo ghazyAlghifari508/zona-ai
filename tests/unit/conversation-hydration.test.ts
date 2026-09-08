@@ -510,4 +510,41 @@ describe('conversation reload hydration', () => {
     expect(hydrated[0]).not.toHaveProperty('artifact')
     expect(hydrated[0]).not.toHaveProperty('artifactStatus')
   })
+
+  it('hydrates user message with persisted artifactMentions preserving snapshot data', () => {
+    const hydrated = hydrateMessages([
+      {
+        id: 'msg-user-with-mentions',
+        role: 'user',
+        content: 'Please summarize this',
+        artifactMentions: [
+          {
+            artifactId: '10000000-0000-4000-8000-000000000001',
+            versionId: '10000000-0000-4000-8000-000000000002',
+            mode: 'context',
+            position: 0,
+            title: 'PRD Plan',
+            kind: 'prd',
+            version: 1,
+          },
+          {
+            artifactId: '20000000-0000-4000-8000-000000000001',
+            versionId: '20000000-0000-4000-8000-000000000002',
+            mode: 'revise',
+            position: 1,
+            title: 'Checklist',
+            kind: 'checklist',
+            version: 2,
+          },
+        ],
+        generationRuns: [],
+      },
+    ])
+    expect(hydrated).toHaveLength(1)
+    expect(hydrated[0].artifactMentions).toHaveLength(2)
+    expect(hydrated[0].artifactMentions?.[0].title).toBe('PRD Plan')
+    expect(hydrated[0].artifactMentions?.[0].mode).toBe('context')
+    expect(hydrated[0].artifactMentions?.[1].title).toBe('Checklist')
+    expect(hydrated[0].artifactMentions?.[1].mode).toBe('revise')
+  })
 })

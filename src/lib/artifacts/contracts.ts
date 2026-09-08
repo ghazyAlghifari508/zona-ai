@@ -7,6 +7,11 @@ export const ARTIFACT_OPERATION_TYPES = ['create', 'revise'] as const
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number]
 export type ArtifactOperationType = (typeof ARTIFACT_OPERATION_TYPES)[number]
 
+export type StoredObjectLocator = {
+  bucket: string
+  key: string
+}
+
 export const artifactIdSchema = z.string().uuid()
 export const artifactVersionIdSchema = z.string().uuid()
 
