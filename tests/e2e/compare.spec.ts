@@ -75,12 +75,19 @@ test.beforeEach(async ({ context }) => {
 
 test.afterEach(async () => {
   const objects = pendingR2Objects.splice(0)
+  const failedObjects: StoredObjectLocator[] = []
   for (const locator of objects) {
     try {
       await deleteObject(locator)
     } catch {
-      // best-effort cleanup of seeded R2 bytes
+      failedObjects.push(locator)
     }
+  }
+  pendingR2Objects.push(...failedObjects)
+  if (failedObjects.length > 0) {
+    throw new Error(
+      `Failed to clean up ${failedObjects.length} seeded R2 object(s)`,
+    )
   }
 })
 
@@ -283,6 +290,25 @@ function desktopOnly() {
   )
 }
 
+async function openCompareArtifactCard(
+  page: import('@playwright/test').Page,
+  artifact: SeededCompareArtifact,
+) {
+  const card = page
+    .getByTestId('artifact-file-card')
+    .filter({ hasText: artifact.fileName })
+  await expect(card).toBeVisible()
+  await card.getByRole('button').click()
+  await expect(page.getByTestId('artifact-header-title')).toHaveText(
+    artifact.title,
+  )
+  await expect(
+    page
+      .getByTestId('artifact-preview')
+      .getByRole('heading', { name: artifact.title }),
+  ).toBeVisible()
+}
+
 test('compare selector toggles multi-model contract on a real route', async ({
   page,
 }) => {
@@ -361,12 +387,11 @@ test('compare exposes four independent successful artifact cards', async ({
   const grid = page.getByTestId('compare-grid')
   await expect(grid).toBeVisible()
   for (const artifact of seededArtifacts) {
-    await expect(
-      page
-        .getByTestId('artifact-file-card')
-        .filter({ hasText: artifact.fileName }),
-    ).toBeVisible()
+    await openCompareArtifactCard(page, artifact)
   }
+
+  await page.reload()
+  await expect(page.getByTestId('compare-grid')).toBeVisible()
 
   const openAll = page.getByTestId('compare-open-all')
   await expect(openAll).toBeVisible()
@@ -474,12 +499,12 @@ test('one failed compare generation leaves successful siblings openable', async 
   await expect(grid).toBeVisible()
   await expect(page.getByRole('note')).toHaveCount(1)
   for (const artifact of seededArtifacts) {
-    await expect(
-      page
-        .getByTestId('artifact-file-card')
-        .filter({ hasText: artifact.fileName }),
-    ).toBeVisible()
+    await openCompareArtifactCard(page, artifact)
   }
+
+  await page.reload()
+  await expect(page.getByTestId('compare-grid')).toBeVisible()
+  await expect(page.getByRole('note')).toHaveCount(1)
 
   const openAll = page.getByTestId('compare-open-all')
   await expect(openAll).toBeVisible()

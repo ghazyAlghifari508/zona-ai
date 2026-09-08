@@ -83,12 +83,19 @@ test.beforeEach(async ({ context }) => {
 
 test.afterEach(async () => {
   const objects = pendingR2Objects.splice(0)
+  const failedObjects: StoredObjectLocator[] = []
   for (const locator of objects) {
     try {
       await deleteObject(locator)
     } catch {
-      // best-effort cleanup of seeded R2 bytes
+      failedObjects.push(locator)
     }
+  }
+  pendingR2Objects.push(...failedObjects)
+  if (failedObjects.length > 0) {
+    throw new Error(
+      `Failed to clean up ${failedObjects.length} seeded R2 object(s)`,
+    )
   }
 })
 
@@ -628,6 +635,9 @@ test('refresh closes ephemeral tabs but persisted cards and version history reop
 
   await page.goto(`/chat/${conversation.id}`)
   await openArtifactCard(page, alphaTwo.fileName)
+  await openArtifactCard(page, betaVersion.fileName)
+  const tabs = page.getByTestId('artifact-tabs').getByRole('tab')
+  await expect(tabs).toHaveCount(2)
 
   await page.reload()
   await expect(
@@ -638,6 +648,13 @@ test('refresh closes ephemeral tabs but persisted cards and version history reop
   await expect(fileCard(page, betaVersion.fileName)).toBeVisible()
 
   await openArtifactCard(page, alphaTwo.fileName)
+  await expect(tabs).toHaveCount(1)
+  await expect(
+    page.getByTestId(`artifact-tab-${alpha.artifactId}`),
+  ).toBeVisible()
+  await expect(
+    page.getByTestId(`artifact-tab-${beta.artifactId}`),
+  ).not.toBeAttached()
   const versionSelect = page.getByTestId('artifact-version-select')
   await expect(versionSelect).toHaveValue(alphaTwo.versionId)
   await expect(versionSelect.getByRole('option')).toHaveCount(2)
