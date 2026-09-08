@@ -8,8 +8,13 @@ export default defineConfig({
   server: {
     port: 3000,
     watch: {
-      // Test output must never trigger dev HMR.
-      ignored: ['**/test-results/**', '**/playwright-report/**'],
+      // Test output and agent workspace dirs must never trigger dev HMR.
+      ignored: [
+        '**/test-results/**',
+        '**/playwright-report/**',
+        '**/.superpowers/**',
+        '**/.agents/**',
+      ],
     },
   },
   resolve: {
