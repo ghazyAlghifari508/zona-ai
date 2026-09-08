@@ -9,6 +9,7 @@ import {
   extractRawText,
 } from '@/lib/chat/syntax-highlight'
 import { CodeBlock } from './CodeBlock'
+import { MermaidBlock } from './MermaidBlock'
 
 export const CHAT_MARKDOWN_PLUGINS: NonNullable<
   ComponentProps<typeof ReactMarkdown>['rehypePlugins']
@@ -31,6 +32,9 @@ export const CHAT_MARKDOWN_COMPONENTS: NonNullable<
     const isBlock =
       Boolean(className) || extractRawText(children).includes('\n')
     if (isBlock) {
+      if (className?.includes('language-mermaid')) {
+        return <MermaidBlock code={extractRawText(children)} />
+      }
       return <CodeBlock className={className}>{children}</CodeBlock>
     }
     return (
