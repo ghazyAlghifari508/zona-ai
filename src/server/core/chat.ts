@@ -227,14 +227,6 @@ export async function sendMessageCore({
     void autoTitleConversation(convId, input.content)
   }
 
-  if (input.artifactMentions?.some((m) => m.mode === 'revise')) {
-    throw new AppError(
-      'Mention revise tidak diizinkan pada chat biasa. Gunakan operasi revisi.',
-      400,
-      'ERR-003',
-    )
-  }
-
   let mentionSources: ArtifactMentionSource[] = []
   let resolvedMentions: ResolvedArtifactMention[] = []
   if (input.artifactMentions?.length) {
@@ -679,14 +671,6 @@ export async function sendCompareMessageCore({
       .values({ userId, title: 'New Chat' })
       .returning()
     convId = conv.id
-  }
-
-  if (data.artifactMentions?.some((m) => m.mode === 'revise')) {
-    throw new AppError(
-      'Mention revise tidak diizinkan pada chat biasa. Gunakan operasi revisi.',
-      400,
-      'ERR-003',
-    )
   }
 
   let mentionSources: ArtifactMentionSource[] = []

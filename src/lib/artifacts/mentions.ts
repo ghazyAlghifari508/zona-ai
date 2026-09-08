@@ -68,15 +68,54 @@ export type ArtifactDispatch =
       context: ArtifactMentionInput[]
     }
 
+const REVISION_VERB_REGEX =
+  /\b(tambah|tambahkan|tambahin|masukkan|cantumkan|sertakan|add|insert|append|include|ubah|ganti|revisi|perbarui|update|edit|modify|perbaiki|fix|adjust|sesuaikan|hapus|hilangkan|buang|delete|remove|omit|drop)\b/i
+
+const DISCUSSION_QUESTION_REGEX =
+  /\b(menurutmu|menurut|apakah|bagaimana|gimana|jelaskan|terangkan|analisis|review|evaluasi|kenapa|mengapa|apa pendapat|sudah benar|what|why|how|explain|analyze|opinion|feedback|critique)\b/i
+
+export function detectArtifactIntent(content: string): 'revise' | 'discuss' {
+  const trimmed = content.trim().toLowerCase()
+  if (!trimmed) return 'discuss'
+
+  const hasQuestionMark = trimmed.includes('?')
+  const hasDiscussionPhrase = DISCUSSION_QUESTION_REGEX.test(trimmed)
+  const hasRevisionVerb = REVISION_VERB_REGEX.test(trimmed)
+
+  if (hasDiscussionPhrase && !hasRevisionVerb) {
+    return 'discuss'
+  }
+
+  if (hasQuestionMark && hasDiscussionPhrase) {
+    return 'discuss'
+  }
+
+  if (hasRevisionVerb) {
+    return 'revise'
+  }
+
+  return 'discuss'
+}
+
 export function resolveArtifactDispatch({
+  content,
   skillId,
   mentions,
 }: {
+  content?: string
   skillId: SkillId
   mentions: readonly ArtifactMentionInput[]
 }): ArtifactDispatch {
-  const targets = mentions.filter((m) => m.mode === 'revise')
-  const context = mentions.filter((m) => m.mode === 'context')
+  let targets = mentions.filter((m) => m.mode === 'revise')
+  let context = mentions.filter((m) => m.mode === 'context')
+
+  if (targets.length === 0 && mentions.length > 0 && content) {
+    const intent = detectArtifactIntent(content)
+    if (intent === 'revise') {
+      targets = mentions.map((m) => ({ ...m, mode: 'revise' }))
+      context = []
+    }
+  }
 
   if (targets.length > 0) {
     return {
