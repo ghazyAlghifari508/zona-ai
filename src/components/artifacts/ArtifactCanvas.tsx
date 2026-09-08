@@ -175,7 +175,7 @@ function ActiveArtifactCanvas({
       className="flex h-full min-h-0 flex-col bg-paper"
     >
       <div className="shrink-0 border-b border-hairline bg-pure-white">
-        <div className="flex shrink-0 items-center gap-2 px-2 pt-2">
+        <div className="flex shrink-0 items-center gap-2 px-2 pt-20 md:pt-12">
           <button
             type="button"
             aria-label="Back to chat"
