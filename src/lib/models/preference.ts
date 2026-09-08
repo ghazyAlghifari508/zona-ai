@@ -81,7 +81,11 @@ export function resolveModelFallback(
   if (catalog.length === 0) return currentModelId
 
   const valid = catalog.some(
-    (entry) => entry.id === currentModelId && entry.enabled !== false,
+    (entry) =>
+      (entry.id === currentModelId ||
+        entry.id.endsWith(`/${currentModelId}`) ||
+        currentModelId.endsWith(`/${entry.id}`)) &&
+      entry.enabled !== false,
   )
   if (!valid) return 'auto'
   return currentModelId

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { getAvailableModels, getModelById } from '../../src/lib/models/registry'
 
 describe('registry', () => {
-  it('returns 7 enabled models, auto isDefault', () => {
+  it('returns 19 enabled models, auto isDefault', () => {
     const models = getAvailableModels()
-    expect(models.length).toBe(7)
+    expect(models.length).toBe(19)
     expect(models.find((m) => m.id === 'auto')?.isDefault).toBe(true)
   })
   it('getModelById throws ERR-003 for missing', () => {
@@ -83,5 +83,41 @@ describe('registry', () => {
 
     expect(getModelById('mimo-v2.5').intelligenceScore).toBe(64)
     expect(getModelById('mimo-v2.5').intelligenceBars).toBe(2)
+
+    // New frontier models verification
+    expect(getModelById('cx/gpt-5.6-terra').intelligenceScore).toBe(98)
+    expect(getModelById('cx/gpt-5.6-terra').intelligenceBars).toBe(4)
+    expect(getModelById('cx/gpt-5.6-terra').vendor).toBe('OpenAI')
+
+    expect(getModelById('ag/claude-opus-4-6-thinking').intelligenceScore).toBe(
+      97,
+    )
+    expect(getModelById('ag/claude-opus-4-6-thinking').intelligenceBars).toBe(4)
+    expect(getModelById('ag/claude-opus-4-6-thinking').vendor).toBe('Anthropic')
+
+    expect(getModelById('gcli/grok-4.6').intelligenceScore).toBe(94)
+    expect(getModelById('gcli/grok-4.6').intelligenceBars).toBe(4)
+    expect(getModelById('gcli/grok-4.6').vendor).toBe('xAI')
+
+    expect(getModelById('ag/claude-sonnet-4-6').intelligenceScore).toBe(90)
+    expect(getModelById('ag/claude-sonnet-4-6').intelligenceBars).toBe(3)
+
+    expect(getModelById('cx/gpt-5.5').intelligenceScore).toBe(89)
+    expect(getModelById('cx/gpt-5.5').intelligenceBars).toBe(3)
+
+    expect(getModelById('gcli/grok-4.5').intelligenceScore).toBe(86)
+    expect(getModelById('gcli/grok-4.5').intelligenceBars).toBe(3)
+
+    expect(getModelById('ag/gemini-3.6-flash-high').intelligenceScore).toBe(82)
+    expect(getModelById('ag/gemini-3.6-flash-high').intelligenceBars).toBe(3)
+
+    expect(getModelById('gh/gpt-4.1').intelligenceScore).toBe(74)
+    expect(getModelById('gh/gpt-4.1').intelligenceBars).toBe(2)
+
+    expect(getModelById('ag/gemini-pro-agent').intelligenceScore).toBe(73)
+    expect(getModelById('ag/gemini-pro-agent').intelligenceBars).toBe(2)
+
+    expect(getModelById('gh/gpt-4o').intelligenceScore).toBe(70)
+    expect(getModelById('gh/gpt-4o').intelligenceBars).toBe(2)
   })
 })

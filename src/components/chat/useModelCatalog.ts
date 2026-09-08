@@ -43,6 +43,8 @@ export function findCatalogEntry(
   if (!modelId) return null
   return (
     catalog.find((m) => m.id === modelId) ??
+    catalog.find((m) => m.id.endsWith(`/${modelId}`)) ??
+    catalog.find((m) => modelId.endsWith(`/${m.id}`)) ??
     catalog.find((m) => m.id === 'auto') ??
     null
   )
