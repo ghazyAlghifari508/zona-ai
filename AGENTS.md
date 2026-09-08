@@ -44,6 +44,7 @@ A restrained, high-performance multi-model AI workspace for side-by-side model c
 - **ATOMIC COMMITS (COMMIT EVERY CHANGE — IRON LAW)**: Every single change, no matter how small, MUST be committed immediately and atomically once verified. Never leave a dirty working tree, and never bundle multiple unrelated fixes, refactors, or features into one giant commit. The moment a surgical edit, bugfix, or feature step passes verification (`bun x tsc --noEmit` + `bun x biome check ./src` + affected tests), execute `git add` and `git commit` immediately. Follow Conventional Commits format strictly (`feat:`, `fix:`, `refactor:`, `test:`, `style:`, `chore:`) with clear, descriptive commit messages. Keep the git history clean, granular, bisectable, and reversible at all times.
 - **Fail loud at trust boundaries**: Validate untrusted input at server boundaries and fail closed on auth, credit deduction, rate limiting, or model routing failures.
 - **Always unslop**: Follow `.agents/rules/anti-ai-slop.md` across all code, prompt strings, and docs. Cut AI filler words, puffery, and passive voice.
+- **Native tool calling only**: When executing actions or tools, always invoke the native tool calling schema provided by the platform. Never emit simulated XML, markdown, or pseudo-code tags (e.g. `<skill>`, `<invoke>`, or unexecuted code blocks) into the message body instead of executing the tool directly.
 
 ---
 
