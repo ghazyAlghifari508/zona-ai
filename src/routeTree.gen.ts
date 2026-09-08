@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BantuanRouteImport } from './routes/bantuan'
 import { Route as ErrorRouteImport } from './routes/error'
 import { Route as FaqRouteImport } from './routes/faq'
+import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
@@ -24,6 +25,7 @@ import { Route as ApiAttachmentsAttachmentIdRouteImport } from './routes/api/att
 import { Route as ApiAttachmentsReprocessRouteImport } from './routes/api/attachments/reprocess'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
+import { Route as ApiFeedbackUploadRouteImport } from './routes/api/feedback/upload'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
 import { Route as ApiArtifactsArtifactIdVersionsVersionIdRouteImport } from './routes/api/artifacts/$artifactId/versions/$versionId'
 
@@ -45,6 +47,11 @@ const ErrorRoute = ErrorRouteImport.update({
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedbackRoute = FeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -103,6 +110,11 @@ const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   path: '/api/auth/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFeedbackUploadRoute = ApiFeedbackUploadRouteImport.update({
+  id: '/api/feedback/upload',
+  path: '/api/feedback/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFilesUploadRoute = ApiFilesUploadRouteImport.update({
   id: '/api/files/upload',
   path: '/api/files/upload',
@@ -120,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
   '/faq': typeof FaqRoute
+  '/feedback': typeof FeedbackRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -130,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/feedback/upload': typeof ApiFeedbackUploadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments/': typeof ApiAttachmentsIndexRoute
   '/api/artifacts/$artifactId/versions/$versionId': typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
@@ -139,6 +153,7 @@ export interface FileRoutesByTo {
   '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
   '/faq': typeof FaqRoute
+  '/feedback': typeof FeedbackRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -149,6 +164,7 @@ export interface FileRoutesByTo {
   '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/feedback/upload': typeof ApiFeedbackUploadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments': typeof ApiAttachmentsIndexRoute
   '/api/artifacts/$artifactId/versions/$versionId': typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
@@ -159,6 +175,7 @@ export interface FileRoutesById {
   '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
   '/faq': typeof FaqRoute
+  '/feedback': typeof FeedbackRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -169,6 +186,7 @@ export interface FileRoutesById {
   '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/feedback/upload': typeof ApiFeedbackUploadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments/': typeof ApiAttachmentsIndexRoute
   '/api/artifacts/$artifactId/versions/$versionId': typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
@@ -180,6 +198,7 @@ export interface FileRouteTypes {
     | '/bantuan'
     | '/error'
     | '/faq'
+    | '/feedback'
     | '/pricing'
     | '/settings'
     | '/auth/sign-in'
@@ -190,6 +209,7 @@ export interface FileRouteTypes {
     | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
+    | '/api/feedback/upload'
     | '/api/files/upload'
     | '/api/attachments/'
     | '/api/artifacts/$artifactId/versions/$versionId'
@@ -199,6 +219,7 @@ export interface FileRouteTypes {
     | '/bantuan'
     | '/error'
     | '/faq'
+    | '/feedback'
     | '/pricing'
     | '/settings'
     | '/auth/sign-in'
@@ -209,6 +230,7 @@ export interface FileRouteTypes {
     | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
+    | '/api/feedback/upload'
     | '/api/files/upload'
     | '/api/attachments'
     | '/api/artifacts/$artifactId/versions/$versionId'
@@ -218,6 +240,7 @@ export interface FileRouteTypes {
     | '/bantuan'
     | '/error'
     | '/faq'
+    | '/feedback'
     | '/pricing'
     | '/settings'
     | '/auth/sign-in'
@@ -228,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
+    | '/api/feedback/upload'
     | '/api/files/upload'
     | '/api/attachments/'
     | '/api/artifacts/$artifactId/versions/$versionId'
@@ -238,6 +262,7 @@ export interface RootRouteChildren {
   BantuanRoute: typeof BantuanRoute
   ErrorRoute: typeof ErrorRoute
   FaqRoute: typeof FaqRoute
+  FeedbackRoute: typeof FeedbackRoute
   PricingRoute: typeof PricingRoute
   SettingsRoute: typeof SettingsRoute
   AuthSignInRoute: typeof AuthSignInRoute
@@ -248,6 +273,7 @@ export interface RootRouteChildren {
   ApiAttachmentsReprocessRoute: typeof ApiAttachmentsReprocessRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
+  ApiFeedbackUploadRoute: typeof ApiFeedbackUploadRoute
   ApiFilesUploadRoute: typeof ApiFilesUploadRoute
   ApiAttachmentsIndexRoute: typeof ApiAttachmentsIndexRoute
   ApiArtifactsArtifactIdVersionsVersionIdRoute: typeof ApiArtifactsArtifactIdVersionsVersionIdRoute
@@ -281,6 +307,13 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feedback': {
+      id: '/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof FeedbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -360,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/feedback/upload': {
+      id: '/api/feedback/upload'
+      path: '/api/feedback/upload'
+      fullPath: '/api/feedback/upload'
+      preLoaderRoute: typeof ApiFeedbackUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/files/upload': {
       id: '/api/files/upload'
       path: '/api/files/upload'
@@ -382,6 +422,7 @@ const rootRouteChildren: RootRouteChildren = {
   BantuanRoute: BantuanRoute,
   ErrorRoute: ErrorRoute,
   FaqRoute: FaqRoute,
+  FeedbackRoute: FeedbackRoute,
   PricingRoute: PricingRoute,
   SettingsRoute: SettingsRoute,
   AuthSignInRoute: AuthSignInRoute,
@@ -392,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAttachmentsReprocessRoute: ApiAttachmentsReprocessRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,
+  ApiFeedbackUploadRoute: ApiFeedbackUploadRoute,
   ApiFilesUploadRoute: ApiFilesUploadRoute,
   ApiAttachmentsIndexRoute: ApiAttachmentsIndexRoute,
   ApiArtifactsArtifactIdVersionsVersionIdRoute:

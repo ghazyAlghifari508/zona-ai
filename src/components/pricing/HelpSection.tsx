@@ -1,25 +1,44 @@
-﻿import {
+import {
   ArrowRight01Icon,
   BookOpen01Icon,
   Mail02Icon,
+  Message01Icon,
   MessageQuestionIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 
-const HELP_CHANNELS = [
+type InternalHelpChannel = {
+  title: string
+  description: string
+  icon: typeof BookOpen01Icon
+  to: '/faq' | '/feedback'
+  accent: string
+}
+
+type ExternalHelpChannel = {
+  title: string
+  description: string
+  icon: typeof BookOpen01Icon
+  href: string
+  accent: string
+}
+
+type HelpChannel = InternalHelpChannel | ExternalHelpChannel
+
+const HELP_CHANNELS: readonly HelpChannel[] = [
   {
     title: 'Dokumentasi',
     description: 'Pelajari cara kerja Zona.ai langkah demi langkah.',
     icon: BookOpen01Icon,
-    href: '/faq',
+    to: '/faq',
     accent: 'bg-sky-tint text-notion-blue',
   },
   {
     title: 'Pusat Bantuan',
     description: 'Jawaban cepat untuk pertanyaan umum dan pemecahan masalah.',
     icon: MessageQuestionIcon,
-    href: '/faq',
+    to: '/faq',
     accent: 'bg-warning-soft text-warning-strong',
   },
   {
@@ -29,13 +48,20 @@ const HELP_CHANNELS = [
     href: 'mailto:support@zona.ai',
     accent: 'bg-danger-soft text-coral',
   },
-] as const
+  {
+    title: 'Kirim Feedback',
+    description:
+      'Beri saran fitur atau laporkan kendala teknis secara langsung.',
+    icon: Message01Icon,
+    to: '/feedback',
+    accent: 'bg-info-soft text-notion-blue',
+  },
+]
 
 export function HelpSection() {
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {HELP_CHANNELS.map((channel) => {
-        const isMail = channel.href.startsWith('mailto:')
         const content = (
           <>
             <span
@@ -67,16 +93,17 @@ export function HelpSection() {
         )
         const className =
           'flex flex-col rounded-2xl border border-hairline bg-pure-white p-6 transition-all duration-200 hover:border-hairline-strong hover:-translate-y-0.5'
-        return isMail ? (
-          <a key={channel.title} href={channel.href} className={className}>
-            {content}
-          </a>
-        ) : (
-          <Link
-            key={channel.title}
-            to={channel.href as '/' | '/faq'}
-            className={className}
-          >
+
+        if ('href' in channel) {
+          return (
+            <a key={channel.title} href={channel.href} className={className}>
+              {content}
+            </a>
+          )
+        }
+
+        return (
+          <Link key={channel.title} to={channel.to} className={className}>
             {content}
           </Link>
         )

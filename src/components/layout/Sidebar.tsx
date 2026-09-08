@@ -584,7 +584,7 @@ export function Sidebar({
       </div>
 
       <div className="border-t border-hairline bg-sidebar">
-        {!collapsed && <CreditWidget credits={credits} />}
+        {!collapsed && <CreditWidget credits={credits} user={currentUser} />}
         <div
           className={
             collapsed ? 'p-2' : 'border-t border-hairline px-3.5 py-2.5'
