@@ -27,18 +27,29 @@ export function ArtifactTabs({
       event.key !== 'ArrowRight' &&
       event.key !== 'ArrowLeft' &&
       event.key !== 'Home' &&
-      event.key !== 'End'
+      event.key !== 'End' &&
+      event.key !== 'Enter' &&
+      event.key !== ' '
     ) {
       return
     }
-    event.preventDefault()
     const tabs = Array.from(
-      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+      event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]'),
     )
     if (tabs.length === 0) return
     const focused = document.activeElement
     const currentIndex =
-      focused instanceof HTMLButtonElement ? tabs.indexOf(focused) : -1
+      focused instanceof HTMLElement ? tabs.indexOf(focused) : -1
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      if (currentIndex !== -1 && summaries[currentIndex]) {
+        event.preventDefault()
+        onSelectTab(summaries[currentIndex].artifactId)
+      }
+      return
+    }
+
+    event.preventDefault()
     const anchor = currentIndex === -1 ? 0 : currentIndex
     let nextIndex = anchor
     if (event.key === 'ArrowRight') nextIndex = (anchor + 1) % tabs.length
@@ -60,7 +71,7 @@ export function ArtifactTabs({
       aria-label="Open artifacts"
       data-testid="artifact-tabs"
       onKeyDown={handleKeyDown}
-      className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
+      className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden py-1"
     >
       {summaries.map((summary) => {
         const isActive = summary.artifactId === activeArtifactId
@@ -71,32 +82,42 @@ export function ArtifactTabs({
         return (
           <div
             key={summary.artifactId}
-            role="presentation"
-            className="flex min-w-0 shrink items-center"
+            role="tab"
+            aria-selected={isActive}
+            aria-label={accessibleName}
+            title={accessibleName}
+            tabIndex={isActive ? 0 : -1}
+            data-testid={`artifact-tab-${summary.artifactId}`}
+            onClick={() => onSelectTab(summary.artifactId)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelectTab(summary.artifactId)
+              }
+            }}
+            className={`group relative flex min-w-0 max-w-48 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] transition-all duration-150 select-none ${
+              isActive
+                ? 'border border-hairline bg-pure-white font-semibold text-ink shadow-2xs'
+                : 'border border-transparent text-stone hover:bg-ink/5 hover:text-ink'
+            }`}
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-label={accessibleName}
-              title={accessibleName}
-              tabIndex={isActive ? 0 : -1}
-              data-testid={`artifact-tab-${summary.artifactId}`}
-              onClick={() => onSelectTab(summary.artifactId)}
-              className="min-w-0 max-w-44 truncate rounded-md px-2.5 py-1.5 text-[13px] font-medium text-stone aria-selected:bg-sky-tint aria-selected:font-semibold aria-selected:text-ink"
-            >
-              <span aria-hidden="true" className="block truncate">
-                {summary.title}
-              </span>
-            </button>
+            <span aria-hidden="true" className="min-w-0 truncate">
+              {summary.title}
+            </span>
             <button
               type="button"
               aria-label={`Close ${summary.title}`}
               data-testid={`artifact-close-${summary.artifactId}`}
-              onClick={() => onCloseTab(summary.artifactId)}
-              className="mr-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-stone hover:bg-ink/5 hover:text-ink"
+              onClick={(e) => {
+                e.stopPropagation()
+                onCloseTab(summary.artifactId)
+              }}
+              className="ml-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-stone/70 transition-all hover:bg-ink/10 hover:text-ink"
             >
-              <span aria-hidden="true" className="text-[14px] leading-none">
+              <span
+                aria-hidden="true"
+                className="text-[14px] leading-none font-medium"
+              >
                 ×
               </span>
             </button>
