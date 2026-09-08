@@ -1,5 +1,16 @@
-import { useEffectEvent, useLayoutEffect, useRef } from 'react'
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { MarkdownContent } from '@/components/chat/MarkdownContent'
+import {
+  getStoredArtifactMarkdown,
+  setStoredArtifactMarkdown,
+  toggleMarkdownTask,
+} from '@/lib/artifacts/checklist-toggle'
 import type { ArtifactDetail, ArtifactSummary } from '@/lib/artifacts/contracts'
 import {
   type ArtifactWorkspaceState,
@@ -134,6 +145,22 @@ function ActiveArtifactCanvas({
     activeSummary.artifactId,
     activeVersionId,
   )
+  const [localMarkdown, setLocalMarkdown] = useState<string | null>(() =>
+    getStoredArtifactMarkdown(versionKey),
+  )
+
+  useEffect(() => {
+    setLocalMarkdown(getStoredArtifactMarkdown(versionKey))
+  }, [versionKey])
+
+  const activeSource = localMarkdown ?? content.source ?? ''
+
+  const handleToggleTask = (taskIndex: number, nextChecked: boolean) => {
+    const updated = toggleMarkdownTask(activeSource, taskIndex, nextChecked)
+    setLocalMarkdown(updated)
+    setStoredArtifactMarkdown(versionKey, updated)
+  }
+
   const savedScrollTop = workspace.scrollTopByVersionKey[versionKey] ?? 0
   const recordedVersionKeyRef = useRef<string | null>(null)
   const rememberOnCleanup = useEffectEvent(
@@ -209,7 +236,7 @@ function ActiveArtifactCanvas({
           summary={activeSummary}
           versions={versions}
           activeVersionId={activeVersionId}
-          source={content.source}
+          source={activeSource}
           onVersionChange={handleVersionChange}
           onCloseTab={handleCloseTab}
           onClosePanel={onClosePanel}
@@ -241,7 +268,10 @@ function ActiveArtifactCanvas({
             </button>
           </div>
         ) : (
-          <MarkdownContent text={content.source ?? ''} />
+          <MarkdownContent
+            text={activeSource}
+            onToggleTask={handleToggleTask}
+          />
         )}
       </div>
     </section>

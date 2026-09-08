@@ -45,10 +45,14 @@ export const CHAT_MARKDOWN_COMPONENTS: NonNullable<
 export const MarkdownContent = memo(function MarkdownContent({
   text,
   className,
+  onToggleTask,
 }: {
   text: string
   className?: string
+  onToggleTask?: (taskIndex: number, checked: boolean) => void
 }) {
+  let taskCounter = 0
+
   return (
     <div
       className={
@@ -59,7 +63,37 @@ export const MarkdownContent = memo(function MarkdownContent({
       <ReactMarkdown
         remarkPlugins={CHAT_MARKDOWN_REMARK_PLUGINS}
         rehypePlugins={CHAT_MARKDOWN_PLUGINS}
-        components={CHAT_MARKDOWN_COMPONENTS}
+        components={{
+          ...CHAT_MARKDOWN_COMPONENTS,
+          input: ({ type, checked, disabled, ...rest }) => {
+            if (type === 'checkbox') {
+              const index = taskCounter++
+              return (
+                <input
+                  type="checkbox"
+                  checked={Boolean(checked)}
+                  disabled={!onToggleTask}
+                  onChange={(e) => {
+                    e.stopPropagation()
+                    onToggleTask?.(index, e.target.checked)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className={`mr-2 h-4 w-4 rounded border border-hairline accent-notion-blue align-middle transition-colors ${
+                    onToggleTask ? 'cursor-pointer' : 'cursor-default'
+                  }`}
+                />
+              )
+            }
+            return (
+              <input
+                type={type}
+                checked={checked}
+                disabled={disabled}
+                {...rest}
+              />
+            )
+          },
+        }}
       >
         {text}
       </ReactMarkdown>
