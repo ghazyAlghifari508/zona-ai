@@ -8,6 +8,7 @@ Boot instructions for AI agents working on **Zona.ai**.
 - `.agents/rules/zona-ai-no-assumptions.md` → strict fact verification and zero assumptions
 - `.agents/rules/zona-ai-no-hardcode.md` → dynamic Model Registry, env, and constants discipline
 - `.agents/rules/zona-ai-no-type-bypass.md` → strict type safety (no `as never`, `as any`, `@ts-ignore`)
+- `.agents/rules/zona-ai-bounded-processes.md` → mandatory timeouts, managed server lifecycle, and Windows process-tree cleanup
 - `.agents/rules/anti-ai-slop.md` → design constraints (MindMarket tokens, typography, no-slop)
 - `.agents/rules/zona-ai-skills-mcp.md` → single source of truth for required skills, MCPs, and plugins
 - `DESIGN.md` → design system tokens and UI standards (visual reference, not a page layout template)
