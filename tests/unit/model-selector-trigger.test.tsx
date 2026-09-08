@@ -23,7 +23,7 @@ describe('ModelSelector trigger UI in Single and Compare Mode', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('GPT 5.6 (Sol)')).toBeTruthy()
+      expect(screen.getByText('GPT 5.6 Sol')).toBeTruthy()
     })
 
     expect(screen.queryByTestId('compare-stacked-icons')).toBeNull()
@@ -191,6 +191,6 @@ describe('ModelSelector trigger UI in Single and Compare Mode', () => {
     )
 
     expect(screen.queryByTestId('compare-stacked-icons')).toBeNull()
-    expect(screen.getByText('GPT 5.6 (Sol)')).toBeTruthy()
+    expect(screen.getByText('GPT 5.6 Sol')).toBeTruthy()
   })
 })

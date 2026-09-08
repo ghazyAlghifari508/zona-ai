@@ -112,7 +112,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
   {
     id: 'gpt-5.6-sol',
     routerModelId: 'cx/gpt-5.6-sol',
-    displayName: 'GPT 5.6 (Sol)',
+    displayName: 'GPT 5.6 Sol',
     provider: 'codex',
     vendor: 'OpenAI',
     intelligenceLevel: 4,

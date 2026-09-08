@@ -4,7 +4,7 @@ const MODEL_SEARCH_ALIASES: Record<string, string[]> = {
   // Existing / ecosystem
   qwen: ['alibaba', 'aliyun', 'tongyi'],
   'qwen3.8-flash': ['alibaba', 'aliyun', 'tongyi'],
-  'gpt-5.6-sol': ['openai', 'chatgpt', 'codex'],
+  'gpt-5.6-sol': ['openai', 'chatgpt', 'codex', 'sol', 'gpt-5.6-sol'],
   'gemini-3.7-flash-high': ['google', 'deepmind', 'antigravity'],
   'mimo-v2.5': ['xiaomi'],
   hy3: ['tencent', 'hunyuan'],

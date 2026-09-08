@@ -96,10 +96,14 @@ vi.mock('../../src/server/functions/credits', () => ({
   getCreditBalanceFn: vi.fn().mockResolvedValue({ balance: 100 }),
 }))
 
+vi.mock('../../src/server/functions/payments', () => ({
+  getPricingSummaryFn: vi.fn().mockResolvedValue({ plan: 'standard' }),
+}))
+
 vi.mock('../../src/components/chat/useModelCatalog', () => ({
   useModelCatalog: () => [
     { id: 'auto', displayName: 'Auto (Smart Router)' },
-    { id: 'gpt-5.6-sol', displayName: 'GPT 5.6 (Sol)' },
+    { id: 'gpt-5.6-sol', displayName: 'GPT 5.6 Sol' },
     { id: 'gemini-3.7-flash-high', displayName: 'Gemini 3.7 Flash (High)' },
     { id: 'qwen3.8-flash', displayName: 'Qwen 3.8 Flash' },
     { id: 'mimo-v2.5', displayName: 'MiMo V2.5' },
