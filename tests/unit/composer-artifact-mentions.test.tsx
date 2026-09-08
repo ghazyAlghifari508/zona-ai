@@ -85,7 +85,7 @@ describe('Composer artifact mentions', () => {
     )
   })
 
-  it('toggles mention chip mode between context and revise', () => {
+  it('renders clean mention chip without manual mode toggle button', () => {
     const onSend = vi.fn()
     render(
       <Composer
@@ -98,17 +98,18 @@ describe('Composer artifact mentions', () => {
     fireEvent.change(textarea, { target: { value: '@', selectionStart: 1, selectionEnd: 1 } })
     fireEvent.click(screen.getByText('Feature PRD'))
 
-    const modeBtn = screen.getByRole('button', { name: /Ganti mode mention/i })
-    expect(modeBtn.textContent).toBe('Context')
+    // Chip should exist with title and version
+    expect(screen.getByText('@Feature PRD')).toBeDefined()
+    expect(screen.getByText('v1')).toBeDefined()
 
-    fireEvent.click(modeBtn)
-    expect(modeBtn.textContent).toBe('Revise')
+    // Mode toggle button should NOT exist
+    expect(screen.queryByRole('button', { name: /Ganti mode mention/i })).toBeNull()
 
-    fireEvent.change(textarea, { target: { value: 'Ubah dokumen' } })
+    fireEvent.change(textarea, { target: { value: 'Diskusikan dokumen' } })
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false })
 
     expect(onSend).toHaveBeenCalledWith(
-      'Ubah dokumen',
+      'Diskusikan dokumen',
       expect.any(String),
       expect.any(String),
       [],
@@ -117,7 +118,7 @@ describe('Composer artifact mentions', () => {
         {
           artifactId: mockArtifactSummary.artifactId,
           versionId: mockArtifactSummary.currentVersionId,
-          mode: 'revise',
+          mode: 'context',
         },
       ],
     )
