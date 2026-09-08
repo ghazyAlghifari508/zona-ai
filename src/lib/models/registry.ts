@@ -680,11 +680,35 @@ export function getAvailableModels(): ModelRegistryEntry[] {
   return modelRegistry.filter((m) => m.enabled)
 }
 
+function findCatalogOverride(
+  m: ModelRegistryEntry,
+  overrides?: Map<string, { isActive: boolean; disabledReason: string | null }>,
+): { isActive: boolean; disabledReason: string | null } | undefined {
+  if (!overrides || overrides.size === 0) return undefined
+
+  const direct = overrides.get(m.id) ?? overrides.get(m.routerModelId)
+  if (direct) return direct
+
+  for (const [key, value] of overrides.entries()) {
+    if (
+      key === m.id ||
+      key === m.routerModelId ||
+      m.id.endsWith(`/${key}`) ||
+      key.endsWith(`/${m.id}`) ||
+      m.routerModelId.endsWith(`/${key}`) ||
+      key.endsWith(`/${m.routerModelId}`)
+    ) {
+      return value
+    }
+  }
+  return undefined
+}
+
 export function getModelCatalog(
   overrides?: Map<string, { isActive: boolean; disabledReason: string | null }>,
 ): ModelCatalogEntry[] {
   return getAvailableModels().map((m) => {
-    const override = overrides?.get(m.id) ?? overrides?.get(m.routerModelId)
+    const override = findCatalogOverride(m, overrides)
     return {
       id: m.id,
       displayName: m.displayName,

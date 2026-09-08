@@ -68,6 +68,7 @@ export async function getModelOverridesMap(): Promise<
 
   try {
     const rows = await db.select().from(modelSettings)
+    overridesCache.clear()
     for (const row of rows) {
       overridesCache.set(row.modelId, {
         isActive: row.isActive,

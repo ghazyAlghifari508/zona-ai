@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { auth } from '../../src/lib/auth/auth'
 import { db } from '../../src/lib/db/index'
+import { auditLogs, modelSettings } from '../../src/lib/db/schema'
 import { resolveAutoModel } from '../../src/lib/models/router'
 import { AppError } from '../../src/lib/utils/errors'
 import {
@@ -152,7 +153,7 @@ describe('Admin Model Availability Enforcement', () => {
     }
   })
 
-  it('should require admin session in updateModelAvailabilityCore and persist overrides', async () => {
+  it('should require admin session in updateModelAvailabilityCore and persist overrides and audit logs', async () => {
     vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
       session: {
         id: 'sess-non-admin',
@@ -206,11 +207,17 @@ describe('Admin Model Availability Enforcement', () => {
       },
     })
 
-    const insertSpy = vi.spyOn(db, 'insert').mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoUpdate: vi.fn().mockResolvedValue({}),
-      }),
-    } as unknown as ReturnType<typeof db.insert>)
+    const inserts: Array<{ table: unknown; value: unknown }> = []
+    vi.spyOn(db, 'insert').mockImplementation((table: unknown) => {
+      return {
+        values: (val: unknown) => {
+          inserts.push({ table, value: val })
+          return {
+            onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+          }
+        },
+      } as unknown as ReturnType<typeof db.insert>
+    })
 
     const result = await updateModelAvailabilityCore({
       modelId: 'cx/gpt-5.6-terra',
@@ -222,10 +229,100 @@ describe('Admin Model Availability Enforcement', () => {
     expect(result.success).toBe(true)
     expect(result.isActive).toBe(false)
     expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(false)
-    expect(insertSpy).toHaveBeenCalled()
+
+    expect(inserts).toHaveLength(2)
+    expect(inserts[0].table).toBe(modelSettings)
+    expect(inserts[0].value).toMatchObject({
+      modelId: 'cx/gpt-5.6-terra',
+      isActive: false,
+      disabledReason: 'Emergency maintenance',
+      updatedBy: 'admin-1',
+    })
+    expect(inserts[1].table).toBe(auditLogs)
+    expect(inserts[1].value).toMatchObject({
+      adminId: 'admin-1',
+      adminEmail: 'admin@zona.ai',
+      action: 'model.disable',
+      targetId: 'cx/gpt-5.6-terra',
+      targetType: 'model',
+      metadata: {
+        disabledReason: 'Emergency maintenance',
+      },
+    })
+
+    // Enable model again
+    vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
+      session: {
+        id: 'sess-admin-2',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: 'admin-1',
+        expiresAt: new Date(Date.now() + 86400000),
+        token: 'tok-adm-2',
+      },
+      user: {
+        id: 'admin-1',
+        email: 'admin@zona.ai',
+        name: 'Admin User',
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        role: 'admin',
+        banned: false,
+      },
+    })
+
+    const enableResult = await updateModelAvailabilityCore({
+      modelId: 'cx/gpt-5.6-terra',
+      isActive: true,
+      request,
+    })
+
+    expect(enableResult.success).toBe(true)
+    expect(enableResult.isActive).toBe(true)
+    expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(true)
+    expect(inserts).toHaveLength(4)
+    expect(inserts[2].table).toBe(modelSettings)
+    expect(inserts[2].value).toMatchObject({
+      modelId: 'cx/gpt-5.6-terra',
+      isActive: true,
+      disabledReason: null,
+      updatedBy: 'admin-1',
+    })
+    expect(inserts[3].table).toBe(auditLogs)
+    expect(inserts[3].value).toMatchObject({
+      adminId: 'admin-1',
+      adminEmail: 'admin@zona.ai',
+      action: 'model.enable',
+      targetId: 'cx/gpt-5.6-terra',
+      targetType: 'model',
+      metadata: {
+        disabledReason: null,
+      },
+    })
   })
 
-  it('should reflect disabled status in getModelCatalog', async () => {
+  it('should load overrides from DB on cold boot and clear stale cache', async () => {
+    resetModelOverridesInMemory()
+    vi.spyOn(db, 'select').mockReturnValue({
+      from: vi.fn().mockResolvedValue([
+        {
+          modelId: 'cx/gpt-5.6-luna',
+          isActive: false,
+          disabledReason: 'Cold boot loaded',
+        },
+      ]),
+    } as unknown as ReturnType<typeof db.select>)
+
+    const map = await getModelOverridesMap()
+    expect(map.get('cx/gpt-5.6-luna')).toEqual({
+      isActive: false,
+      disabledReason: 'Cold boot loaded',
+    })
+    expect(isModelAvailable('cx/gpt-5.6-luna')).toBe(false)
+  })
+
+  it('should reflect disabled status in getModelCatalog and support short ID overrides', async () => {
     updateModelOverrideInMemory('cx/gpt-5.6-terra', false, 'Routine Upgrade')
     const overrides = await getModelOverridesMap()
     const { getModelCatalog } = await import('../../src/lib/models/registry')
@@ -239,26 +336,36 @@ describe('Admin Model Availability Enforcement', () => {
     const activeEntry = catalog.find((c) => c.id === 'auto')
     expect(activeEntry).toBeDefined()
     expect(activeEntry?.isActive).toBe(true)
+
+    // Short ID override resolution
+    resetModelOverridesInMemory()
+    updateModelOverrideInMemory('gpt-5.6-terra', false, 'Short ID Upgrade')
+    const overrides2 = await getModelOverridesMap()
+    const catalog2 = getModelCatalog(overrides2)
+    const entry2 = catalog2.find((c) => c.id === 'cx/gpt-5.6-terra')
+    expect(entry2).toBeDefined()
+    expect(entry2?.isActive).toBe(false)
+    expect(entry2?.disabledReason).toBe('Short ID Upgrade')
   })
 
   it('should validate compare models availability with validateCompareModelsAvailability', async () => {
     const { validateCompareModelsAvailability } = await import(
       '../../src/server/core/compare'
     )
-    expect(() =>
+    await expect(
       validateCompareModelsAvailability([
         'ag/gemini-3.7-flash-high',
         'cx/gpt-5.6-sol',
       ]),
-    ).not.toThrow()
+    ).resolves.not.toThrow()
 
     updateModelOverrideInMemory('cx/gpt-5.6-sol', false, 'Maintenance')
-    expect(() =>
+    await expect(
       validateCompareModelsAvailability([
         'ag/gemini-3.7-flash-high',
         'cx/gpt-5.6-sol',
       ]),
-    ).toThrowError(AppError)
+    ).rejects.toThrowError(AppError)
   })
 
   it('should validate updateModelAvailabilitySchema properly', async () => {

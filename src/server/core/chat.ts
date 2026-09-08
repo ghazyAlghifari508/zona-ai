@@ -45,7 +45,7 @@ import {
 } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
-import { isModelAvailable } from './admin-models'
+import { getModelOverridesMap, isModelAvailable } from './admin-models'
 import { buildArtifactCatalogContext } from './artifact-catalog-context'
 import {
   type ArtifactMentionSource,
@@ -57,6 +57,7 @@ import {
 } from './artifact-mentions'
 import { listConversationArtifactSummaries } from './artifact-repository'
 import { finalizeTerminalRun, retryArtifactGenerationCore } from './artifacts'
+import { validateCompareModelsAvailability } from './compare'
 import { buildModelHistory } from './history'
 
 export async function autoTitleConversation(
@@ -153,6 +154,7 @@ export async function sendMessageCore({
   checkUserNotBanned(session.user)
   const userId = session.user.id
 
+  await getModelOverridesMap()
   if (!isModelAvailable(data.modelId)) {
     throw new AppError(
       'Model ini sedang dinonaktifkan oleh administrator.',
@@ -633,15 +635,7 @@ export async function sendCompareMessageCore({
   checkUserNotBanned(session.user)
   const userId = session.user.id
 
-  for (const mid of data.modelIds) {
-    if (!isModelAvailable(mid)) {
-      throw new AppError(
-        'Model ini sedang dinonaktifkan oleh administrator.',
-        400,
-        'ERR-MODEL-DISABLED',
-      )
-    }
-  }
+  await validateCompareModelsAvailability(data.modelIds)
 
   // Rate limit before any DB write / credit deduction (SECURITY.md §13)
   enforceRateLimit({
@@ -1427,6 +1421,7 @@ export async function retryGenerationCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   if (gen.status !== 'failed')
     throw new AppError('Only failed generations can be retried', 400, 'ERR-003')
+  await getModelOverridesMap()
   if (!isModelAvailable(gen.modelId)) {
     throw new AppError(
       'Model ini sedang dinonaktifkan oleh administrator.',
