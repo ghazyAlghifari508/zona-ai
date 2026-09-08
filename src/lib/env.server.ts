@@ -51,6 +51,7 @@ export const envSchema = z.object({
     .optional()
     .default('https://cloud.langfuse.com'),
   APP_URL: z.string().url(),
+  ADMIN_EMAILS: z.string().default('alghifarighazy508@gmail.com'),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
