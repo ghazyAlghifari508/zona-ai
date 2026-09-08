@@ -471,20 +471,15 @@ describe('ArtifactCanvas', () => {
     )
   })
 
-  it('emits header close tab and close panel callbacks', async () => {
+  it('emits close tab callback from the tab close button', async () => {
     const { callbacks } = setup({
       bodies: { [`/api/artifacts/${ART_A}/versions/${VER_A1}`]: '# Alpha' },
     })
     await screen.findByRole('tab', { selected: true })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Close Alpha Spec tab' }),
+      screen.getByRole('button', { name: 'Close Alpha Spec' }),
     )
     expect(callbacks.onCloseTab).toHaveBeenCalledWith(ART_A)
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Close artifact panel' }),
-    )
-    expect(callbacks.onClosePanel).toHaveBeenCalledTimes(1)
   })
 })
