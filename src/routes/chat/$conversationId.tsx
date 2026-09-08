@@ -2145,17 +2145,17 @@ function ChatThread() {
                 className="zona-scroll flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
               >
                 <header
-                  className={`sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white transition-[padding] duration-200 ${
+                  className={`sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white transition-[padding] duration-200 pl-14 lg:pl-6 ${
                     hasUsedCompareMode
-                      ? COMPARE_GUTTER_CLASS
-                      : 'pl-14 pr-4 lg:pl-6 lg:pr-6'
+                      ? 'pr-4 sm:pr-6 lg:pr-10 xl:pr-12'
+                      : 'pr-4 lg:pr-6'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     {compareEnabled && (
                       <span
                         data-testid="topbar-compare-label"
-                        className="text-[14px] font-medium text-stone"
+                        className="truncate text-[13px] sm:text-[14px] font-medium text-stone max-w-[140px] sm:max-w-none"
                       >
                         Mode banding · {compareModelIds.length} model
                       </span>

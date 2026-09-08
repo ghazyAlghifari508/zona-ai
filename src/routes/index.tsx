@@ -264,8 +264,8 @@ function ChatHome() {
         })
       }}
     >
-      <div className="flex h-full min-h-full flex-col justify-between p-4 lg:p-6">
-        <div className="mx-auto flex h-full w-full max-w-[920px] flex-col justify-between pt-12 lg:pt-0">
+      <div className="zona-scroll flex h-full min-h-full flex-col justify-between overflow-y-auto p-3 sm:p-4 lg:p-6">
+        <div className="mx-auto flex min-h-full w-full max-w-[920px] flex-col justify-between pt-12 lg:pt-0">
           <GlobalNav
             user={activeSession?.user}
             authState={authStatus}
@@ -310,7 +310,7 @@ function ChatHome() {
                   atau ubah gagasan mentah jadi sesuatu yang siap dibangun.
                 </p>
               </div>
-              <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="mt-4 sm:mt-6 grid grid-cols-1 gap-2 sm:gap-2.5 sm:grid-cols-2">
                 {STARTERS.map((starter) => (
                   <button
                     key={starter.id}
@@ -320,7 +320,7 @@ function ChatHome() {
                       setDraft(starter.prompt)
                       setComposerKey((current) => current + 1)
                     }}
-                    className="flex min-h-[104px] flex-col items-start justify-between rounded-lg border border-hairline bg-pure-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
+                    className="flex min-h-[92px] sm:min-h-[104px] flex-col items-start justify-between rounded-lg border border-hairline bg-pure-white p-3 sm:p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-hairline-strong"
                   >
                     <span
                       className={`flex h-[30px] w-[30px] items-center justify-center rounded-full ${starter.iconClass}`}
