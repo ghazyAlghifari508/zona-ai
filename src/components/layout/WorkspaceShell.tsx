@@ -9,6 +9,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
+import { BrandLogo } from '../ui/BrandLogo'
 import { Sidebar } from './Sidebar'
 
 type Props = {
@@ -72,13 +73,11 @@ export function WorkspaceShell({
             >
               {!collapsed ? (
                 <>
-                  <img
+                  <BrandLogo
                     data-testid="brand-mark"
-                    src="/assets/zonaai-logo.png"
                     alt="ZonaAI"
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 shrink-0 object-contain"
+                    size={32}
+                    className="h-8 w-8"
                   />
                   <span className="min-w-0 flex-1 flex-col">
                     <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">
@@ -90,13 +89,11 @@ export function WorkspaceShell({
                   </span>
                 </>
               ) : (
-                <img
+                <BrandLogo
                   data-testid="brand-mark"
-                  src="/assets/zonaai-logo.png"
                   alt="ZonaAI"
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 shrink-0 object-contain"
+                  size={32}
+                  className="h-8 w-8"
                 />
               )}
             </div>
@@ -125,13 +122,11 @@ export function WorkspaceShell({
             >
               {!collapsed ? (
                 <>
-                  <img
+                  <BrandLogo
                     data-testid="brand-mark"
-                    src="/assets/zonaai-logo.png"
                     alt="ZonaAI"
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 shrink-0 object-contain"
+                    size={32}
+                    className="h-8 w-8"
                   />
                   <span className="min-w-0 flex-1 flex-col">
                     <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">

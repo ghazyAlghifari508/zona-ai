@@ -12,7 +12,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     head: () => ({
       links: [
-        { rel: 'icon', type: 'image/png', href: '/assets/zonaai-logo.png' },
+        {
+          rel: 'icon',
+          type: 'image/png',
+          href: '/assets/zonaai-logo.png',
+          media: '(prefers-color-scheme: light)',
+        },
+        {
+          rel: 'icon',
+          type: 'image/png',
+          href: '/assets/zonaai-logo-white.png',
+          media: '(prefers-color-scheme: dark)',
+        },
       ],
       meta: [
         { charSet: 'utf-8' },

@@ -29,6 +29,7 @@ import {
   updateConversation,
 } from '../../server/functions/conversations'
 import { findCatalogEntry, useModelCatalog } from '../chat/useModelCatalog'
+import { BrandLogo } from '../ui/BrandLogo'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -246,13 +247,11 @@ export function Sidebar({
         >
           {!collapsed ? (
             <>
-              <img
+              <BrandLogo
                 data-testid="brand-mark"
-                src="/assets/zonaai-logo.png"
                 alt="ZonaAI"
-                width={32}
-                height={32}
-                className="h-8 w-8 shrink-0 object-contain"
+                size={32}
+                className="h-8 w-8"
               />
               <span className="min-w-0 flex-1 flex-col">
                 <span className="block text-[15px] font-bold tracking-[-0.02em] text-ink">

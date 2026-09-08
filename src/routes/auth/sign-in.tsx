@@ -2,6 +2,7 @@ import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
+import { BrandLogo } from '@/components/ui/BrandLogo'
 import { authClient } from '@/lib/auth/auth-client'
 
 export const Route = createFileRoute('/auth/sign-in')({
@@ -37,13 +38,7 @@ function SignIn() {
       >
         {/* Brand mark */}
         <div className="flex items-center justify-center gap-2.5">
-          <img
-            src="/assets/zonaai-logo.png"
-            alt="Zona.ai"
-            width={36}
-            height={36}
-            className="h-9 w-9 shrink-0 object-contain"
-          />
+          <BrandLogo alt="Zona.ai" size={36} className="h-9 w-9" />
           <span className="text-[20px] font-bold tracking-tight text-ink">
             Zona.ai
           </span>
