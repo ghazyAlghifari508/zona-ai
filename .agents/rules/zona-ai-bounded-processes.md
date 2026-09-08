@@ -48,6 +48,18 @@ For every long-lived process:
 
 Subagents must not own long-lived servers when cancellation can hide their cleanup. Prefer controller-owned server lifecycle or a runner that starts the server, waits for readiness, runs one bounded action, and always tears the server down.
 
+### Forbidden server-launch pattern in the terminal harness
+
+Do not launch a server with PowerShell `Start-Process` plus `-RedirectStandardOutput` or `-RedirectStandardError` from a terminal tool call and assume `-PassThru` makes the call detached. Descendant Vite/Node processes can inherit redirected handles, keep the tool invocation open after the parent prints a PID, and make a successful launch appear hung indefinitely.
+
+For local browser work, use one of these bounded patterns instead:
+
+1. A lifecycle manager that owns server start, readiness, dependent command, and tree cleanup in one blocking invocation with an outer tool timeout.
+2. Playwright `webServer` with required environment explicitly propagated and its finite startup timeout enforced.
+3. A foreground server only when the browser tool independently owns it and the exact PID tree is guaranteed to be cleaned immediately afterward.
+
+Never use fire-and-forget detachment from the terminal harness for task-owned servers. A printed PID is not proof that the invoking tool call has released all inherited handles.
+
 ---
 
 ## Rule 3: Kill the Verified Process Tree on Windows
@@ -90,6 +102,7 @@ Environment wrappers must verify propagation at the process boundary without dum
 5. Run the full suite once at the final gate, not after every edit.
 6. If Playwright starts a web server, verify that cancellation tears it down. Check the configured port after every failed or cancelled run.
 7. Preserve traces and failure output before cleanup; do not rerun blindly.
+8. Do not manually prestart Vite with `Start-Process` and redirected log files to bypass Playwright startup; fix environment propagation or use a bounded lifecycle manager.
 
 ---
 
