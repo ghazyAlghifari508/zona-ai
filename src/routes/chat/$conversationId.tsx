@@ -920,6 +920,7 @@ function ChatThread() {
         typeof resolveArtifactDispatch
       >[0]['skillId'],
       mentions: artifactMentions,
+      content,
     })
 
     if (dispatch.type === 'artifact-revise') {
@@ -1261,6 +1262,7 @@ function ChatThread() {
         typeof resolveArtifactDispatch
       >[0]['skillId'],
       mentions: artifactMentions,
+      content,
     })
 
     if (dispatch.type === 'artifact-revise') {
