@@ -20,6 +20,10 @@ import {
   putObject,
   type StoredObjectLocator,
 } from '../../src/lib/r2/client'
+import {
+  gotoChatAndWaitForArtifactHydration,
+  reloadAndWaitForArtifactHydration,
+} from './artifact-hydration'
 
 const scopedUserId = () => `compare-e2e-${test.info().project.name}`
 const scopedEmail = (id: string) => `${id}@example.com`
@@ -320,7 +324,7 @@ test('compare selector toggles multi-model contract on a real route', async ({
     .returning()
   if (!conversation) throw new Error('conversation fixture failed')
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByTestId('message-list')).toBeVisible()
   await expect(page.getByTestId('model-selector-trigger')).toBeEnabled()
 
@@ -383,14 +387,14 @@ test('compare exposes four independent successful artifact cards', async ({
     throw new Error('compare artifact fixtures failed')
   }
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   const grid = page.getByTestId('compare-grid')
   await expect(grid).toBeVisible()
   for (const artifact of seededArtifacts) {
     await openCompareArtifactCard(page, artifact)
   }
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByTestId('compare-grid')).toBeVisible()
 
   const openAll = page.getByTestId('compare-open-all')
@@ -415,7 +419,7 @@ test('compare exposes four independent successful artifact cards', async ({
   await page.getByTestId('artifact-close-panel').click()
   await expect(page.getByTestId('artifact-canvas')).toBeHidden()
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByTestId('compare-grid')).toBeVisible()
   for (const artifact of seededArtifacts) {
     await expect(
@@ -494,7 +498,7 @@ test('one failed compare generation leaves successful siblings openable', async 
     throw new Error('compare artifact fixtures failed')
   }
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   const grid = page.getByTestId('compare-grid')
   await expect(grid).toBeVisible()
   await expect(page.getByRole('note')).toHaveCount(1)
@@ -502,7 +506,7 @@ test('one failed compare generation leaves successful siblings openable', async 
     await openCompareArtifactCard(page, artifact)
   }
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByTestId('compare-grid')).toBeVisible()
   await expect(page.getByRole('note')).toHaveCount(1)
 

@@ -26,6 +26,10 @@ import {
   putObject,
   type StoredObjectLocator,
 } from '../../src/lib/r2/client'
+import {
+  gotoChatAndWaitForArtifactHydration,
+  reloadAndWaitForArtifactHydration,
+} from './artifact-hydration'
 
 test.use({ acceptDownloads: true })
 
@@ -320,7 +324,7 @@ test('file card opens canvas instead of downloading and separate download return
     downloads.push(download)
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   const card = fileCard(page, version.fileName)
   await expect(card).toBeVisible()
 
@@ -399,7 +403,7 @@ test('prd, agent skill, and checklist previews render in canvas', async ({
     createdAtBase: base + 20_000,
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   const previewExpectations = [
     { seeded: prd, headingName: 'Seeded PRD Preview' },
     { seeded: skill, headingName: 'Seeded Skill Preview' },
@@ -475,7 +479,7 @@ test('canvas tabs open, dedupe, switch, select versions, and close', async ({
   const betaVersion = beta.versions[0]
   if (!betaVersion) throw new Error('artifact fixture failed')
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   const tabs = page.getByTestId('artifact-tabs').getByRole('tab')
   const versionSelect = page.getByTestId('artifact-version-select')
 
@@ -556,7 +560,7 @@ test('seeded artifact opens current v2 while v1 stays selectable and downloadabl
   const v2 = artifact.versions[1]
   if (!v1 || !v2) throw new Error('artifact fixture failed')
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await openArtifactCard(page, v2.fileName)
   const versionSelect = page.getByTestId('artifact-version-select')
   await expect(versionSelect).toHaveValue(v2.versionId)
@@ -633,13 +637,13 @@ test('refresh closes ephemeral tabs but persisted cards and version history reop
   const betaVersion = beta.versions[0]
   if (!betaVersion) throw new Error('artifact fixture failed')
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await openArtifactCard(page, alphaTwo.fileName)
   await openArtifactCard(page, betaVersion.fileName)
   const tabs = page.getByTestId('artifact-tabs').getByRole('tab')
   await expect(tabs).toHaveCount(2)
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(
     page.getByTestId('conversation-artifact-layout'),
   ).toHaveAttribute('data-canvas-open', 'false')
@@ -708,7 +712,7 @@ test('chat stays scrollable and composer submits while canvas is open', async ({
     ])
   }
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await openArtifactCard(page, 'canvas-chat-probe.md')
   const scrollArea = page.getByTestId('chat-messages-scroll-area')
   await expect(scrollArea).toBeVisible()
@@ -783,7 +787,7 @@ test('mobile canvas replaces chat and composer draft survives return', async ({
     createdAtBase: Date.now(),
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   const draft = 'Draf canvas mobile tetap.'
   const composerInput = page.getByTestId('composer-input')
   await composerInput.fill(draft)

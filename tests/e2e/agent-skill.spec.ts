@@ -18,6 +18,10 @@ import {
   putObject,
   type StoredObjectLocator,
 } from '../../src/lib/r2/client'
+import {
+  gotoChatAndWaitForArtifactHydration,
+  reloadAndWaitForArtifactHydration,
+} from './artifact-hydration'
 
 test.use({ acceptDownloads: true })
 
@@ -115,7 +119,7 @@ test('compare mode blocks agent-skill submit with clear validation', async ({
     .values({ userId, title: 'agent-skill guard thread' })
     .returning()
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByTestId('message-list')).toBeVisible()
   await expect(page.getByTestId('skill-selector-trigger')).toBeEnabled()
   const trigger = page.getByTestId('skill-selector-trigger')
@@ -245,14 +249,14 @@ test('seeded artifact survives reload and downloads intact', async ({
     processingStatus: 'completed',
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByTestId('message-list')).toHaveAttribute(
     'data-message-count',
     '2',
   )
   await expect(page.getByTestId('artifact-file-card')).toBeVisible()
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByTestId('message-list')).toHaveAttribute(
     'data-message-count',
     '2',
@@ -302,12 +306,12 @@ test('failed generation shows recoverable error and no empty file', async ({
     error: { message: 'seeded model failure', code: 'ERR-001' },
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByRole('note')).toBeVisible()
   await expect(page.getByTestId('artifact-file-card')).not.toBeAttached()
   await expect(page.getByTestId('composer-input')).toBeEnabled()
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByRole('note')).toBeVisible()
   await expect(page.getByTestId('artifact-file-card')).not.toBeAttached()
   await expect(page.getByTestId('composer-input')).toBeEnabled()
