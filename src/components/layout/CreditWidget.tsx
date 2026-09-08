@@ -1,17 +1,37 @@
-﻿import { GemIcon } from '@hugeicons/core-free-icons'
+import { GemIcon, ZapIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useState } from 'react'
+import { resetDevCreditsFn } from '../../server/functions/credits'
 
 type Props = {
   credits: number
   onReset?: (newBalance: number) => void
+  user?: {
+    role?: string | null
+    [key: string]: unknown
+  } | null
 }
 
-export function CreditWidget({ credits }: Props) {
+export function CreditWidget({ credits, onReset, user }: Props) {
   const [balance, setBalance] = useState(credits)
+  const [resetting, setResetting] = useState(false)
 
   // Stay in sync when the parent refreshes credits (e.g. after a send deducts)
   useEffect(() => setBalance(credits), [credits])
+
+  const handleReset = async () => {
+    if (resetting) return
+    setResetting(true)
+    try {
+      const res = await resetDevCreditsFn()
+      setBalance(res.newBalance)
+      onReset?.(res.newBalance)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setResetting(false)
+    }
+  }
 
   const percentage = Math.min(100, Math.max(0, (balance / 100) * 100))
   const isLow = balance < 20
@@ -50,6 +70,25 @@ export function CreditWidget({ credits }: Props) {
           <span>{isLow ? 'Kredit menipis' : 'Paket Standar'}</span>
           <span>{Math.round(percentage)}% tersisa</span>
         </div>
+
+        {user?.role === 'admin' && (
+          <button
+            type="button"
+            data-testid="reset-credits-btn"
+            onClick={handleReset}
+            disabled={resetting}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-hairline bg-pure-white px-2.5 py-1.5 text-[12px] font-medium text-ink transition-all hover:border-hairline-strong hover:bg-stone/5 active:scale-95 disabled:opacity-50"
+            title="Reset ke 100 kredit (Admin mode)"
+          >
+            <HugeiconsIcon
+              icon={ZapIcon}
+              size={13}
+              strokeWidth={1.75}
+              className="text-amber-500 shrink-0"
+            />
+            <span>{resetting ? 'Mereset...' : 'Reset 100 Kredit'}</span>
+          </button>
+        )}
       </div>
     </div>
   )
