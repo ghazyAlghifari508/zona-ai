@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import { createHash } from 'node:crypto'
 import { eq, sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -9,6 +10,8 @@ import {
 } from '../../src/lib/ai/artifact-stream'
 import { db } from '../../src/lib/db/index'
 import {
+  artifacts,
+  artifactVersions,
   attachments,
   conversations,
   creditTransactions,
@@ -45,6 +48,7 @@ vi.mock('../../src/lib/auth/session', () => ({
 let nextOutput = ''
 const nextUsage = { inputTokens: 5, outputTokens: 10, totalTokens: 15 }
 let nextFinishReason: unknown = 'stop'
+let nextStreamGate: Promise<void> | null = null
 
 function __setNextFinishReason(reason: unknown) {
   nextFinishReason = reason
@@ -52,6 +56,10 @@ function __setNextFinishReason(reason: unknown) {
 
 function __setNextArtifactOutput(text: string) {
   nextOutput = text
+}
+
+function __setNextStreamGate(gate: Promise<void> | null) {
+  nextStreamGate = gate
 }
 
 const mockStreamText = vi.fn((opts: Record<string, unknown>) => {
@@ -70,8 +78,12 @@ const mockStreamText = vi.fn((opts: Record<string, unknown>) => {
   }
   const textStream = new ReadableStream<string>({
     start(controller) {
-      controller.enqueue(nextOutput)
-      controller.close()
+      const release = async () => {
+        if (nextStreamGate) await nextStreamGate
+        controller.enqueue(nextOutput)
+        controller.close()
+      }
+      void release()
     },
   })
   const chatStream = new ReadableStream({
@@ -150,6 +162,21 @@ async function cleanUser(userId: string) {
   await db
     .delete(creditTransactions)
     .where(eq(creditTransactions.userId, userId))
+  await db.execute(
+    sql`UPDATE generation_runs SET source_artifact_id = NULL, source_version_id = NULL WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`,
+  )
+  await db.execute(
+    sql`UPDATE artifact_versions SET source_version_id = NULL WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`,
+  )
+  await db.execute(
+    sql`UPDATE artifacts SET current_version_id = NULL WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`,
+  )
+  await db.execute(
+    sql`DELETE FROM artifact_versions WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`,
+  )
+  await db.execute(
+    sql`DELETE FROM artifacts WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`,
+  )
   await db.execute(
     sql`DELETE FROM generation_runs WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ${userId})`,
   )
@@ -259,6 +286,7 @@ describe('artifact generation', () => {
 
     expect(r2.putObject).toHaveBeenCalledTimes(1)
     const putArg = vi.mocked(r2.putObject).mock.calls[0][0]
+    expect(putArg.bucket).toBe(process.env.R2_BUCKET_NAME)
     expect(putArg.key.startsWith(`users/${USER}/attachments/`)).toBe(true)
     expect((putArg.body as Buffer).toString('utf8')).toContain(
       'name: frontend-design',
@@ -366,7 +394,11 @@ describe('artifact generation', () => {
       .from(attachments)
       .where(eq(attachments.conversationId, convId))
     expect(attRows.length).toBe(0)
-    expect(r2.deleteObject).not.toHaveBeenCalled()
+    const [attemptedWrite] = vi.mocked(r2.putObject).mock.calls[0] ?? []
+    if (!attemptedWrite) throw new Error('missing attempted R2 write')
+    expect(vi.mocked(r2.deleteObject).mock.calls).toEqual([
+      [{ bucket: attemptedWrite.bucket, key: attemptedWrite.key }],
+    ])
     const [run] = await db
       .select()
       .from(generationRuns)
@@ -511,9 +543,7 @@ describe('artifact generation', () => {
     expect(
       retryEvents.some((e) => e.type === 'artifact-error' && e.retryable),
     ).toBe(true)
-    expect(
-      retryEvents.some((e) => e.type === 'artifact-created'),
-    ).toBe(false)
+    expect(retryEvents.some((e) => e.type === 'artifact-created')).toBe(false)
     expect(await getCredits(USER)).toBe(creditsBefore)
   })
 })
@@ -770,5 +800,588 @@ describe('stop generation ownership', () => {
     ).filter((r) => r.type === 'refund')
     expect(refundRows2.length).toBe(1)
     expect(await getCredits(USER)).toBe(before)
+  })
+})
+
+describe('artifact finalization boundary', () => {
+  const FINALIZE_USERS = [
+    'artifact-user-11',
+    'artifact-user-12',
+    'artifact-user-13',
+    'artifact-user-14',
+    'artifact-user-15',
+    'artifact-user-16',
+  ]
+
+  const FINALIZE_BYTES = new TextEncoder().encode(
+    '# Finalize fixture\n\nExact canonical bytes.\n',
+  )
+  const FINALIZE_SHA = createHash('sha256').update(FINALIZE_BYTES).digest('hex')
+
+  async function seedConversation(userId: string): Promise<string> {
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId, title: 'Finalize fixture', mode: 'normal' })
+      .returning()
+    await db.insert(messages).values({
+      conversationId: conv.id,
+      role: 'user',
+      content: 'Buatkan artefak',
+    })
+    return conv.id
+  }
+
+  async function seedStreamingGeneration(
+    userId: string,
+    convId?: string,
+  ): Promise<{ convId: string; assistantMsgId: string; genId: string }> {
+    const id = convId ?? (await seedConversation(userId))
+    const [assistantMsg] = await db
+      .insert(messages)
+      .values({ conversationId: id, role: 'assistant', content: '' })
+      .returning()
+    const genId = crypto.randomUUID()
+    await db.insert(generationRuns).values({
+      id: genId,
+      messageId: assistantMsg.id,
+      conversationId: id,
+      modelId: 'auto',
+      routerModelId: 'auto',
+      skillId: 'agent-skill',
+      status: 'streaming',
+      startedAt: new Date(),
+    })
+    return { convId: id, assistantMsgId: assistantMsg.id, genId }
+  }
+
+  function createInput(
+    userId: string,
+    seed: { convId: string; assistantMsgId: string; genId: string },
+  ) {
+    return {
+      userId,
+      conversationId: seed.convId,
+      messageId: seed.assistantMsgId,
+      generationId: seed.genId,
+      kind: 'agent-skill' as const,
+      title: 'Finalize Fixture',
+      modelId: 'auto',
+      routerModelId: 'auto',
+      fileName: 'finalize-fixture.md',
+      mimeType: 'text/markdown' as const,
+      bytes: FINALIZE_BYTES,
+      summary: 'Skill `Finalize Fixture` selesai dibuat.',
+      usage: { inputTokens: 5, outputTokens: 10, totalTokens: 15 },
+      timing: { latencyMs: 42, timeToFirstTokenMs: 7 },
+      finalizationMode: 'create' as const,
+    }
+  }
+
+  beforeEach(async () => {
+    resetRateLimitForTest()
+    nextFinishReason = 'stop'
+    nextStreamGate = null
+    for (const id of FINALIZE_USERS) {
+      await cleanUser(id)
+    }
+    for (const id of FINALIZE_USERS) {
+      await db.insert(users).values({
+        id,
+        email: `${id}@example.com`,
+        name: id,
+        credits: 1000,
+      })
+    }
+    vi.clearAllMocks()
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.putObject).mockResolvedValue(undefined)
+    vi.mocked(r2.deleteObject).mockResolvedValue(undefined)
+  })
+
+  afterAll(async () => {
+    for (const id of FINALIZE_USERS) {
+      await cleanUser(id)
+    }
+  })
+
+  it('creates version 1 with the SHA-256 of the exact bytes', async () => {
+    const USER = 'artifact-user-11'
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    const seed = await seedStreamingGeneration(USER)
+
+    const descriptor = await finalizeArtifactVersion(createInput(USER, seed))
+
+    expect(descriptor.version).toBe(1)
+    expect(descriptor.kind).toBe('agent-skill')
+    expect(descriptor.title).toBe('Finalize Fixture')
+    expect(descriptor.generationId).toBe(seed.genId)
+    expect(descriptor.fileSize).toBe(FINALIZE_BYTES.length)
+
+    const [artifact] = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, descriptor.artifactId))
+    expect(artifact.currentVersionId).toBe(descriptor.versionId)
+    expect(artifact.title).toBe('Finalize Fixture')
+
+    const [version] = await db
+      .select()
+      .from(artifactVersions)
+      .where(eq(artifactVersions.id, descriptor.versionId))
+    expect(version.version).toBe(1)
+    expect(version.contentSha256).toBe(FINALIZE_SHA)
+    expect(version.sourceVersionId).toBeNull()
+    expect(version.changeSummary).toBe('Created artifact')
+
+    const [attachment] = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.id, descriptor.attachmentId))
+    expect(attachment.extractedText).toBeNull()
+    expect(attachment.r2Key).toContain(descriptor.attachmentId)
+    expect(attachment.messageId).toBe(seed.assistantMsgId)
+
+    const [assistantMsg] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, seed.assistantMsgId))
+    expect(assistantMsg.content).toBe(
+      'Skill `Finalize Fixture` selesai dibuat.',
+    )
+
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, seed.genId))
+    expect(run.status).toBe('completed')
+    expect(run.promptTokens).toBe(5)
+    expect(run.completionTokens).toBe(10)
+    expect(run.totalTokens).toBe(15)
+    expect(run.latencyMs).toBe(42)
+    expect(run.timeToFirstTokenMs).toBe(7)
+
+    expect(r2.putObject).toHaveBeenCalledTimes(1)
+    expect(r2.deleteObject).not.toHaveBeenCalled()
+    const putArg = vi.mocked(r2.putObject).mock.calls[0][0]
+    expect(putArg.key).toContain(descriptor.attachmentId)
+  })
+
+  it('revises to version 2 and moves the current pointer', async () => {
+    const USER = 'artifact-user-12'
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const seed = await seedStreamingGeneration(USER)
+    const created = await finalizeArtifactVersion(createInput(USER, seed))
+
+    const next = await seedStreamingGeneration(USER, seed.convId)
+    const revisedBytes = new TextEncoder().encode(
+      '# Finalize fixture\n\nRevised bytes.\n',
+    )
+    const revised = await finalizeArtifactVersion({
+      userId: USER,
+      conversationId: next.convId,
+      messageId: next.assistantMsgId,
+      generationId: next.genId,
+      kind: 'agent-skill',
+      title: 'Finalize Fixture Revised',
+      modelId: 'auto',
+      routerModelId: 'auto',
+      fileName: 'finalize-fixture.md',
+      mimeType: 'text/markdown',
+      bytes: revisedBytes,
+      summary: 'Skill `Finalize Fixture` direvisi.',
+      usage: null,
+      timing: { latencyMs: 30, timeToFirstTokenMs: null },
+      finalizationMode: 'revise',
+      artifactId: created.artifactId,
+      sourceArtifactId: created.artifactId,
+      sourceVersionId: created.versionId,
+      expectedCurrentVersionId: created.versionId,
+    })
+
+    expect(revised.artifactId).toBe(created.artifactId)
+    expect(revised.version).toBe(2)
+    expect(revised.versionId).not.toBe(created.versionId)
+
+    const [artifact] = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, created.artifactId))
+    expect(artifact.currentVersionId).toBe(revised.versionId)
+    expect(artifact.title).toBe('Finalize Fixture Revised')
+
+    const [version] = await db
+      .select()
+      .from(artifactVersions)
+      .where(eq(artifactVersions.id, revised.versionId))
+    expect(version.sourceVersionId).toBe(created.versionId)
+    expect(version.contentSha256).toBe(
+      createHash('sha256').update(revisedBytes).digest('hex'),
+    )
+  })
+
+  it('forks a new artifact at version 1 with the exact external source', async () => {
+    const USER = 'artifact-user-13'
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const seed = await seedStreamingGeneration(USER)
+    const source = await finalizeArtifactVersion(createInput(USER, seed))
+
+    const forkSeed = await seedStreamingGeneration(USER, seed.convId)
+    const forked = await finalizeArtifactVersion({
+      ...createInput(USER, forkSeed),
+      title: 'Forked Fixture',
+      finalizationMode: 'fork',
+      sourceArtifactId: source.artifactId,
+      sourceVersionId: source.versionId,
+      expectedCurrentVersionId: source.versionId,
+    })
+
+    expect(forked.artifactId).not.toBe(source.artifactId)
+    expect(forked.version).toBe(1)
+
+    const [version] = await db
+      .select()
+      .from(artifactVersions)
+      .where(eq(artifactVersions.id, forked.versionId))
+    expect(version.sourceVersionId).toBe(source.versionId)
+
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, forkSeed.genId))
+    expect(run.sourceArtifactId).toBe(source.artifactId)
+    expect(run.sourceVersionId).toBe(source.versionId)
+  })
+
+  it('rejects a stale expected current version with 409 and compensates R2', async () => {
+    const USER = 'artifact-user-14'
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    const seed = await seedStreamingGeneration(USER)
+    const created = await finalizeArtifactVersion(createInput(USER, seed))
+    vi.mocked(r2.putObject).mockClear()
+    vi.mocked(r2.deleteObject).mockClear()
+
+    const stale = await seedStreamingGeneration(USER, seed.convId)
+    await expect(
+      finalizeArtifactVersion({
+        ...createInput(USER, stale),
+        finalizationMode: 'revise',
+        artifactId: created.artifactId,
+        sourceArtifactId: created.artifactId,
+        sourceVersionId: created.versionId,
+        expectedCurrentVersionId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+
+    expect(r2.putObject).toHaveBeenCalledTimes(1)
+    expect(r2.deleteObject).toHaveBeenCalledTimes(1)
+    const putKey = vi.mocked(r2.putObject).mock.calls[0][0].key
+    expect(vi.mocked(r2.deleteObject).mock.calls[0][0].key).toBe(putKey)
+
+    const versions = await db
+      .select({ id: artifactVersions.id })
+      .from(artifactVersions)
+      .where(eq(artifactVersions.artifactId, created.artifactId))
+    expect(versions).toHaveLength(1)
+    const [artifact] = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, created.artifactId))
+    expect(artifact.currentVersionId).toBe(created.versionId)
+  })
+
+  it('rejects a fork whose source moved during generation with 409 and compensates R2', async () => {
+    const USER = 'artifact-user-15'
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    const seed = await seedStreamingGeneration(USER)
+    const source = await finalizeArtifactVersion(createInput(USER, seed))
+
+    const reviseSeed = await seedStreamingGeneration(USER, seed.convId)
+    const revised = await finalizeArtifactVersion({
+      ...createInput(USER, reviseSeed),
+      finalizationMode: 'revise',
+      artifactId: source.artifactId,
+      sourceArtifactId: source.artifactId,
+      sourceVersionId: source.versionId,
+      expectedCurrentVersionId: source.versionId,
+    })
+    expect(revised.version).toBe(2)
+
+    vi.mocked(r2.putObject).mockClear()
+    vi.mocked(r2.deleteObject).mockClear()
+    const forkSeed = await seedStreamingGeneration(USER, seed.convId)
+    await expect(
+      finalizeArtifactVersion({
+        ...createInput(USER, forkSeed),
+        finalizationMode: 'fork',
+        sourceArtifactId: source.artifactId,
+        sourceVersionId: source.versionId,
+        expectedCurrentVersionId: source.versionId,
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+    expect(r2.putObject).toHaveBeenCalledTimes(1)
+    expect(r2.deleteObject).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves old rows and deletes only the new object when the commit fails', async () => {
+    const USER = 'artifact-user-16'
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    const seed = await seedStreamingGeneration(USER)
+    const created = await finalizeArtifactVersion(createInput(USER, seed))
+    await db
+      .update(generationRuns)
+      .set({ status: 'streaming' })
+      .where(eq(generationRuns.id, seed.genId))
+    vi.mocked(r2.putObject).mockClear()
+    vi.mocked(r2.deleteObject).mockClear()
+
+    const retrySeed = await seedStreamingGeneration(USER, seed.convId)
+    await expect(
+      finalizeArtifactVersion({
+        ...createInput(USER, retrySeed),
+        generationId: seed.genId,
+      }),
+    ).rejects.toThrow()
+    expect(r2.putObject).toHaveBeenCalledTimes(1)
+    expect(r2.deleteObject).toHaveBeenCalledTimes(1)
+
+    const versionRows = await db
+      .select({ id: artifactVersions.id })
+      .from(artifactVersions)
+      .where(eq(artifactVersions.artifactId, created.artifactId))
+    expect(versionRows).toHaveLength(1)
+    const [artifact] = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, created.artifactId))
+    expect(artifact.currentVersionId).toBe(created.versionId)
+  })
+
+  it('emits expanded identity on every stream event with real saving phases', async () => {
+    const USER = 'artifact-user-11'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    __setNextArtifactOutput(FRONTEND_SKILL)
+    const res = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'agent-skill',
+        content: 'Buatkan skill untuk frontend design',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    const genId = res.headers.get('X-Generation-Id') as string
+    const events = await readArtifactEvents(res)
+    expect(events.length).toBeGreaterThan(0)
+    for (const event of events) {
+      expect(event.generationId).toBe(genId)
+      expect(event.modelId).toBe('auto')
+      expect(event.operation).toBe('create')
+    }
+    const phases = events
+      .filter((e) => e.type === 'artifact-status')
+      .map((e) => (e.type === 'artifact-status' ? e.phase : ''))
+    expect(phases).toContain('saving')
+    expect(phases).not.toContain('creating_file')
+    expect(phases).not.toContain('error')
+    const created = events.find((e) => e.type === 'artifact-created')
+    if (created?.type !== 'artifact-created') throw new Error('missing created')
+    expect(created.artifactId).toBeTruthy()
+    expect(created.versionId).toBeTruthy()
+    expect(created.version).toBe(1)
+    expect(created.title).toBeTruthy()
+    expect(created.messageId).toBeTruthy()
+    expect(created.conversationId).toBeTruthy()
+    expect(created.routerModelId).toBeTruthy()
+  })
+
+  it('emits cancelled as a real terminal phase when generation stops mid-stream', async () => {
+    const USER = 'artifact-user-12'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    const { stopGenerationCore } = await import('../../src/server/core/chat')
+    let releaseGate!: () => void
+    __setNextStreamGate(
+      new Promise<void>((resolve) => {
+        releaseGate = resolve
+      }),
+    )
+    __setNextArtifactOutput(FRONTEND_SKILL)
+    try {
+      const res = await generateArtifactCore({
+        data: {
+          modelId: 'auto',
+          skillId: 'agent-skill',
+          content: 'Buatkan skill untuk frontend design',
+          enableWebSearch: false,
+        },
+        request: userRequest(USER),
+      })
+      const genId = res.headers.get('X-Generation-Id') as string
+      const stopped = await stopGenerationCore({
+        generationId: genId,
+        request: userRequest(USER),
+      })
+      expect(stopped.ok).toBe(true)
+      releaseGate()
+      const events = await readArtifactEvents(res)
+      const phases = events
+        .filter((e) => e.type === 'artifact-status')
+        .map((e) => (e.type === 'artifact-status' ? e.phase : ''))
+      expect(phases).toContain('cancelled')
+      expect(phases).not.toContain('error')
+      expect(events.some((e) => e.type === 'artifact-error')).toBe(false)
+      const done = events.find((e) => e.type === 'artifact-done')
+      if (done?.type !== 'artifact-done') throw new Error('missing done')
+      expect(done.status).toBe('cancelled')
+      const refundRows = (
+        await db
+          .select()
+          .from(creditTransactions)
+          .where(eq(creditTransactions.generationRunId, genId))
+      ).filter((r) => r.type === 'refund')
+      expect(refundRows.length).toBe(1)
+    } finally {
+      __setNextStreamGate(null)
+    }
+  })
+})
+
+describe('checklist artifact generation', () => {
+  const CHECKLIST_USERS = ['artifact-checklist-1', 'artifact-checklist-2']
+  const CHECKLIST_JSON = JSON.stringify({
+    type: 'checklist',
+    title: 'Checklist puasa',
+    items: [
+      { id: 'task-1', text: 'Sahur', completed: false },
+      { id: 'task-2', text: 'Sholat subuh', completed: false },
+    ],
+  })
+
+  beforeEach(async () => {
+    resetRateLimitForTest()
+    nextFinishReason = 'stop'
+    nextStreamGate = null
+    for (const id of CHECKLIST_USERS) {
+      await cleanUser(id)
+    }
+    for (const id of CHECKLIST_USERS) {
+      await db.insert(users).values({
+        id,
+        email: `${id}@example.com`,
+        name: id,
+        credits: 1000,
+      })
+    }
+    vi.clearAllMocks()
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.putObject).mockResolvedValue(undefined)
+    vi.mocked(r2.deleteObject).mockResolvedValue(undefined)
+  })
+
+  afterAll(async () => {
+    for (const id of CHECKLIST_USERS) {
+      await cleanUser(id)
+    }
+  })
+
+  it('creates a checklist markdown artifact without persisting model JSON', async () => {
+    const USER = 'artifact-checklist-1'
+    const { generateArtifactCore } = await import(
+      '../../src/server/core/artifacts'
+    )
+    const r2 = await import('../../src/lib/r2/client')
+    __setNextArtifactOutput(CHECKLIST_JSON)
+    const res = await generateArtifactCore({
+      data: {
+        modelId: 'auto',
+        skillId: 'checklist',
+        content: 'Buatkan checklist puasa',
+        enableWebSearch: false,
+      },
+      request: userRequest(USER),
+    })
+    expect(res.headers.get('X-Artifact-Kind')).toBe('checklist')
+    const events = await readArtifactEvents(res)
+    const created = events.find((e) => e.type === 'artifact-created')
+    if (created?.type !== 'artifact-created') throw new Error('missing created')
+    expect(created.kind).toBe('checklist')
+    expect(created.title).toBe('Checklist puasa')
+    expect(created.artifact.mimeType).toBe('text/markdown')
+    expect(created.artifact.fileName.endsWith('.md')).toBe(true)
+    expect(created.summary).toContain('Checklist puasa')
+
+    const done = events.find((e) => e.type === 'artifact-done')
+    if (done?.type !== 'artifact-done') throw new Error('missing done')
+    expect(done.status).toBe('completed')
+
+    expect(r2.putObject).toHaveBeenCalledTimes(1)
+    const putArg = vi.mocked(r2.putObject).mock.calls[0][0]
+    const persisted = (putArg.body as Buffer).toString('utf8')
+    expect(persisted.startsWith('# Checklist puasa\n')).toBe(true)
+    expect(
+      persisted.split('\n').filter((line) => line.startsWith('- [ ] ')),
+    ).toHaveLength(2)
+    expect(persisted).not.toContain('"type"')
+    expect(putArg.contentType).toBe('text/markdown')
+
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(
+        eq(generationRuns.id, res.headers.get('X-Generation-Id') as string),
+      )
+    expect(run.skillId).toBe('checklist')
+    expect(run.content?.startsWith('# Checklist puasa')).toBe(true)
+  })
+
+  it('rejects checklist in single chat but accepts it in compare', async () => {
+    const USER = 'artifact-checklist-2'
+    const { sendCompareMessageCore, sendMessageCore } = await import(
+      '../../src/server/core/chat'
+    )
+    await expect(
+      sendMessageCore({
+        data: {
+          modelId: 'auto',
+          skillId: 'checklist',
+          content: 'halo',
+        },
+        request: userRequest(USER),
+      }),
+    ).rejects.toMatchObject({ status: 400, code: 'ERR-003' })
+
+    const compareRes = (await sendCompareMessageCore({
+      data: {
+        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        skillId: 'checklist',
+        content: 'buatkan checklist puasa',
+      },
+      request: userRequest(USER),
+    })) as unknown as Response
+    expect(compareRes).toBeInstanceOf(Response)
+    expect(compareRes.headers.get('Content-Type')).toContain(
+      'text/event-stream',
+    )
+    await compareRes.text().catch(() => {})
+    await new Promise((r) => setTimeout(r, 500))
   })
 })

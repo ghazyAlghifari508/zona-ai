@@ -30,6 +30,7 @@ vi.mock('../../src/lib/auth/session', () => ({
 }))
 
 import { getAttachmentCore } from '../../src/server/functions/files'
+import { getObject } from '../../src/lib/r2/client'
 
 const mockUserId = 'test-user-download'
 const otherUserId = 'someone-else'
@@ -114,6 +115,10 @@ describe('artifact download', () => {
     const bytes = Buffer.from(await res.arrayBuffer())
     expect(bytes.toString('utf8')).toBe('# Skill\n\nBody')
     expect(res.headers.get('Content-Length')).toBe(String(bytes.length))
+    expect(getObject).toHaveBeenCalledWith({
+      bucket: 'test-bucket',
+      key: expect.stringContaining(`users/${mockUserId}/attachments/`),
+    })
   })
 
   it('keeps inline disposition by default', async () => {

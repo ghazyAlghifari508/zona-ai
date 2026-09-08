@@ -1,84 +1,95 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it, vi } from 'vitest'
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }))
 
 vi.mock('@aws-sdk/client-s3', async () => {
-  const actual =
-    await vi.importActual<typeof import('@aws-sdk/client-s3')>(
-      '@aws-sdk/client-s3',
-    )
+  const actual = await vi.importActual<typeof import('@aws-sdk/client-s3')>(
+    '@aws-sdk/client-s3',
+  )
   return {
     ...actual,
     S3Client: vi.fn(function S3ClientMock() {
-      return {
-        send: vi.fn(async (cmd: unknown) => {
-          // Simulate GetObject returning body stream
-          const c = cmd as Record<string, unknown>
-          // If it's GetObjectCommand with our test key, return stream
-          const input = (c as { input?: Record<string, unknown> }).input
-          if (
-            input &&
-            typeof input.Key === 'string' &&
-            input.Key.includes('file.pdf')
-          ) {
-            // For getObject test we need to return body if needed; but generic mock will handle
-          }
-          // Check if caller expects GetObject response with Body
-          // We'll let test override via mockResolvedValue if needed; default to empty
-          if ((cmd as Record<string, unknown>).__isGet) {
-            return {
-              Body: {
-                async *[Symbol.asyncIterator]() {
-                  yield Buffer.from('test')
-                },
-              },
-              ContentType: 'application/pdf',
-            }
-          }
-          return {}
-        }),
-      }
-    }),
-    PutObjectCommand: vi.fn(function PutObjectCommandMock(input: unknown) {
-      ;(this as unknown as Record<string, unknown>).input = input
-      return this
-    }),
-    GetObjectCommand: vi.fn(function GetObjectCommandMock(input: unknown) {
-      const obj = Object.create(null)
-      obj.input = input
-      // tag for mock detection
-      ;(obj as Record<string, unknown>).__isGet = true
-      return obj
-    }),
-    DeleteObjectCommand: vi.fn(function DeleteObjectCommandMock(
-      input: unknown,
-    ) {
-      ;(this as unknown as Record<string, unknown>).input = input
-      return this
+      return { send: sendMock }
     }),
   }
 })
 
-import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { deleteObject, getObject, putObject } from '../../src/lib/r2/client'
 
 describe('r2 client', () => {
-  it('putObject calls S3 with correct key pattern', async () => {
+  beforeEach(() => {
+    sendMock.mockReset()
+  })
+
+  it('passes the explicit bucket and key to putObject', async () => {
+    sendMock.mockResolvedValueOnce({})
+
     await putObject({
+      bucket: 'write-bucket',
       key: 'users/u1/attachments/uuid/file.pdf',
       body: Buffer.from('hi'),
       contentType: 'application/pdf',
     })
-    const call = vi.mocked(PutObjectCommand).mock
-      .calls[0]?.[0] as unknown as Record<string, unknown>
-    expect(call?.Key).toBe('users/u1/attachments/uuid/file.pdf')
-    expect(call?.Bucket).toBe(process.env.R2_BUCKET_NAME)
-    expect(call?.ContentType).toBe('application/pdf')
 
-    const result = await getObject('users/u1/attachments/uuid/file.pdf')
-    expect(result.body).toBeInstanceOf(Buffer)
-    await deleteObject('users/u1/attachments/uuid/file.pdf')
-    expect(true).toBe(true)
+    const command = sendMock.mock.calls[0]?.[0]
+    expect(command).toBeInstanceOf(PutObjectCommand)
+    if (!(command instanceof PutObjectCommand)) throw new Error('missing put')
+    expect(command.input).toMatchObject({
+      Bucket: 'write-bucket',
+      Key: 'users/u1/attachments/uuid/file.pdf',
+      ContentType: 'application/pdf',
+    })
+  })
+
+  it('reads and fully consumes bytes from the explicit bucket and key', async () => {
+    const transformToByteArray = vi
+      .fn()
+      .mockResolvedValue(new Uint8Array([35, 32, 72, 105]))
+    sendMock.mockResolvedValueOnce({
+      Body: { transformToByteArray },
+      ContentType: 'text/markdown',
+    })
+
+    const result = await getObject({
+      bucket: 'persisted-bucket',
+      key: 'artifacts/exact.md',
+    })
+
+    const command = sendMock.mock.calls[0]?.[0]
+    expect(command).toBeInstanceOf(GetObjectCommand)
+    if (!(command instanceof GetObjectCommand)) throw new Error('missing get')
+    expect(command.input).toMatchObject({
+      Bucket: 'persisted-bucket',
+      Key: 'artifacts/exact.md',
+    })
+    expect(transformToByteArray).toHaveBeenCalledOnce()
+    expect(result.body).toEqual(Buffer.from('# Hi'))
+    expect(result.contentType).toBe('text/markdown')
+  })
+
+  it('deletes from the explicit persisted bucket and key', async () => {
+    sendMock.mockResolvedValueOnce({})
+
+    await deleteObject({
+      bucket: 'persisted-bucket',
+      key: 'artifacts/exact.md',
+    })
+
+    const command = sendMock.mock.calls[0]?.[0]
+    expect(command).toBeInstanceOf(DeleteObjectCommand)
+    if (!(command instanceof DeleteObjectCommand))
+      throw new Error('missing delete')
+    expect(command.input).toMatchObject({
+      Bucket: 'persisted-bucket',
+      Key: 'artifacts/exact.md',
+    })
   })
 })

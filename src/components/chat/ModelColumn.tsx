@@ -2,6 +2,7 @@ import { ReloadIcon, StopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { memo } from 'react'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
+import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
@@ -11,6 +12,7 @@ import { humanizeGenerationError } from '@/lib/utils/error-display'
 import { ChecklistAwareContent } from './ChecklistAwareContent'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CopyButton } from './CopyButton'
+import { FileCard } from './FileCard'
 import { InlineError } from './InlineError'
 import { MarkdownContent } from './MarkdownContent'
 import { ReasoningSection } from './ReasoningSection'
@@ -29,6 +31,7 @@ type Generation = {
   latencyMs?: number | null
   timeToFirstTokenMs?: number | null
   error?: unknown
+  artifact?: ArtifactDescriptor
   webSources?: CitationSource[]
 }
 
@@ -37,6 +40,7 @@ type Props = {
   onRetry?: (generationId: string) => void
   onStop?: (generationId: string) => void
   onCopy?: (content: string) => void
+  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
 }
 
 export const ModelColumn = memo(function ModelColumn({
@@ -44,6 +48,7 @@ export const ModelColumn = memo(function ModelColumn({
   onRetry,
   onStop,
   onCopy,
+  onOpenArtifact,
 }: Props) {
   const catalog = useModelCatalog()
   const entry = findCatalogEntry(catalog, generation.modelId)
@@ -66,7 +71,9 @@ export const ModelColumn = memo(function ModelColumn({
 
   const isFailedOrEmptyCompleted =
     generation.status === 'failed' ||
-    (generation.status === 'completed' && !hasVisibleContent)
+    (generation.status === 'completed' &&
+      !hasVisibleContent &&
+      !generation.artifact)
 
   const errorToHumanize =
     generation.error ??
@@ -196,6 +203,12 @@ export const ModelColumn = memo(function ModelColumn({
             {generation.webSources && generation.webSources.length > 0 && (
               <CitationDrawer sources={generation.webSources} />
             )}
+            {generation.status === 'completed' && generation.artifact ? (
+              <FileCard
+                artifact={generation.artifact}
+                onOpen={onOpenArtifact}
+              />
+            ) : null}
           </>
         )}
       </div>

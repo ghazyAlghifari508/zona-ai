@@ -2,10 +2,16 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
 import {
+  artifactOperationSchema,
   artifactSchema,
   chatSchema,
+  compareArtifactSchema,
   compareSchema,
 } from '../../lib/utils/validation'
+import {
+  generateArtifactsCore,
+  generateCompareArtifactsCore,
+} from '../core/artifact-generation'
 import { generateArtifactCore } from '../core/artifacts'
 import {
   getComparisonRunsCore,
@@ -22,6 +28,35 @@ export const generateArtifact = createServerFn({ method: 'POST' })
     const request = getRequest() as Request
     return generateArtifactCore({
       data: data as z.infer<typeof artifactSchema>,
+      request,
+    })
+  })
+
+const generateArtifactsRequestSchema = z.object({
+  conversationId: z.string().uuid().optional(),
+  modelId: z.string().min(1),
+  content: z.string().min(1).max(20000),
+  operation: artifactOperationSchema,
+  attachmentIds: z.array(z.string().uuid()).optional(),
+  enableWebSearch: z.boolean().optional().default(false),
+})
+
+export const generateArtifacts = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => generateArtifactsRequestSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return generateArtifactsCore({
+      data: data as z.infer<typeof generateArtifactsRequestSchema>,
+      request,
+    })
+  })
+
+export const generateCompareArtifacts = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => compareArtifactSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest() as Request
+    return generateCompareArtifactsCore({
+      data: data as z.infer<typeof compareArtifactSchema>,
       request,
     })
   })
@@ -47,38 +82,13 @@ export const sendMessage = createServerFn({ method: 'POST' })
   })
 
 export const sendCompareMessage = createServerFn({ method: 'POST' })
-  .validator((data: unknown) => {
-    console.log(
-      '[SERVER] sendCompareMessage validator input:',
-      JSON.stringify(data),
-    )
-    try {
-      return compareSchema.parse(data)
-    } catch (err) {
-      console.error('[SERVER] sendCompareMessage validation error:', err)
-      throw err
-    }
-  })
+  .validator((data: unknown) => compareSchema.parse(data))
   .handler(async ({ data }) => {
-    console.log(
-      '[SERVER] sendCompareMessage handler invoked with:',
-      JSON.stringify(data),
-    )
     const request = getRequest() as Request
-    try {
-      const res = await sendCompareMessageCore({
-        data: data as z.infer<typeof compareSchema>,
-        request,
-      })
-      console.log(
-        '[SERVER] sendCompareMessageCore returned successfully status:',
-        res.status,
-      )
-      return res
-    } catch (err) {
-      console.error('[SERVER] sendCompareMessageCore thrown error:', err)
-      throw err
-    }
+    return sendCompareMessageCore({
+      data: data as z.infer<typeof compareSchema>,
+      request,
+    })
   })
 
 export const getComparisonRuns = createServerFn({ method: 'GET' })

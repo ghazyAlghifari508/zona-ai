@@ -18,8 +18,10 @@ import {
   attachments,
   comparisonRuns,
   conversations,
+  creditTransactions,
   documentChunks,
   generationRuns,
+  messageArtifactMentions,
   messages,
   usageRecords,
   webSources,
@@ -42,6 +44,16 @@ import {
 } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
+import { buildArtifactCatalogContext } from './artifact-catalog-context'
+import {
+  type ArtifactMentionSource,
+  buildMentionContext,
+  loadArtifactMentionSources,
+  persistArtifactMentions,
+  type ResolvedArtifactMention,
+  resolveArtifactMentions,
+} from './artifact-mentions'
+import { listConversationArtifactSummaries } from './artifact-repository'
 import { finalizeTerminalRun, retryArtifactGenerationCore } from './artifacts'
 import { buildModelHistory } from './history'
 
@@ -75,6 +87,56 @@ export const controllers = new Map<string, AbortController>()
 function getRows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
   return (result as { rows: T[] }).rows
+}
+
+async function waitForOneCompareGenerationTerminal(
+  genId: string,
+  timeoutMs = 30000,
+): Promise<string> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const [row] = await db
+      .select({ status: generationRuns.status })
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    if (row && row.status !== 'streaming') return row.status
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`Generation ${genId} did not reach terminal in time`)
+}
+
+export async function settleComparisonRunBarrier(
+  comparisonRunId: string,
+  generationIds: string[],
+  timeoutMs = 30000,
+): Promise<string> {
+  await Promise.allSettled(
+    generationIds.map((genId) =>
+      waitForOneCompareGenerationTerminal(genId, timeoutMs),
+    ),
+  )
+  const gens = await db
+    .select({ status: generationRuns.status })
+    .from(generationRuns)
+    .where(eq(generationRuns.comparisonRunId, comparisonRunId))
+  if (gens.length === 0) return 'running'
+  const terminal = gens.filter((g) => g.status !== 'streaming')
+  if (terminal.length !== gens.length) return 'running'
+  const statuses = gens.map((g) => g.status)
+  const completed = statuses.filter((s) => s === 'completed').length
+  const failed = statuses.filter((s) => s === 'failed').length
+  const cancelled = statuses.filter((s) => s === 'cancelled').length
+  let finalStatus: string
+  if (gens.length > 0 && completed === gens.length) finalStatus = 'completed'
+  else if (gens.length > 0 && failed === gens.length) finalStatus = 'failed'
+  else if (gens.length > 0 && cancelled === gens.length)
+    finalStatus = 'cancelled'
+  else finalStatus = 'partial_failure'
+  await db
+    .update(comparisonRuns)
+    .set({ status: finalStatus, completedAt: new Date() })
+    .where(eq(comparisonRuns.id, comparisonRunId))
+  return finalStatus
 }
 
 // Core logic testable without Start context
@@ -165,6 +227,36 @@ export async function sendMessageCore({
     void autoTitleConversation(convId, input.content)
   }
 
+  if (input.artifactMentions?.some((m) => m.mode === 'revise')) {
+    throw new AppError(
+      'Mention revise tidak diizinkan pada chat biasa. Gunakan operasi revisi.',
+      400,
+      'ERR-003',
+    )
+  }
+
+  let mentionSources: ArtifactMentionSource[] = []
+  let resolvedMentions: ResolvedArtifactMention[] = []
+  if (input.artifactMentions?.length) {
+    resolvedMentions = await resolveArtifactMentions({
+      userId,
+      conversationId: convId,
+      mentions: input.artifactMentions,
+    })
+    mentionSources = await loadArtifactMentionSources(resolvedMentions)
+  }
+
+  let catalogContext = ''
+  if (!input.artifactMentions?.length) {
+    const summaries = await listConversationArtifactSummaries({
+      userId,
+      conversationId: convId,
+    })
+    if (summaries.length > 0) {
+      catalogContext = buildArtifactCatalogContext(summaries)
+    }
+  }
+
   await db
     .update(conversations)
     .set({ updatedAt: new Date() })
@@ -174,6 +266,14 @@ export async function sendMessageCore({
     .insert(messages)
     .values({ conversationId: convId, role: 'user', content: input.content })
     .returning()
+
+  if (resolvedMentions.length > 0) {
+    await persistArtifactMentions(db, {
+      messageId: _userMsg.id,
+      conversationId: convId,
+      mentions: resolvedMentions,
+    })
+  }
 
   const [assistantMsg] = await db
     .insert(messages)
@@ -209,7 +309,10 @@ export async function sendMessageCore({
     }
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
-      const { body } = await getObject(a.r2Key)
+      const { body } = await getObject({
+        bucket: a.r2Bucket,
+        key: a.r2Key,
+      })
       fileParts.push({
         type: 'file',
         data: (body as Buffer).toString('base64'),
@@ -233,6 +336,7 @@ export async function sendMessageCore({
   await db.insert(generationRuns).values({
     id: genId,
     messageId: assistantMsg.id,
+    requestMessageId: _userMsg.id,
     conversationId: convId,
     modelId: input.modelId,
     routerModelId,
@@ -253,7 +357,18 @@ export async function sendMessageCore({
     throw e
   }
 
-  const aiMessages: ModelMessage[] = await buildModelHistory(convId)
+  const aiMessages: ModelMessage[] = (await buildModelHistory(convId)).filter(
+    (m) => !(m.role === 'assistant' && m.content === ''),
+  )
+  if (mentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(mentionSources)
+    const lastUserIdx = aiMessages.findLastIndex((m) => m.role === 'user')
+    if (lastUserIdx >= 0) {
+      aiMessages.splice(lastUserIdx, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
 
   let ragContext: string[] = []
   try {
@@ -321,7 +436,8 @@ export async function sendMessageCore({
   const systemPrompt =
     buildSystemPrompt({ skillId: input.skillId, hasWebSources: hasWeb }) +
     ragSuffix +
-    webContext
+    webContext +
+    (catalogContext ? `\n\n${catalogContext}` : '')
 
   const abortController = new AbortController()
   controllers.set(genId, abortController)
@@ -565,10 +681,48 @@ export async function sendCompareMessageCore({
     convId = conv.id
   }
 
+  if (data.artifactMentions?.some((m) => m.mode === 'revise')) {
+    throw new AppError(
+      'Mention revise tidak diizinkan pada chat biasa. Gunakan operasi revisi.',
+      400,
+      'ERR-003',
+    )
+  }
+
+  let mentionSources: ArtifactMentionSource[] = []
+  let resolvedMentions: ResolvedArtifactMention[] = []
+  if (data.artifactMentions?.length) {
+    resolvedMentions = await resolveArtifactMentions({
+      userId,
+      conversationId: convId,
+      mentions: data.artifactMentions,
+    })
+    mentionSources = await loadArtifactMentionSources(resolvedMentions)
+  }
+
+  let catalogContext = ''
+  if (!data.artifactMentions?.length) {
+    const summaries = await listConversationArtifactSummaries({
+      userId,
+      conversationId: convId,
+    })
+    if (summaries.length > 0) {
+      catalogContext = buildArtifactCatalogContext(summaries)
+    }
+  }
+
   const [userMsg] = await db
     .insert(messages)
     .values({ conversationId: convId, role: 'user', content: data.content })
     .returning()
+
+  if (resolvedMentions.length > 0) {
+    await persistArtifactMentions(db, {
+      messageId: userMsg.id,
+      conversationId: convId,
+      mentions: resolvedMentions,
+    })
+  }
 
   const shouldAutoTitle =
     !data.conversationId ||
@@ -616,7 +770,10 @@ export async function sendCompareMessageCore({
     }
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
-      const { body } = await getObject(a.r2Key)
+      const { body } = await getObject({
+        bucket: a.r2Bucket,
+        key: a.r2Key,
+      })
       fileParts.push({
         type: 'file',
         data: (body as Buffer).toString('base64'),
@@ -649,6 +806,7 @@ export async function sendCompareMessageCore({
     await db.insert(generationRuns).values({
       id: genIds[i],
       messageId: assistantMessages[i].id,
+      requestMessageId: userMsg.id,
       comparisonRunId: null,
       conversationId: convId,
       modelId: data.modelIds[i],
@@ -776,15 +934,27 @@ export async function sendCompareMessageCore({
       hasWebSources: hasWebCompare,
     }) +
     ragSuffix +
-    webContextCompare
+    webContextCompare +
+    (catalogContext ? `\n\n${catalogContext}` : '')
 
-  const aiMessages: ModelMessage[] = history.map(
-    (m) =>
-      ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }) as ModelMessage,
-  )
+  const aiMessages: ModelMessage[] = history
+    .filter((m) => !(m.role === 'assistant' && m.content === ''))
+    .map(
+      (m) =>
+        ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+        }) as ModelMessage,
+    )
+  if (mentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(mentionSources)
+    const lastUserIdx = aiMessages.findLastIndex((m) => m.role === 'user')
+    if (lastUserIdx >= 0) {
+      aiMessages.splice(lastUserIdx, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
   if (fileParts.length) {
     for (let i = aiMessages.length - 1; i >= 0; i--) {
       if (aiMessages[i].role === 'user') {
@@ -1137,36 +1307,7 @@ export async function sendCompareMessageCore({
 
   const multiplexed = createMultiplexStream(streams)
 
-  // After all streams settle, update comparisonRuns status
-  // We fire and forget but ensure status updates after streams complete
-  ;(async () => {
-    // Wait for multiplex to finish consuming? Instead use Promise.allSettled on per-model promises
-    // For now we approximate by waiting for all generationRuns to reach terminal state via polling? Simpler: after multiplex completes, query generationRuns
-    // We'll use a timeout to allow onFinish to settle then determine status
-    // Instead, attach to multiplex completion via reading it: we have already created multiplex; we need to watch its completion
-    // We'll wrap multiplex reading to detect close
-    // For simplicity, just delay 500ms then check DB; real impl would use Promise.allSettled inside stream creation
-    // However spec expects Promise.allSettled parallel; we already do per-stream Promise internally
-    // We'll schedule status update after 1 second to allow mocks to finish (20ms)
-    await new Promise((r) => setTimeout(r, 800))
-    try {
-      const gens = await db
-        .select()
-        .from(generationRuns)
-        .where(eq(generationRuns.comparisonRunId, compRun.id))
-      const statuses = gens.map((g) => g.status)
-      const completed = statuses.filter((s) => s === 'completed').length
-      const failed = statuses.filter((s) => s === 'failed').length
-      let finalStatus: string
-      if (completed === gens.length) finalStatus = 'completed'
-      else if (failed === gens.length) finalStatus = 'failed'
-      else finalStatus = 'partial_failure'
-      await db
-        .update(comparisonRuns)
-        .set({ status: finalStatus, completedAt: new Date() })
-        .where(eq(comparisonRuns.id, compRun.id))
-    } catch {}
-  })()
+  void settleComparisonRunBarrier(compRun.id, genIds).catch(() => {})
 
   const sseStream = new ReadableStream({
     async start(controller) {
@@ -1287,6 +1428,7 @@ export async function retryGenerationCore({
   await db.insert(generationRuns).values({
     id: newGenId,
     messageId: newMsg.id,
+    requestMessageId: gen.requestMessageId,
     comparisonRunId: gen.comparisonRunId,
     conversationId: gen.conversationId,
     modelId: gen.modelId,
@@ -1302,8 +1444,38 @@ export async function retryGenerationCore({
     amount: cost,
   })
 
+  let retryMentionSources: ArtifactMentionSource[] = []
+  if (gen.requestMessageId) {
+    const mentionRows = await db
+      .select({
+        artifactId: messageArtifactMentions.artifactId,
+        versionId: messageArtifactMentions.versionId,
+        mode: messageArtifactMentions.mode,
+      })
+      .from(messageArtifactMentions)
+      .where(eq(messageArtifactMentions.messageId, gen.requestMessageId))
+      .orderBy(asc(messageArtifactMentions.position))
+
+    if (mentionRows.length > 0) {
+      const resolved = await resolveArtifactMentions({
+        userId: session.user.id,
+        conversationId: gen.conversationId,
+        mentions: mentionRows,
+      })
+      retryMentionSources = await loadArtifactMentionSources(resolved)
+    }
+  }
+
   // For simplicity, reuse sendCompare single logic with streamText
   const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
+  if (retryMentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(retryMentionSources)
+    if (aiMessages.length > 0) {
+      aiMessages.splice(aiMessages.length - 1, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
   const abortController = new AbortController()
   controllers.set(newGenId, abortController)
   const startTime = Date.now()
@@ -1446,11 +1618,21 @@ export async function stopGenerationCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   const ctrl = controllers.get(generationId)
   if (ctrl) ctrl.abort()
-  const modelEntry = getModelById(gen.modelId)
-  const cost =
-    typeof modelEntry.creditCost === 'number'
-      ? modelEntry.creditCost
-      : modelEntry.creditCost.max
+  const usageRows = await db
+    .select()
+    .from(creditTransactions)
+    .where(eq(creditTransactions.generationRunId, generationId))
+  const usageRow = usageRows.find((row) => row.type === 'usage')
+  let cancelRefund: number
+  if (usageRow) {
+    cancelRefund = Math.abs(usageRow.amount)
+  } else {
+    const modelEntry = getModelById(gen.modelId)
+    cancelRefund =
+      typeof modelEntry.creditCost === 'number'
+        ? modelEntry.creditCost
+        : modelEntry.creditCost.max
+  }
   const won = await finalizeTerminalRun({
     genId: generationId,
     status: 'cancelled',
@@ -1460,7 +1642,7 @@ export async function stopGenerationCore({
       userId: session.user.id,
       generationRunId: generationId,
       modelId: gen.modelId,
-      amount: cost,
+      amount: cancelRefund,
     })
   }
   controllers.delete(generationId)

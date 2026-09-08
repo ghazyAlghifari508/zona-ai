@@ -1,7 +1,8 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CompareGrid } from '../../src/components/chat/CompareGrid'
 import { ModelColumn } from '../../src/components/chat/ModelColumn'
+import type { ArtifactDescriptor } from '../../src/lib/artifacts/contracts'
 import { getModelCatalog as getRealModelCatalog } from '../../src/lib/models/registry'
 
 vi.mock('../../src/server/functions/models', () => ({
@@ -176,8 +177,137 @@ describe('Compare Mode loading indicator (TypingDots)', () => {
     expect(screen.getByTestId('inline-error')).toBeTruthy()
 
     // Done model shows final text
-    expect(
-      screen.getByText('Model selesai dengan respon final.'),
-    ).toBeTruthy()
+    expect(screen.getByText('Model selesai dengan respon final.')).toBeTruthy()
+  })
+})
+
+const ART_A = '11111111-1111-4111-8111-111111111111'
+const ART_B = '22222222-2222-4222-8222-222222222222'
+
+function compareDescriptor(
+  artifactId: string,
+  fileName: string,
+): ArtifactDescriptor {
+  return {
+    artifactId,
+    versionId: 'a0000000-0000-4000-8000-000000000001',
+    attachmentId: 'aaaaaaaa-0000-4000-8000-000000000001',
+    generationId: '88888888-8888-4888-8888-888888888888',
+    kind: 'prd',
+    title: fileName,
+    fileName,
+    fileSize: 1024,
+    mimeType: 'text/markdown',
+    version: 1,
+    modelId: 'model-a',
+    routerModelId: 'router-a',
+  }
+}
+
+describe('CompareGrid artifact cards and Open All', () => {
+  afterEach(cleanup)
+
+  it('opens the exact descriptor when a successful generation card is clicked', () => {
+    const artifact = compareDescriptor(ART_A, 'alpha.md')
+    const onOpenArtifact = vi.fn()
+    render(
+      <CompareGrid
+        generations={[
+          {
+            id: 'gen-1',
+            modelId: 'mimo-v2.5',
+            status: 'completed',
+            content: 'Ringkasan.',
+            artifact,
+          },
+        ]}
+        onOpenArtifact={onOpenArtifact}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /alpha\.md/ }))
+
+    expect(onOpenArtifact).toHaveBeenCalledTimes(1)
+    expect(onOpenArtifact.mock.calls[0]?.[0]).toBe(artifact)
+  })
+
+  it('passes only successful descriptors to Open All and keeps failed errors', () => {
+    const first = compareDescriptor(ART_A, 'alpha.md')
+    const second = compareDescriptor(ART_B, 'beta.md')
+    const onOpenArtifacts = vi.fn()
+    render(
+      <CompareGrid
+        generations={[
+          {
+            id: 'gen-1',
+            modelId: 'mimo-v2.5',
+            status: 'completed',
+            content: 'Ringkasan.',
+            artifact: first,
+          },
+          {
+            id: 'gen-2',
+            modelId: 'hy3',
+            status: 'failed',
+            content: '',
+            error: { message: 'Rate limit exceeded', code: 'ERR-002' },
+          },
+          {
+            id: 'gen-3',
+            modelId: 'gpt-5.6-sol',
+            status: 'completed',
+            content: 'Ringkasan.',
+            artifact: second,
+          },
+        ]}
+        onOpenArtifacts={onOpenArtifacts}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId('compare-open-all'))
+
+    expect(onOpenArtifacts).toHaveBeenCalledTimes(1)
+    expect(onOpenArtifacts.mock.calls[0]?.[0]).toEqual([first, second])
+    expect(screen.getByTestId('inline-error')).toBeTruthy()
+  })
+
+  it('hides Open All when no generation produced an artifact', () => {
+    render(
+      <CompareGrid
+        generations={[
+          {
+            id: 'gen-1',
+            modelId: 'mimo-v2.5',
+            status: 'completed',
+            content: 'Jawaban biasa.',
+          },
+        ]}
+        onOpenArtifacts={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('compare-open-all')).toBeNull()
+  })
+
+  it('hides Open All when no open-all handler is provided', () => {
+    const artifact = compareDescriptor(ART_A, 'alpha.md')
+    const onOpenArtifact = vi.fn()
+    render(
+      <CompareGrid
+        generations={[
+          {
+            id: 'gen-1',
+            modelId: 'mimo-v2.5',
+            status: 'completed',
+            content: 'Ringkasan.',
+            artifact,
+          },
+        ]}
+        onOpenArtifact={onOpenArtifact}
+      />,
+    )
+
+    expect(screen.queryByTestId('compare-open-all')).toBeNull()
+    expect(screen.getByRole('button', { name: /alpha\.md/ })).toBeTruthy()
   })
 })

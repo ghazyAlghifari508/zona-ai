@@ -406,4 +406,31 @@ describe('Compare Card Layout: Fixed Header and Scrollable Content', () => {
     expect(innerCompare?.className).toContain('lg:px-10')
     expect(innerCompare?.className).toContain('xl:px-12')
   })
+
+  it('renders artifact FileCard when compare generation is completed with artifact and empty content', () => {
+    const artifactGen = {
+      id: 'gen-artifact-1',
+      modelId: 'gemini-3.7-flash-high',
+      status: 'completed',
+      content: '',
+      artifact: {
+        artifactId: 'art-1',
+        versionId: 'ver-1',
+        attachmentId: 'att-1',
+        generationId: 'gen-artifact-1',
+        kind: 'checklist' as const,
+        title: 'Compare Checklist Artifact',
+        fileName: 'checklist.md',
+        fileSize: 128,
+        mimeType: 'text/markdown',
+        version: 1,
+        modelId: 'gemini-3.7-flash-high',
+        routerModelId: 'router-1',
+      },
+    }
+
+    render(<ModelColumn generation={artifactGen} />)
+    expect(screen.getByTestId('artifact-file-card')).toBeTruthy()
+    expect(screen.queryByRole('note')).toBeNull()
+  })
 })

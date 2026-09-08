@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  artifactMentionInputSchema,
+  artifactMentionsSchema,
+  assertUniqueMentionArtifacts,
+} from '../artifacts/mentions'
 import { SKILL_IDS } from '../chat/skills'
 import {
   COMPARE_MAX_MODELS,
@@ -6,22 +11,33 @@ import {
   CONVERSATION_TITLE_MAX_LENGTH,
   CONVERSATIONS_MAX_PAGE_SIZE,
   CONVERSATIONS_PAGE_SIZE,
+  MAX_ARTIFACT_MENTIONS,
 } from './constants'
 
 export const skillIdSchema = z.enum(SKILL_IDS)
 
-// Literal tuple mirrors ARTIFACT_SKILL_IDS; the registry test above pins the
+// Literal tuple mirrors ARTIFACT_SKILL_IDS; the registry test pins the
 // two lists together so they cannot drift silently.
-export const artifactSkillIdSchema = z.enum(['prd-plan', 'agent-skill'])
+export const artifactSkillIdSchema = z.enum([
+  'prd-plan',
+  'agent-skill',
+  'checklist',
+])
 
-export const chatSchema = z.object({
-  conversationId: z.string().uuid().optional(),
-  modelId: z.string().min(1),
-  skillId: skillIdSchema.default('none'),
-  content: z.string().min(1).max(20000),
-  attachmentIds: z.array(z.string().uuid()).optional(),
-  enableWebSearch: z.boolean().optional().default(false),
-})
+export const chatSchema = z
+  .object({
+    conversationId: z.string().uuid().optional(),
+    modelId: z.string().min(1),
+    skillId: skillIdSchema.default('none'),
+    content: z.string().min(1).max(20000),
+    attachmentIds: z.array(z.string().uuid()).optional(),
+    enableWebSearch: z.boolean().optional().default(false),
+    artifactMentions: artifactMentionsSchema.optional(),
+  })
+  .refine((d) => !d.artifactMentions?.length || Boolean(d.conversationId), {
+    message: 'Mentions require an existing conversation',
+    path: ['artifactMentions'],
+  })
 
 export type ChatInput = z.infer<typeof chatSchema>
 
@@ -74,6 +90,7 @@ export const compareSchema = z
     content: z.string().min(1).max(20000),
     attachmentIds: z.array(z.string().uuid()).optional(),
     enableWebSearch: z.boolean().optional().default(false),
+    artifactMentions: artifactMentionsSchema.optional(),
   })
   .refine((d) => !d.modelIds.includes('auto'), {
     message: 'Auto tidak tersedia di Compare',
@@ -82,6 +99,10 @@ export const compareSchema = z
   .refine((d) => new Set(d.modelIds).size === d.modelIds.length, {
     message: 'Model tidak boleh duplikat',
     path: ['modelIds'],
+  })
+  .refine((d) => !d.artifactMentions?.length || Boolean(d.conversationId), {
+    message: 'Mentions require an existing conversation',
+    path: ['artifactMentions'],
   })
 
 export type CompareInput = z.infer<typeof compareSchema>
@@ -96,3 +117,101 @@ export const artifactSchema = z.object({
 })
 
 export type ArtifactInput = z.infer<typeof artifactSchema>
+
+export const artifactOperationSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('create'),
+    skillId: artifactSkillIdSchema,
+    context: z
+      .array(artifactMentionInputSchema.extend({ mode: z.literal('context') }))
+      .max(MAX_ARTIFACT_MENTIONS)
+      .optional()
+      .default([])
+      .superRefine((mentions, ctx) => {
+        assertUniqueMentionArtifacts(mentions, ctx)
+      }),
+  }),
+  z
+    .object({
+      type: z.literal('revise'),
+      targets: z
+        .array(
+          z.object({
+            artifactId: z.string().uuid(),
+            versionId: z.string().uuid(),
+            mode: z.literal('revise').optional().default('revise'),
+          }),
+        )
+        .min(1)
+        .max(MAX_ARTIFACT_MENTIONS),
+      context: z
+        .array(
+          artifactMentionInputSchema.extend({ mode: z.literal('context') }),
+        )
+        .max(MAX_ARTIFACT_MENTIONS)
+        .optional()
+        .default([]),
+    })
+    .superRefine((data, ctx) => {
+      const targetIds = new Set<string>()
+      for (const t of data.targets) {
+        if (targetIds.has(t.artifactId)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Duplicate artifact ID in targets',
+          })
+          break
+        }
+        targetIds.add(t.artifactId)
+      }
+      const seenContext = new Set<string>()
+      for (const c of data.context) {
+        if (targetIds.has(c.artifactId)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Duplicate artifact ID in targets and context',
+          })
+          break
+        }
+        if (seenContext.has(c.artifactId)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Duplicate artifact ID in context',
+          })
+          break
+        }
+        seenContext.add(c.artifactId)
+      }
+      if (data.targets.length + data.context.length > MAX_ARTIFACT_MENTIONS) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Combined targets and context exceed max mentions',
+        })
+      }
+    }),
+])
+
+export type ArtifactOperation = z.infer<typeof artifactOperationSchema>
+
+export const compareArtifactSchema = z
+  .object({
+    conversationId: z.string().uuid().optional(),
+    modelIds: z
+      .array(z.string().min(1))
+      .min(COMPARE_MIN_MODELS)
+      .max(COMPARE_MAX_MODELS),
+    content: z.string().min(1).max(20000),
+    operation: artifactOperationSchema,
+    attachmentIds: z.array(z.string().uuid()).optional(),
+    enableWebSearch: z.boolean().optional().default(false),
+  })
+  .refine((d) => !d.modelIds.includes('auto'), {
+    message: 'Auto tidak tersedia di Compare',
+    path: ['modelIds'],
+  })
+  .refine((d) => new Set(d.modelIds).size === d.modelIds.length, {
+    message: 'Model tidak boleh duplikat',
+    path: ['modelIds'],
+  })
+
+export type CompareArtifactInput = z.infer<typeof compareArtifactSchema>

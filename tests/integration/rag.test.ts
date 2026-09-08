@@ -190,6 +190,11 @@ describe('processDocument', () => {
       extractedText: null,
     })
     await processDocument(attId)
+    const r2 = await import('../../src/lib/r2/client')
+    expect(r2.getObject).toHaveBeenCalledWith({
+      bucket: 'test-bucket',
+      key: `users/${mockUserId}/attachments/${attId}/test.txt`,
+    })
     const [att] = await db
       .select()
       .from(attachments)

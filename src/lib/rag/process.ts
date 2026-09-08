@@ -23,7 +23,11 @@ export async function processDocument(attachmentId: string): Promise<void> {
     .where(eq(attachments.id, attachmentId))
 
   try {
-    const text = await extractText({ r2Key: att.r2Key, mimeType: att.mimeType })
+    const text = await extractText({
+      r2Bucket: att.r2Bucket,
+      r2Key: att.r2Key,
+      mimeType: att.mimeType,
+    })
 
     if (!text) {
       await db

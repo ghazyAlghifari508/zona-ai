@@ -4,7 +4,15 @@
 import { eq } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db/index'
-import { attachments, conversations, users } from '../../src/lib/db/schema'
+import {
+  artifacts,
+  artifactVersions,
+  attachments,
+  conversations,
+  generationRuns,
+  messages,
+  users,
+} from '../../src/lib/db/schema'
 
 vi.mock('../../src/lib/r2/client', () => ({
   putObject: vi.fn(async () => {}),
@@ -78,25 +86,6 @@ const mockUserId2 = 'test-user-files-2'
 
 describe('files API', () => {
   beforeEach(async () => {
-    // clean attachments
-    await db.delete(attachments).where(eq(attachments.userId, mockUserId))
-    await db.delete(attachments).where(eq(attachments.userId, mockUserId2))
-    const convs = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.userId, mockUserId))
-    for (const c of convs) {
-      await db.delete(attachments).where(eq(attachments.conversationId, c.id))
-      await db.delete(conversations).where(eq(conversations.id, c.id))
-    }
-    const convs2 = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.userId, mockUserId2))
-    for (const c of convs2) {
-      await db.delete(attachments).where(eq(attachments.conversationId, c.id))
-      await db.delete(conversations).where(eq(conversations.id, c.id))
-    }
     await db.delete(users).where(eq(users.id, mockUserId))
     await db.delete(users).where(eq(users.id, mockUserId2))
     await db.insert(users).values({
@@ -123,22 +112,6 @@ describe('files API', () => {
   })
 
   afterAll(async () => {
-    await db.delete(attachments).where(eq(attachments.userId, mockUserId))
-    await db.delete(attachments).where(eq(attachments.userId, mockUserId2))
-    const convs = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.userId, mockUserId))
-    for (const c of convs) {
-      await db.delete(conversations).where(eq(conversations.id, c.id))
-    }
-    const convs2 = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.userId, mockUserId2))
-    for (const c of convs2) {
-      await db.delete(conversations).where(eq(conversations.id, c.id))
-    }
     await db.delete(users).where(eq(users.id, mockUserId))
     await db.delete(users).where(eq(users.id, mockUserId2))
   })
@@ -176,6 +149,13 @@ describe('files API', () => {
       .where(eq(attachments.id, res.id))
     expect(dbRow).toBeDefined()
     expect(dbRow.r2Key).toBe(res.r2Key)
+    const r2 = await import('../../src/lib/r2/client')
+    expect(r2.putObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucket: process.env.R2_BUCKET_NAME,
+        key: res.r2Key,
+      }),
+    )
   })
 
   it('rejects unsupported mime 400', async () => {
@@ -306,6 +286,10 @@ describe('files API', () => {
     const att = (await uploadFileCore({
       request: req1,
     })) as unknown as typeof attachments.$inferSelect
+    await db
+      .update(attachments)
+      .set({ r2Bucket: 'persisted-delete-bucket' })
+      .where(eq(attachments.id, att.id))
     const reqDel = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -320,7 +304,221 @@ describe('files API', () => {
       .where(eq(attachments.id, att.id))
     expect(after).toBeUndefined()
     const r2 = await import('../../src/lib/r2/client')
-    expect(r2.deleteObject).toHaveBeenCalled()
+    expect(r2.deleteObject).toHaveBeenCalledWith({
+      bucket: 'persisted-delete-bucket',
+      key: att.r2Key,
+    })
+  })
+
+  it('retains an ordinary attachment when storage deletion fails', async () => {
+    const { deleteAttachmentCore } = await import(
+      '../../src/server/functions/files'
+    )
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Failed storage cleanup' })
+      .returning({ id: conversations.id })
+    const [attachment] = await db
+      .insert(attachments)
+      .values({
+        userId: mockUserId,
+        conversationId: conversation.id,
+        fileName: 'retry.txt',
+        fileSize: 5,
+        mimeType: 'text/plain',
+        r2Bucket: 'retry-bucket',
+        r2Key: `retry/${crypto.randomUUID()}.txt`,
+        processingStatus: 'completed',
+      })
+      .returning({ id: attachments.id })
+    const r2 = await import('../../src/lib/r2/client')
+    vi.mocked(r2.deleteObject).mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    )
+
+    await expect(
+      deleteAttachmentCore({
+        data: { id: attachment.id },
+        request: new Request('http://localhost:3000', {
+          headers: { 'x-test-user': mockUserId },
+        }),
+      }),
+    ).rejects.toMatchObject({ status: 500 })
+    const [remaining] = await db
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(eq(attachments.id, attachment.id))
+    expect(remaining?.id).toBe(attachment.id)
+  })
+
+  it('rejects cross-user attachment deletion before storage access', async () => {
+    const { deleteAttachmentCore } = await import(
+      '../../src/server/functions/files'
+    )
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId2, title: 'Other owner attachment' })
+      .returning({ id: conversations.id })
+    const [attachment] = await db
+      .insert(attachments)
+      .values({
+        userId: mockUserId2,
+        conversationId: conversation.id,
+        fileName: 'private.txt',
+        fileSize: 7,
+        mimeType: 'text/plain',
+        r2Bucket: 'private-bucket',
+        r2Key: `private/${crypto.randomUUID()}.txt`,
+        processingStatus: 'completed',
+      })
+      .returning({ id: attachments.id })
+
+    await expect(
+      deleteAttachmentCore({
+        data: { id: attachment.id },
+        request: new Request('http://localhost:3000', {
+          headers: { 'x-test-user': mockUserId },
+        }),
+      }),
+    ).rejects.toMatchObject({ status: 403 })
+    const r2 = await import('../../src/lib/r2/client')
+    expect(r2.deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('rejects generic deletion of an artifact version attachment without changing storage or rows', async () => {
+    const { deleteAttachmentCore } = await import(
+      '../../src/server/functions/files'
+    )
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Versioned attachment' })
+      .returning({ id: conversations.id })
+    const [message] = await db
+      .insert(messages)
+      .values({
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: 'Artifact fixture',
+      })
+      .returning({ id: messages.id })
+    const [generation] = await db
+      .insert(generationRuns)
+      .values({
+        conversationId: conversation.id,
+        messageId: message.id,
+        modelId: mockUserId,
+        routerModelId: `test/${mockUserId}`,
+        status: 'completed',
+      })
+      .returning({ id: generationRuns.id })
+    const [attachment] = await db
+      .insert(attachments)
+      .values({
+        userId: mockUserId,
+        conversationId: conversation.id,
+        messageId: message.id,
+        fileName: 'version.md',
+        fileSize: 7,
+        mimeType: 'text/markdown',
+        r2Bucket: 'artifact-version-bucket',
+        r2Key: `artifact-version/${crypto.randomUUID()}.md`,
+        processingStatus: 'completed',
+      })
+      .returning({ id: attachments.id })
+    const [artifact] = await db
+      .insert(artifacts)
+      .values({
+        userId: mockUserId,
+        conversationId: conversation.id,
+        kind: 'prd',
+        title: 'Versioned attachment',
+      })
+      .returning({ id: artifacts.id })
+    const [version] = await db
+      .insert(artifactVersions)
+      .values({
+        artifactId: artifact.id,
+        conversationId: conversation.id,
+        version: 1,
+        attachmentId: attachment.id,
+        generationRunId: generation.id,
+        title: 'Versioned attachment',
+        createdByModelId: mockUserId,
+        createdByRouterModelId: `test/${mockUserId}`,
+        changeSummary: 'Created',
+      })
+      .returning({ id: artifactVersions.id })
+    await db
+      .update(artifacts)
+      .set({ currentVersionId: version.id })
+      .where(eq(artifacts.id, artifact.id))
+
+    await expect(
+      deleteAttachmentCore({
+        data: { id: attachment.id },
+        request: new Request('http://localhost:3000', {
+          headers: { 'x-test-user': mockUserId },
+        }),
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+
+    const [remainingAttachment] = await db
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(eq(attachments.id, attachment.id))
+    const [remainingVersion] = await db
+      .select({ id: artifactVersions.id })
+      .from(artifactVersions)
+      .where(eq(artifactVersions.id, version.id))
+    const r2 = await import('../../src/lib/r2/client')
+    expect(remainingAttachment?.id).toBe(attachment.id)
+    expect(remainingVersion?.id).toBe(version.id)
+    expect(r2.deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('returns only the safe attachment list projection', async () => {
+    const { getAttachmentsCore } = await import(
+      '../../src/server/functions/files'
+    )
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: mockUserId, title: 'Safe attachment list' })
+      .returning()
+    await db.insert(attachments).values({
+      userId: mockUserId,
+      conversationId: conv.id,
+      fileName: 'private.txt',
+      fileSize: 7,
+      mimeType: 'text/plain',
+      r2Key: 'secret/storage/key',
+      r2Bucket: 'secret-storage-bucket',
+      processingStatus: 'completed',
+      extractedText: 'private extracted content',
+    })
+
+    const rows = await getAttachmentsCore({
+      data: { conversationId: conv.id },
+      request: new Request('http://localhost/api/attachments', {
+        headers: { 'x-test-user': mockUserId },
+      }),
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(Object.keys(rows[0]).sort()).toEqual(
+      [
+        'id',
+        'messageId',
+        'conversationId',
+        'fileName',
+        'fileSize',
+        'mimeType',
+        'processingStatus',
+        'createdAt',
+      ].sort(),
+    )
+    expect(JSON.stringify(rows)).not.toContain('secret/storage/key')
+    expect(JSON.stringify(rows)).not.toContain('secret-storage-bucket')
+    expect(JSON.stringify(rows)).not.toContain('private extracted content')
   })
 
   it('sendMessage with image + vision injects file parts', async () => {
@@ -395,6 +593,10 @@ describe('files API', () => {
       .find((c) => c.type === 'file')
     expect(filePart).toBeDefined()
     expect(typeof filePart?.data).toBe('string')
+    expect(r2.getObject).toHaveBeenCalledWith({
+      bucket: att.r2Bucket,
+      key: att.r2Key,
+    })
     // verify attachment linked to message
     const [updatedAtt] = await db
       .select()

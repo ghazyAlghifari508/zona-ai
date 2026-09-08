@@ -52,4 +52,17 @@ describe('SkillSelector Compare Guard', () => {
     fireEvent.click(skillOption)
     expect(onChange).not.toHaveBeenCalled()
   })
+
+  it('allows checklist in compare mode through registry compare support', () => {
+    const onChange = vi.fn()
+    render(
+      <SkillSelector value="none" onChange={onChange} compareEnabled={true} />,
+    )
+    const trigger = screen.getByTestId('skill-selector-trigger')
+    fireEvent.click(trigger)
+    const checklistOption = screen.getByTestId('skill-option-checklist')
+    expect(checklistOption.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(checklistOption)
+    expect(onChange).toHaveBeenCalledWith('checklist')
+  })
 })

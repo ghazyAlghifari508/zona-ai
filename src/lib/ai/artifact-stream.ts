@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { ARTIFACT_KINDS } from '../artifacts/contracts'
+import { ARTIFACT_TITLE_MAX_LENGTH } from '../utils/constants'
 
 export type { ArtifactKind } from '../chat/skills'
 
@@ -6,13 +8,18 @@ export const ARTIFACT_PHASES = [
   'preparing',
   'generating',
   'validating',
-  'creating_file',
+  'saving',
   'completed',
-  'error',
+  'failed',
   'cancelled',
 ] as const
 
 export type ArtifactPhase = (typeof ARTIFACT_PHASES)[number]
+
+export const ARTIFACT_STREAM_OPERATIONS = ['create', 'revise', 'fork'] as const
+
+export type ArtifactStreamOperation =
+  (typeof ARTIFACT_STREAM_OPERATIONS)[number]
 
 const generationIdSchema = z.string().uuid()
 
@@ -27,7 +34,12 @@ export type ArtifactDescriptor = z.infer<typeof artifactDescriptorSchema>
 
 const baseEventSchema = z.object({
   generationId: generationIdSchema,
-  kind: z.enum(['prd', 'agent-skill']),
+  modelId: z.string().min(1),
+  kind: z.enum(ARTIFACT_KINDS),
+  operation: z.enum(ARTIFACT_STREAM_OPERATIONS),
+  comparisonRunId: z.string().uuid().optional(),
+  sourceArtifactId: z.string().uuid().optional(),
+  sourceVersionId: z.string().uuid().optional(),
 })
 
 export const artifactStatusEventSchema = baseEventSchema.extend({
@@ -39,6 +51,13 @@ export const artifactStatusEventSchema = baseEventSchema.extend({
 
 export const artifactCreatedEventSchema = baseEventSchema.extend({
   type: z.literal('artifact-created'),
+  artifactId: z.string().uuid(),
+  versionId: z.string().uuid(),
+  title: z.string().trim().min(1).max(ARTIFACT_TITLE_MAX_LENGTH),
+  version: z.number().int().positive(),
+  messageId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  routerModelId: z.string().min(1),
   summary: z.string().min(1).max(2000),
   artifact: artifactDescriptorSchema,
 })
