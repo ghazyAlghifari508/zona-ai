@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ArtifactSummary } from '../../src/lib/artifacts/contracts'
 import {
   addArtifactMention,
+  addOrFocusArtifactMention,
   filterArtifactMentions,
   findActiveMentionQuery,
   moveMentionPickerSelection,
@@ -193,5 +194,54 @@ describe('mention draft state reducers', () => {
     // Move down (direction 1) wraps to 0
     const wrappedStart = moveMentionPickerSelection(wrappedEnd, 1, 3)
     expect(wrappedStart.selectedIndex).toBe(0)
+  })
+})
+
+describe('addOrFocusArtifactMention (canvas bridge)', () => {
+  const f1 = makeCandidate('01', 'Release Plan', 'release-plan.md')
+  const baseState: ArtifactMentionDraftState = {
+    mentions: [],
+    activeQuery: null,
+    selectedIndex: 0,
+    feedback: null,
+  }
+
+  it('adds a new chip when the artifact is not mentioned yet', () => {
+    const next = addOrFocusArtifactMention(baseState, f1, 'context')
+    expect(next.mentions).toHaveLength(1)
+    expect(next.mentions[0].artifactId).toBe(f1.artifact.artifactId)
+    expect(next.mentions[0].mode).toBe('context')
+  })
+
+  it('switches an existing chip to the requested mode instead of blocking', () => {
+    const existing = addArtifactMention(baseState, f1, 'context')
+    const focused = addOrFocusArtifactMention(existing, f1, 'revise')
+    expect(focused.mentions).toHaveLength(1)
+    expect(focused.mentions[0].artifactId).toBe(f1.artifact.artifactId)
+    expect(focused.mentions[0].mode).toBe('revise')
+    expect(focused.feedback).toBeNull()
+  })
+
+  it('updates an existing chip to the candidate current version', () => {
+    const newerCandidate: ArtifactMentionCandidate = {
+      artifact: {
+        ...f1.artifact,
+        currentVersionId: '40000000-0000-4000-8000-000000000001',
+        currentVersion: 2,
+      },
+      kindLabel: f1.kindLabel,
+      modelDisplayName: f1.modelDisplayName,
+    }
+    const existing = addArtifactMention(baseState, f1, 'context')
+    const refocused = addOrFocusArtifactMention(
+      existing,
+      newerCandidate,
+      'context',
+    )
+    expect(refocused.mentions).toHaveLength(1)
+    expect(refocused.mentions[0].versionId).toBe(
+      '40000000-0000-4000-8000-000000000001',
+    )
+    expect(refocused.mentions[0].version).toBe(2)
   })
 })

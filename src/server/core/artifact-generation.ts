@@ -41,6 +41,11 @@ import type {
 } from '../../lib/utils/validation'
 import { finalizeArtifactVersion } from './artifact-finalization'
 import {
+  persistArtifactMentions,
+  type ResolvedArtifactMention,
+  resolveArtifactMentions,
+} from './artifact-mentions'
+import {
   planArtifactOperations,
   planCompareArtifactOperations,
 } from './artifact-operations'
@@ -60,6 +65,25 @@ if (typeof window !== 'undefined') {
 function getRows<T>(result: unknown): T[] {
   if (Array.isArray(result)) return result as T[]
   return (result as { rows: T[] }).rows
+}
+
+function extractMentions(operation: ArtifactOperation) {
+  if (operation.type === 'revise') {
+    return [
+      ...operation.targets.map((t) => ({
+        ...t,
+        mode: t.mode ?? ('revise' as const),
+      })),
+      ...(operation.context ?? []).map((c) => ({
+        ...c,
+        mode: c.mode ?? ('context' as const),
+      })),
+    ]
+  }
+  return (operation.context ?? []).map((c) => ({
+    ...c,
+    mode: c.mode ?? ('context' as const),
+  }))
 }
 
 export type ArtifactLifecyclePhase =
@@ -913,6 +937,23 @@ export async function generateArtifactsCore({
     content: data.content,
   })
 
+  const mentionInputs = extractMentions(data.operation)
+  let resolvedMentions: ResolvedArtifactMention[] = []
+  if (mentionInputs.length > 0) {
+    if (!data.conversationId) {
+      throw new AppError(
+        'Conversation required for artifact mentions',
+        400,
+        'ERR-003',
+      )
+    }
+    resolvedMentions = await resolveArtifactMentions({
+      userId,
+      conversationId: data.conversationId,
+      mentions: mentionInputs,
+    })
+  }
+
   const distinctProfiles = new Map<string, ArtifactProfile>()
   for (const target of planned) {
     distinctProfiles.set(target.profile.rateLimitKey, target.profile)
@@ -1123,6 +1164,14 @@ export async function generateArtifactsCore({
         content: data.content,
       })
       .returning()
+
+    if (resolvedMentions.length > 0) {
+      await persistArtifactMentions(tx, {
+        messageId: userMsg.id,
+        conversationId: resolvedConvId,
+        mentions: resolvedMentions,
+      })
+    }
 
     if (createAttachmentIds?.length) {
       for (const id of createAttachmentIds) {
@@ -1386,6 +1435,23 @@ export async function generateCompareArtifactsCore({
   })
   const planned = comparePlan.targets
 
+  const mentionInputs = extractMentions(data.operation)
+  let resolvedMentions: ResolvedArtifactMention[] = []
+  if (mentionInputs.length > 0) {
+    if (!data.conversationId) {
+      throw new AppError(
+        'Conversation required for artifact mentions',
+        400,
+        'ERR-003',
+      )
+    }
+    resolvedMentions = await resolveArtifactMentions({
+      userId,
+      conversationId: data.conversationId,
+      mentions: mentionInputs,
+    })
+  }
+
   const distinctProfiles = new Map<string, ArtifactProfile>()
   for (const target of planned) {
     distinctProfiles.set(target.profile.rateLimitKey, target.profile)
@@ -1618,6 +1684,14 @@ export async function generateCompareArtifactsCore({
         content: data.content,
       })
       .returning()
+
+    if (resolvedMentions.length > 0) {
+      await persistArtifactMentions(tx, {
+        messageId: userMsg.id,
+        conversationId: resolvedConvId,
+        mentions: resolvedMentions,
+      })
+    }
 
     if (createAttachmentIds?.length) {
       for (const id of createAttachmentIds) {
