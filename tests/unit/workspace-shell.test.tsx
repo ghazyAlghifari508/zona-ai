@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WorkspaceShell } from '../../src/components/layout/WorkspaceShell'
 
@@ -90,5 +90,24 @@ describe('WorkspaceShell authState handling', () => {
 
     expect(screen.getByTestId('guest-sidebar')).toBeDefined()
     expect(screen.queryByTestId('sidebar')).toBeNull()
+  })
+
+  it('toggles mobile drawer and closes on backdrop click', () => {
+    renderShell({
+      authState: 'authenticated',
+      children: <div>Content</div>,
+    })
+
+    const hamburger = screen.getByTestId('hamburger')
+    expect(screen.queryByTestId('sidebar-backdrop')).toBeNull()
+
+    // Open mobile sidebar
+    fireEvent.click(hamburger)
+    const backdrop = screen.getByTestId('sidebar-backdrop')
+    expect(backdrop).toBeDefined()
+
+    // Click backdrop to dismiss
+    fireEvent.click(backdrop)
+    expect(screen.queryByTestId('sidebar-backdrop')).toBeNull()
   })
 })

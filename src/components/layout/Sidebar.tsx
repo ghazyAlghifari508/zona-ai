@@ -1,4 +1,5 @@
 import {
+  Cancel01Icon,
   Clock01Icon,
   Delete02Icon,
   Loading03Icon,
@@ -235,7 +236,7 @@ export function Sidebar({
   return (
     <aside
       data-testid="sidebar"
-      className={`${mobileOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+      className={`${mobileOpen ? 'fixed z-50' : 'hidden'} inset-y-0 left-0 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:z-30 lg:flex ${
         collapsed ? 'w-[76px]' : 'w-[280px]'
       }`}
     >
@@ -270,6 +271,20 @@ export function Sidebar({
               >
                 <HugeiconsIcon
                   icon={SidebarLeft01Icon}
+                  size={18}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+              </button>
+              <button
+                type="button"
+                data-testid="sidebar-mobile-close"
+                aria-label="Tutup sidebar"
+                onClick={onMobileClose}
+                className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink lg:hidden"
+              >
+                <HugeiconsIcon
+                  icon={Cancel01Icon}
                   size={18}
                   strokeWidth={1.75}
                   aria-hidden="true"

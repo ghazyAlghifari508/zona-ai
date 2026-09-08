@@ -1,4 +1,5 @@
 import {
+  Cancel01Icon,
   GitCompareIcon,
   Login03Icon,
   Menu01Icon,
@@ -49,7 +50,7 @@ export function WorkspaceShell({
         aria-label={sidebarOpen ? 'Tutup sidebar' : 'Buka sidebar'}
         aria-expanded={sidebarOpen}
         onClick={() => setSidebarOpen((v) => !v)}
-        className="fixed top-3 left-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink lg:hidden"
+        className="fixed top-3 left-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink transition-colors hover:bg-paper lg:hidden"
       >
         <HugeiconsIcon
           icon={Menu01Icon}
@@ -58,10 +59,20 @@ export function WorkspaceShell({
           aria-hidden="true"
         />
       </button>
+
+      {sidebarOpen && (
+        <div
+          data-testid="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-xs transition-opacity lg:hidden"
+          aria-hidden="true"
+        />
+      )}
+
       {effectiveAuthState === 'loading' ? (
         <aside
           data-testid="loading-sidebar"
-          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+          className={`${sidebarOpen ? 'fixed z-50' : 'hidden'} inset-y-0 left-0 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:z-30 lg:flex ${
             collapsed ? 'w-[76px]' : 'w-[280px]'
           }`}
         >
@@ -110,7 +121,7 @@ export function WorkspaceShell({
       ) : effectiveAuthState === 'unauthenticated' ? (
         <aside
           data-testid="guest-sidebar"
-          className={`${sidebarOpen ? 'fixed' : 'hidden'} inset-y-0 left-0 z-30 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:flex ${
+          className={`${sidebarOpen ? 'fixed z-50' : 'hidden'} inset-y-0 left-0 flex h-screen h-[100dvh] shrink-0 flex-col border-r border-hairline bg-sidebar transition-[width] duration-200 lg:sticky lg:z-30 lg:flex ${
             collapsed ? 'w-[76px]' : 'w-[280px]'
           }`}
         >
@@ -145,6 +156,20 @@ export function WorkspaceShell({
                   >
                     <HugeiconsIcon
                       icon={SidebarLeft01Icon}
+                      size={18}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="guest-sidebar-mobile-close"
+                    aria-label="Tutup sidebar"
+                    onClick={() => setSidebarOpen(false)}
+                    className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink lg:hidden"
+                  >
+                    <HugeiconsIcon
+                      icon={Cancel01Icon}
                       size={18}
                       strokeWidth={1.75}
                       aria-hidden="true"
