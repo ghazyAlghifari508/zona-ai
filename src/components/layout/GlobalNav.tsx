@@ -77,7 +77,7 @@ export function GlobalNav({
       }
     >
       {mode === 'app' && leading}
-      <div className="flex items-center gap-1">
+      <div className="hidden sm:flex items-center gap-1">
         <Link
           to="/faq"
           className="flex h-8 items-center rounded-full px-3 text-[13px] font-medium text-ink/60 transition-colors duration-200 hover:bg-ink/5 hover:text-ink"
@@ -96,7 +96,7 @@ export function GlobalNav({
         <Link
           to="/"
           data-testid="back-to-chat"
-          className="flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
+          className="flex h-8 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
         >
           <HugeiconsIcon
             icon={ArrowLeft01Icon}
@@ -111,7 +111,7 @@ export function GlobalNav({
           <Link
             to="/pricing"
             data-testid="topnav-upgrade"
-            className="flex h-8 items-center rounded-full border border-notion-blue/20 bg-sky-tint px-4 text-[13px] font-semibold text-notion-blue transition-colors duration-200 hover:bg-sky-tint/70"
+            className="flex h-8 shrink-0 whitespace-nowrap items-center rounded-full border border-notion-blue/20 bg-sky-tint px-3 sm:px-4 text-[13px] font-semibold text-notion-blue transition-colors duration-200 hover:bg-sky-tint/70"
           >
             {planLabel}
           </Link>

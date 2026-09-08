@@ -1,4 +1,6 @@
 import {
+  BubbleChatQuestionIcon,
+  HelpCircleIcon,
   Logout01Icon,
   Moon02Icon,
   Settings01Icon,
@@ -57,6 +59,36 @@ export function ProfileMenu({ user }: Props) {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="sm:hidden">
+          <Link
+            to="/faq"
+            data-testid="profile-faq"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-ink cursor-pointer transition-colors duration-200 hover:bg-ink/5 focus:bg-ink/5"
+          >
+            <HugeiconsIcon
+              icon={BubbleChatQuestionIcon}
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            FAQ
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="sm:hidden">
+          <Link
+            to="/bantuan"
+            data-testid="profile-bantuan"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-ink cursor-pointer transition-colors duration-200 hover:bg-ink/5 focus:bg-ink/5"
+          >
+            <HugeiconsIcon
+              icon={HelpCircleIcon}
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            Bantuan
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link
             to="/settings"

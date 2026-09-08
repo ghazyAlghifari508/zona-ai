@@ -2173,16 +2173,23 @@ function ChatThread() {
                           data-testid="reset-credits-btn"
                           onClick={handleResetCredits}
                           disabled={resettingCredits}
-                          className="flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+                          className="flex min-h-8 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 sm:px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
                           title="Reset ke 100 kredit (mode dev)"
                         >
                           <HugeiconsIcon
                             icon={ZapIcon}
                             size={14}
                             strokeWidth={1.75}
-                            className="text-amber-500"
+                            className="text-amber-500 shrink-0"
                           />
-                          {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
+                          <span className="hidden sm:inline">
+                            {resettingCredits
+                              ? 'Mereset...'
+                              : 'Reset 100 Kredit'}
+                          </span>
+                          <span className="sm:hidden">
+                            {resettingCredits ? '...' : 'Reset'}
+                          </span>
                         </button>
                       ) : undefined
                     }

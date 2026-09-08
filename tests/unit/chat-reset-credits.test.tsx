@@ -22,6 +22,13 @@ vi.mock('../../src/components/layout/ProfileMenu', () => ({
   ProfileMenu: () => <div data-testid="mock-profile-menu">Profile</div>,
 }))
 
+vi.mock('../../src/server/functions/payments', () => ({
+  getPricingSummaryFn: vi.fn().mockResolvedValue({
+    balance: 100,
+    activePlanId: 'free',
+  }),
+}))
+
 describe('Chat reset credit UI in GlobalNav', () => {
   beforeEach(() => {
     cleanup()
