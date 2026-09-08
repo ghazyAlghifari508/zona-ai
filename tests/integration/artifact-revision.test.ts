@@ -15,6 +15,7 @@ import {
   conversations,
   creditTransactions,
   generationRuns,
+  messageArtifactMentions,
   messages,
   usageRecords,
   users,
@@ -90,6 +91,7 @@ const REVISION_USERS = [
   'revision-user-3',
   'revision-user-4',
   'revision-user-5',
+  'revision-user-6',
 ]
 
 const CHECKLIST_V1 = JSON.stringify({
@@ -540,5 +542,56 @@ describe('artifact revision', () => {
       .where(eq(artifacts.id, seed2.artifactId))
     expect(art1.currentVersionId).not.toBe(seed1.versionId)
     expect(art2.currentVersionId).not.toBe(seed2.versionId)
+  })
+
+  it('persists message_artifact_mentions rows for the revise request', async () => {
+    const USER = 'revision-user-6'
+    const seed = await seedChecklistV1(USER)
+    const r2 = await import('../../src/lib/r2/client')
+    const { generateArtifactsCore } = await import(
+      '../../src/server/core/artifact-generation'
+    )
+    vi.mocked(r2.getObject).mockResolvedValue({
+      body: Buffer.from('# Checklist rev\n\n- [ ] Sahur\n- [ ] Subuh\n', 'utf8'),
+      contentType: 'text/markdown',
+    })
+    __setNextRevisionOutput(CHECKLIST_V2)
+    const res = await generateArtifactsCore({
+      data: {
+        conversationId: seed.convId,
+        modelId: 'auto',
+        content: 'Revisi dengan persist mention',
+        operation: {
+          type: 'revise',
+          targets: [
+            {
+              artifactId: seed.artifactId,
+              versionId: seed.versionId,
+              mode: 'revise',
+            },
+          ],
+        },
+      },
+      request: userRequest(USER),
+    })
+    const genId = res.headers.get('X-Generation-Id') as string
+    const [run] = await db
+      .select()
+      .from(generationRuns)
+      .where(eq(generationRuns.id, genId))
+    expect(run?.requestMessageId).toBeTruthy()
+
+    const rows = await db
+      .select()
+      .from(messageArtifactMentions)
+      .where(
+        eq(messageArtifactMentions.messageId, run.requestMessageId as string),
+      )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].artifactId).toBe(seed.artifactId)
+    expect(rows[0].versionId).toBe(seed.versionId)
+    expect(rows[0].mode).toBe('revise')
+    expect(rows[0].position).toBe(0)
+    expect(rows[0].versionSnapshot).toBe(1)
   })
 })
