@@ -22,7 +22,12 @@ export function isCompareModelBlocked(
   selectedIds: string[],
   modelId: string,
 ): boolean {
-  if (selectedIds.includes(modelId)) return false
+  if (
+    selectedIds.includes(modelId) ||
+    (modelId.includes('/') && selectedIds.includes(modelId.split('/')[1])) ||
+    selectedIds.some((id) => id.includes('/') && id.split('/')[1] === modelId)
+  )
+    return false
   return !canAddCompareModel(selectedIds)
 }
 
@@ -32,6 +37,13 @@ export function toggleCompareModel(
 ): string[] {
   if (selectedIds.includes(modelId)) {
     return selectedIds.filter((id) => id !== modelId)
+  }
+  const aliasMatch =
+    (modelId.includes('/') &&
+      selectedIds.find((id) => id === modelId.split('/')[1])) ||
+    selectedIds.find((id) => id.includes('/') && id.split('/')[1] === modelId)
+  if (aliasMatch) {
+    return selectedIds.filter((id) => id !== aliasMatch)
   }
   if (!canAddCompareModel(selectedIds)) return selectedIds
   return [...selectedIds, modelId]
