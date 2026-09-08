@@ -159,6 +159,32 @@ export const CHAT_MARKDOWN_COMPONENTS: NonNullable<
     }
     return <input type={type} checked={checked} disabled={disabled} {...rest} />
   },
+  table: ({ children, className, ...props }: ComponentProps<'table'>) => (
+    <div className="my-3 w-full max-w-full overflow-x-auto rounded-lg border border-hairline">
+      <table
+        className={`min-w-full divide-y divide-hairline text-[14px] text-ink ${className ?? ''}`}
+        {...props}
+      >
+        {children}
+      </table>
+    </div>
+  ),
+  th: ({ children, className, ...props }: ComponentProps<'th'>) => (
+    <th
+      className={`bg-paper px-3 py-2 text-left text-[12px] font-semibold tracking-wider text-graphite uppercase ${className ?? ''}`}
+      {...props}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children, className, ...props }: ComponentProps<'td'>) => (
+    <td
+      className={`border-t border-hairline/60 px-3 py-2 text-[13px] ${className ?? ''}`}
+      {...props}
+    >
+      {children}
+    </td>
+  ),
 }
 
 export type MarkdownContentProps = {
