@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  type ArtifactSkillId,
+  isArtifactSkill,
+  type SkillId,
+} from '../chat/skills'
 import { MAX_ARTIFACT_MENTIONS } from '../utils/constants'
 import type { ArtifactKind } from './contracts'
 
@@ -49,3 +54,48 @@ export const artifactMentionsSchema = z
   .superRefine((mentions, ctx) => {
     assertUniqueMentionArtifacts(mentions, ctx)
   })
+
+export type ArtifactDispatch =
+  | { type: 'chat'; context: ArtifactMentionInput[] }
+  | {
+      type: 'artifact-create'
+      skillId: ArtifactSkillId
+      context: ArtifactMentionInput[]
+    }
+  | {
+      type: 'artifact-revise'
+      targets: ArtifactMentionInput[]
+      context: ArtifactMentionInput[]
+    }
+
+export function resolveArtifactDispatch({
+  skillId,
+  mentions,
+}: {
+  skillId: SkillId
+  mentions: readonly ArtifactMentionInput[]
+}): ArtifactDispatch {
+  const targets = mentions.filter((m) => m.mode === 'revise')
+  const context = mentions.filter((m) => m.mode === 'context')
+
+  if (targets.length > 0) {
+    return {
+      type: 'artifact-revise',
+      targets: targets.map((t) => ({ ...t })),
+      context: context.map((c) => ({ ...c })),
+    }
+  }
+
+  if (isArtifactSkill(skillId)) {
+    return {
+      type: 'artifact-create',
+      skillId: skillId as ArtifactSkillId,
+      context: context.map((c) => ({ ...c })),
+    }
+  }
+
+  return {
+    type: 'chat',
+    context: context.map((c) => ({ ...c })),
+  }
+}

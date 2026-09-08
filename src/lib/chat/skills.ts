@@ -8,6 +8,7 @@ export const SKILL_IDS = [
 ] as const
 
 export type SkillId = (typeof SKILL_IDS)[number]
+export type ArtifactSkillId = 'checklist' | 'prd-plan' | 'agent-skill'
 
 export type SkillOutputMode = 'chat' | 'artifact'
 

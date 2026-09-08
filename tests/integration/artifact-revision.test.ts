@@ -163,7 +163,10 @@ function userRequest(userId: string): Request {
   })
 }
 
-async function seedChecklistV1(userId: string): Promise<{
+async function seedChecklistV1(
+  userId: string,
+  targetConvId?: string,
+): Promise<{
   convId: string
   artifactId: string
   versionId: string
@@ -182,6 +185,7 @@ async function seedChecklistV1(userId: string): Promise<{
   })
   const res = await generateArtifactCore({
     data: {
+      ...(targetConvId ? { conversationId: targetConvId } : {}),
       modelId: 'auto',
       skillId: 'checklist',
       content: 'Buatkan checklist rev',
@@ -476,5 +480,65 @@ describe('artifact revision', () => {
       .from(artifacts)
       .where(eq(artifacts.id, seed.artifactId))
     expect(artifact.currentVersionId).not.toBe(seed.versionId)
+  })
+
+  it('creates two independent same-lineage versions for two revise mentions in single mode', async () => {
+    const USER = 'revision-user-5'
+    const seed1 = await seedChecklistV1(USER)
+    const seed2 = await seedChecklistV1(USER, seed1.convId)
+    const r2 = await import('../../src/lib/r2/client')
+    const { generateArtifactsCore } = await import(
+      '../../src/server/core/artifact-generation'
+    )
+    vi.mocked(r2.getObject).mockResolvedValue({
+      body: Buffer.from(
+        '# Checklist rev\n\n- [ ] Sahur\n- [ ] Subuh\n',
+        'utf8',
+      ),
+      contentType: 'text/markdown',
+    })
+    __setNextRevisionOutput(CHECKLIST_V2)
+    const res = await generateArtifactsCore({
+      data: {
+        conversationId: seed1.convId,
+        modelId: 'auto',
+        content: 'Revisi kedua checklist',
+        operation: {
+          type: 'revise',
+          targets: [
+            {
+              artifactId: seed1.artifactId,
+              versionId: seed1.versionId,
+              mode: 'revise',
+            },
+            {
+              artifactId: seed2.artifactId,
+              versionId: seed2.versionId,
+              mode: 'revise',
+            },
+          ],
+        },
+      },
+      request: userRequest(USER),
+    })
+    const events = await readArtifactEvents(res)
+    const created = events.filter((e) => e.type === 'artifact-created')
+    expect(created).toHaveLength(2)
+    for (const c of created) {
+      if (c.type !== 'artifact-created') throw new Error('wrong event')
+      expect(c.version).toBe(2)
+      expect(c.operation).toBe('revise')
+    }
+
+    const [art1] = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, seed1.artifactId))
+    const [art2] = await db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.id, seed2.artifactId))
+    expect(art1.currentVersionId).not.toBe(seed1.versionId)
+    expect(art2.currentVersionId).not.toBe(seed2.versionId)
   })
 })
