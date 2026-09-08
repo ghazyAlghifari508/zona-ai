@@ -108,12 +108,12 @@ export function ModelSelector({
           type="button"
           data-testid="model-selector-trigger"
           aria-label="Pilih model"
-          className="flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
+          className="flex h-8 shrink-0 items-center gap-1 sm:gap-1.5 rounded-full border border-hairline bg-pure-white px-2 sm:px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95 min-w-0 max-w-[140px] sm:max-w-[220px]"
         >
           {compareEnabled && compareModelIds.length > 0 ? (
             <div
               data-testid="compare-stacked-icons"
-              className="flex items-center -space-x-1.5"
+              className="flex shrink-0 items-center -space-x-1.5"
             >
               {compareModelIds.map((id, index) => {
                 const entry = findCatalogEntry(catalog, id)
@@ -132,7 +132,7 @@ export function ModelSelector({
               })}
             </div>
           ) : (
-            <span className="flex h-4 w-4 items-center justify-center text-ink">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-ink">
               <ProviderIcon
                 provider={selected?.provider ?? 'zona-router'}
                 size={14}
@@ -142,18 +142,18 @@ export function ModelSelector({
           {compareEnabled ? (
             <span
               data-testid="compare-trigger-label"
-              className="text-[13px] font-medium tracking-[-0.01em]"
+              className="truncate text-[12px] sm:text-[13px] font-medium tracking-[-0.01em]"
             >
               {compareModelIds.length} model dipilih
             </span>
           ) : (
-            <span className="text-[13px] font-medium tracking-[-0.01em]">
+            <span className="truncate text-[12px] sm:text-[13px] font-medium tracking-[-0.01em]">
               {selected?.displayName ??
                 (catalog.length === 0 ? 'Memuat...' : 'Auto')}
             </span>
           )}
           {selected && !compareEnabled && (
-            <span className="rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-on-tint">
+            <span className="hidden sm:inline-block shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-on-tint">
               {costLabel(selected)}
             </span>
           )}
@@ -161,7 +161,7 @@ export function ModelSelector({
             icon={ArrowDown01Icon}
             size={13}
             strokeWidth={1.75}
-            className="text-ink/40"
+            className="shrink-0 text-ink/40"
           />
         </button>
       </PopoverTrigger>

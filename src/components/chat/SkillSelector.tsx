@@ -47,22 +47,22 @@ export function SkillSelector({ value, onChange, compareEnabled }: Props) {
         <button
           type="button"
           data-testid="skill-selector-trigger"
-          className="flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95"
+          className="flex h-8 shrink-0 items-center gap-1 sm:gap-1.5 rounded-full border border-hairline bg-pure-white px-2 sm:px-2.5 text-ink transition-all duration-200 hover:bg-ink/5 active:scale-95 min-w-0 max-w-[110px] sm:max-w-none"
         >
           <HugeiconsIcon
             icon={selected.icon}
             size={14}
             strokeWidth={1.75}
-            className="text-ink"
+            className="shrink-0 text-ink"
           />
-          <span className="text-[13px] font-medium tracking-[-0.01em]">
+          <span className="truncate text-[12px] sm:text-[13px] font-medium tracking-[-0.01em]">
             {selected.label}
           </span>
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             size={13}
             strokeWidth={1.75}
-            className="text-ink/40"
+            className="shrink-0 text-ink/40"
           />
         </button>
       </PopoverTrigger>

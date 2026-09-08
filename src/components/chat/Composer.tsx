@@ -804,8 +804,8 @@ export function Composer({
               className="min-h-[56px] max-h-[240px] w-full resize-none bg-transparent text-[15px] leading-[1.5] text-ink placeholder:text-ink/35 focus:outline-none"
             />
           </div>
-          <div className="flex items-center justify-between px-1 pt-1">
-            <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center justify-between gap-1 sm:gap-2 px-1 pt-1 min-w-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
               <ModelSelector
                 value={modelId}
                 onChange={changeModel}
@@ -827,6 +827,8 @@ export function Composer({
                 onChange={changeSkill}
                 compareEnabled={compareEnabled}
               />
+            </div>
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <input
                 ref={fileRef}
                 type="file"
@@ -848,7 +850,7 @@ export function Composer({
                   }
                   fileRef.current?.click()
                 }}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink/70 transition-all duration-200 hover:bg-ink/5 hover:text-ink active:scale-95"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline bg-pure-white text-ink/70 transition-all duration-200 hover:bg-ink/5 hover:text-ink active:scale-95"
                 title={guest ? 'Masuk untuk melampirkan file' : 'Attachment'}
                 aria-label="Attach file"
               >
@@ -872,7 +874,7 @@ export function Composer({
                 data-testid="web-toggle"
                 aria-pressed={enableWebSearch}
                 onClick={() => setEnableWebSearch((v) => !v)}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 active:scale-95 ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-200 active:scale-95 ${
                   enableWebSearch
                     ? 'border-notion-blue/40 bg-sky-tint text-notion-blue shadow-none'
                     : 'border-hairline bg-pure-white text-ink/60 hover:bg-ink/5 hover:text-ink'
@@ -894,34 +896,38 @@ export function Composer({
                   strokeWidth={1.75}
                 />
               </button>
+              {isStreaming ? (
+                <button
+                  type="button"
+                  data-testid="stop-button"
+                  onClick={onStop}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-pure-white transition-all duration-200 hover:bg-ink/80 active:scale-95"
+                  aria-label="Stop generation"
+                >
+                  <HugeiconsIcon
+                    icon={StopIcon}
+                    size={14}
+                    strokeWidth={1.75}
+                    fill="currentColor"
+                  />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="send-button"
+                  onClick={handleSend}
+                  disabled={compareEnabled ? !canSendCompare : !canSendNormal}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-all duration-200 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Send message"
+                >
+                  <HugeiconsIcon
+                    icon={ArrowUp02Icon}
+                    size={16}
+                    strokeWidth={2}
+                  />
+                </button>
+              )}
             </div>
-            {isStreaming ? (
-              <button
-                type="button"
-                data-testid="stop-button"
-                onClick={onStop}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-pure-white transition-all duration-200 hover:bg-ink/80 active:scale-95"
-                aria-label="Stop generation"
-              >
-                <HugeiconsIcon
-                  icon={StopIcon}
-                  size={14}
-                  strokeWidth={1.75}
-                  fill="currentColor"
-                />
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-testid="send-button"
-                onClick={handleSend}
-                disabled={compareEnabled ? !canSendCompare : !canSendNormal}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-white transition-all duration-200 hover:bg-accent-hover active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Send message"
-              >
-                <HugeiconsIcon icon={ArrowUp02Icon} size={16} strokeWidth={2} />
-              </button>
-            )}
           </div>
         </div>
         {!compareEnabled && isPremium && (
