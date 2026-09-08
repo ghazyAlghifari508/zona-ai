@@ -19,6 +19,13 @@ const MODEL_SEARCH_ALIASES: Record<string, string[]> = {
   'gh/gpt-4o': ['openai', 'chatgpt', 'codex', 'gpt-4o', 'omni'],
 
   // Google
+  'ag/gemini-3.8-flash-high': [
+    'google',
+    'deepmind',
+    'antigravity',
+    'gemini',
+    'gemini-3.8-flash-high',
+  ],
   'ag/gemini-3.7-flash-high': [
     'google',
     'deepmind',

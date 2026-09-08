@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { getAvailableModels, getModelById } from '../../src/lib/models/registry'
 
 describe('registry', () => {
-  it('returns 19 enabled models, auto isDefault', () => {
+  it('returns 20 enabled models, auto isDefault', () => {
     const models = getAvailableModels()
-    expect(models.length).toBe(19)
+    expect(models.length).toBe(20)
     expect(models.find((m) => m.id === 'auto')?.isDefault).toBe(true)
   })
   it('getModelById throws ERR-003 for missing', () => {
@@ -88,6 +88,14 @@ describe('registry', () => {
     expect(getModelById('cx/gpt-5.6-terra').intelligenceScore).toBe(98)
     expect(getModelById('cx/gpt-5.6-terra').intelligenceBars).toBe(4)
     expect(getModelById('cx/gpt-5.6-terra').vendor).toBe('OpenAI')
+
+    expect(
+      getModelById('ag/gemini-3.8-flash-high').intelligenceScore,
+    ).toBe(92)
+    expect(
+      getModelById('ag/gemini-3.8-flash-high').intelligenceBars,
+    ).toBe(4)
+    expect(getModelById('ag/gemini-3.8-flash-high').vendor).toBe('Google')
 
     expect(getModelById('ag/claude-opus-4-6-thinking').intelligenceScore).toBe(
       97,
