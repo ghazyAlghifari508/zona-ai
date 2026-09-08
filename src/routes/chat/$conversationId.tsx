@@ -29,6 +29,7 @@ import { artifactDescriptorSchema } from '@/lib/artifacts/contracts'
 import {
   type ArtifactMentionDraft,
   type ArtifactMentionInput,
+  addArtifactMention,
   resolveArtifactDispatch,
 } from '@/lib/artifacts/mentions'
 import {
@@ -198,7 +199,9 @@ function ChatThread() {
     ArtifactMentionDraft[]
   >([])
 
-  const handleOpenArtifact = (artifact: ArtifactDescriptor) => {
+  const handleOpenArtifact = (
+    artifact: ArtifactDescriptor | { artifactId: string; versionId: string },
+  ) => {
     setArtifactWorkspace((current) =>
       openArtifact(current, {
         artifactId: artifact.artifactId,
@@ -218,6 +221,38 @@ function ChatThread() {
         current,
       ),
     )
+  }
+
+  const handleAddMentionFromCanvas = (input: {
+    artifactId: string
+    versionId: string
+    mode: 'context' | 'revise'
+  }) => {
+    const summary = artifactSummaries.find(
+      (s) => s.artifactId === input.artifactId,
+    )
+    if (!summary) return
+    const candidate = {
+      artifact: summary,
+      kindLabel:
+        summary.kind === 'prd'
+          ? 'PRD'
+          : summary.kind === 'agent-skill'
+            ? 'Agent Skill'
+            : 'Checklist',
+      modelDisplayName: summary.modelId,
+    }
+    const nextState = addArtifactMention(
+      {
+        mentions: composerMentions,
+        activeQuery: null,
+        selectedIndex: 0,
+        feedback: null,
+      },
+      candidate,
+      input.mode,
+    )
+    setComposerMentions(nextState.mentions)
   }
 
   const mergeCreatedArtifact = (
@@ -2217,6 +2252,7 @@ function ChatThread() {
               onBackToChat={handleCloseArtifactPanel}
               onCopy={() => undefined}
               onRememberScroll={handleRememberArtifactScroll}
+              onAddMention={handleAddMentionFromCanvas}
             />
           }
         />

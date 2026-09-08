@@ -17,6 +17,11 @@ export type ArtifactHeaderProps = {
   onCloseTab: (artifactId: string) => void
   onClosePanel: () => void
   onCopy: (source: string) => void
+  onAddMention?: (input: {
+    artifactId: string
+    versionId: string
+    mode: 'context' | 'revise'
+  }) => void
 }
 
 export function ArtifactHeader({
@@ -28,12 +33,16 @@ export function ArtifactHeader({
   onCloseTab,
   onClosePanel,
   onCopy,
+  onAddMention,
 }: ArtifactHeaderProps) {
   const catalog = useModelCatalog()
   const displayName =
     findCatalogEntry(catalog, summary.modelId)?.displayName ?? summary.modelId
   const selected =
     versions.find((version) => version.versionId === activeVersionId) ?? null
+  const isCurrentVersion =
+    activeVersionId === summary.currentVersionId ||
+    (selected !== null && selected.version === summary.currentVersion)
   const download = selected
     ? {
         attachmentId: selected.attachmentId,
@@ -113,6 +122,43 @@ export function ArtifactHeader({
           ))
         )}
       </select>
+
+      {onAddMention && (
+        <>
+          <button
+            type="button"
+            data-testid="artifact-add-to-context"
+            onClick={() =>
+              onAddMention({
+                artifactId: summary.artifactId,
+                versionId: activeVersionId,
+                mode: 'context',
+              })
+            }
+            className="inline-flex h-8 shrink-0 items-center rounded-md border border-hairline bg-pure-white px-2.5 text-[13px] font-medium text-ink hover:border-hairline-strong hover:bg-cream-paper/40"
+            title="Tambahkan versi ini ke context percakapan"
+          >
+            Tambahkan ke context
+          </button>
+          {isCurrentVersion && (
+            <button
+              type="button"
+              data-testid="artifact-revise-in-chat"
+              onClick={() =>
+                onAddMention({
+                  artifactId: summary.artifactId,
+                  versionId: summary.currentVersionId,
+                  mode: 'revise',
+                })
+              }
+              className="inline-flex h-8 shrink-0 items-center rounded-md border border-amber-300 bg-amber-50 px-2.5 text-[13px] font-medium text-amber-900 hover:bg-amber-100"
+              title="Revisi artifact ini di chat (membuat versi baru)"
+            >
+              Revisi di chat
+            </button>
+          )}
+        </>
+      )}
 
       <button
         type="button"

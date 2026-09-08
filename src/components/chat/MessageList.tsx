@@ -24,6 +24,7 @@ import {
 } from '@/lib/chat/compare-card-width'
 import type { ArtifactKind } from '@/lib/chat/skills'
 import { getModelProviderName } from '@/lib/models/filter'
+import { ArtifactMentionTokens } from '../artifacts/ArtifactMentionTokens'
 import { ArtifactProgress } from './ArtifactProgress'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CompareGrid } from './CompareGrid'
@@ -131,7 +132,9 @@ export function MessageList({
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
-  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
+  onOpenArtifact?: (
+    artifact: ArtifactDescriptor | { artifactId: string; versionId: string },
+  ) => void
   onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   hasUsedCompareMode?: boolean
@@ -277,14 +280,24 @@ const MessageItem = memo(function MessageItem({
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
-  onOpenArtifact?: (artifact: ArtifactDescriptor) => void
+  onOpenArtifact?: (
+    artifact: ArtifactDescriptor | { artifactId: string; versionId: string },
+  ) => void
   onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   hasUsedCompareMode?: boolean
 }) {
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
     return (
-      <div className="message-row-contain flex w-full justify-end py-3">
+      <div className="message-row-contain flex w-full flex-col items-end py-3">
+        {message.artifactMentions && message.artifactMentions.length > 0 && (
+          <div className="mb-1 flex justify-end">
+            <ArtifactMentionTokens
+              mentions={message.artifactMentions}
+              onOpenArtifact={onOpenArtifact}
+            />
+          </div>
+        )}
         <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-accent px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-white shadow-sm shadow-black/10 whitespace-pre-wrap [overflow-wrap:anywhere]">
           {message.content}
         </div>

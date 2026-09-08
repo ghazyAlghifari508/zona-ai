@@ -24,6 +24,11 @@ export type ArtifactCanvasProps = {
     versionId: string
     scrollTop: number
   }) => void
+  onAddMention?: (input: {
+    artifactId: string
+    versionId: string
+    mode: 'context' | 'revise'
+  }) => void
 }
 
 export function ArtifactCanvas({
@@ -37,6 +42,7 @@ export function ArtifactCanvas({
   onBackToChat,
   onCopy,
   onRememberScroll,
+  onAddMention,
 }: ArtifactCanvasProps) {
   const openSummaries = workspace.openArtifactIds.flatMap((artifactId) => {
     const summary = summaries.find((entry) => entry.artifactId === artifactId)
@@ -74,6 +80,7 @@ export function ArtifactCanvas({
       onBackToChat={onBackToChat}
       onCopy={onCopy}
       onRememberScroll={onRememberScroll}
+      onAddMention={onAddMention}
     />
   )
 }
@@ -90,6 +97,7 @@ function ActiveArtifactCanvas({
   onBackToChat,
   onCopy,
   onRememberScroll,
+  onAddMention,
 }: {
   openSummaries: ArtifactSummary[]
   activeSummary: ArtifactSummary
@@ -105,6 +113,11 @@ function ActiveArtifactCanvas({
     artifactId: string
     versionId: string
     scrollTop: number
+  }) => void
+  onAddMention?: (input: {
+    artifactId: string
+    versionId: string
+    mode: 'context' | 'revise'
   }) => void
 }) {
   const versions = detail?.versions ?? []
@@ -201,6 +214,7 @@ function ActiveArtifactCanvas({
           onCloseTab={handleCloseTab}
           onClosePanel={onClosePanel}
           onCopy={onCopy}
+          onAddMention={onAddMention}
         />
       </div>
 
