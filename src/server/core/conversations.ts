@@ -6,7 +6,8 @@ import { and, asc, desc, eq, gt, ilike, inArray, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db'
-import { conversations, generationRuns } from '../../lib/db/schema'
+import { attachments, conversations, generationRuns } from '../../lib/db/schema'
+import { deleteObject } from '../../lib/r2/client'
 import type {
   createConversationSchema,
   deleteConversationSchema,
@@ -19,6 +20,11 @@ import type {
 
 type Session = { user: { id: string } }
 type ConversationCursor = { updatedAt: Date; id: string }
+type ConversationDeletion = {
+  conversationIds: string[]
+  deletionStartedAt: Date
+  userId: string
+}
 
 const cursorSchema = z.object({
   updatedAt: z.iso
@@ -63,6 +69,144 @@ async function ownedConversation(id: string, userId: string) {
   if (!conversation) throw httpError(404, 'Not Found')
   if (conversation.userId !== userId) throw httpError(403, 'Forbidden')
   return conversation
+}
+
+function nextDeletionStartedAt(
+  conversationsToDelete: Array<{ deletionStartedAt: Date | null }>,
+) {
+  return new Date(
+    Math.max(
+      Date.now(),
+      ...conversationsToDelete.map(
+        ({ deletionStartedAt }) => (deletionStartedAt?.getTime() ?? 0) + 1,
+      ),
+    ),
+  )
+}
+
+async function markConversationForDeletion(id: string, userId: string) {
+  return db.transaction(async (tx): Promise<ConversationDeletion> => {
+    const [conversation] = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        userId: conversations.userId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, id))
+      .for('update')
+    if (!conversation) throw httpError(404, 'Not Found')
+    if (conversation.userId !== userId) throw httpError(403, 'Forbidden')
+    const deletionStartedAt = nextDeletionStartedAt([conversation])
+    await tx
+      .update(conversations)
+      .set({ deletionStartedAt })
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
+    return { conversationIds: [id], deletionStartedAt, userId }
+  })
+}
+
+async function markAllConversationsForDeletion(userId: string) {
+  return db.transaction(async (tx): Promise<ConversationDeletion> => {
+    const ownedConversations = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        id: conversations.id,
+      })
+      .from(conversations)
+      .where(eq(conversations.userId, userId))
+      .orderBy(asc(conversations.id))
+      .for('update')
+    const conversationIds = ownedConversations.map(({ id }) => id)
+    const deletionStartedAt = nextDeletionStartedAt(ownedConversations)
+    if (conversationIds.length > 0) {
+      await tx
+        .update(conversations)
+        .set({ deletionStartedAt })
+        .where(
+          and(
+            eq(conversations.userId, userId),
+            inArray(conversations.id, conversationIds),
+          ),
+        )
+    }
+    return { conversationIds, deletionStartedAt, userId }
+  })
+}
+
+async function deleteConversationObjects({
+  conversationIds,
+  deletionStartedAt,
+  userId,
+}: ConversationDeletion) {
+  if (conversationIds.length === 0) return
+
+  const locators = await db
+    .select({ bucket: attachments.r2Bucket, key: attachments.r2Key })
+    .from(attachments)
+    .where(
+      and(
+        eq(attachments.userId, userId),
+        inArray(attachments.conversationId, conversationIds),
+      ),
+    )
+    .orderBy(asc(attachments.conversationId), asc(attachments.id))
+
+  try {
+    for (const locator of locators) await deleteObject(locator)
+  } catch {
+    throw httpError(500, 'Conversation deletion failed')
+  }
+
+  await db.transaction(async (tx) => {
+    const markedConversations = await tx
+      .select({ deletionStartedAt: conversations.deletionStartedAt })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.userId, userId),
+          inArray(conversations.id, conversationIds),
+        ),
+      )
+      .for('update')
+    const markerMatches = markedConversations.every(
+      (conversation) =>
+        conversation.deletionStartedAt?.getTime() ===
+        deletionStartedAt.getTime(),
+    )
+    if (
+      markedConversations.length !== conversationIds.length ||
+      !markerMatches
+    ) {
+      throw httpError(409, 'Conversation changed during deletion')
+    }
+    const [activeStorageWrite] = await tx
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(
+        and(
+          eq(attachments.userId, userId),
+          inArray(attachments.conversationId, conversationIds),
+          inArray(attachments.processingStatus, ['writing', 'compensating']),
+        ),
+      )
+      .limit(1)
+    if (activeStorageWrite) {
+      throw httpError(409, 'Conversation changed during deletion')
+    }
+    const deleted = await tx
+      .delete(conversations)
+      .where(
+        and(
+          eq(conversations.userId, userId),
+          inArray(conversations.id, conversationIds),
+          eq(conversations.deletionStartedAt, deletionStartedAt),
+        ),
+      )
+      .returning({ id: conversations.id })
+    if (deleted.length !== conversationIds.length) {
+      throw httpError(409, 'Conversation changed during deletion')
+    }
+  })
 }
 
 export async function getConversationsCore({
@@ -234,10 +378,8 @@ export async function deleteConversationCore({
   request: Request
 }) {
   const userId = await sessionUserId(request)
-  await ownedConversation(data.id, userId)
-  await db
-    .delete(conversations)
-    .where(and(eq(conversations.id, data.id), eq(conversations.userId, userId)))
+  const deletion = await markConversationForDeletion(data.id, userId)
+  await deleteConversationObjects(deletion)
   return { success: true as const }
 }
 
@@ -247,6 +389,7 @@ export async function deleteAllConversationsCore({
   request: Request
 }) {
   const userId = await sessionUserId(request)
-  await db.delete(conversations).where(eq(conversations.userId, userId))
+  const deletion = await markAllConversationsForDeletion(userId)
+  await deleteConversationObjects(deletion)
   return { success: true as const }
 }

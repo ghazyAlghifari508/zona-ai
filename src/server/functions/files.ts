@@ -1,10 +1,15 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
-import { attachments, conversations } from '../../lib/db/schema'
+import {
+  artifactVersions,
+  attachments,
+  conversations,
+} from '../../lib/db/schema'
+import { env } from '../../lib/env.server'
 import { deleteObject, getObject, putObject } from '../../lib/r2/client'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import {
@@ -21,6 +26,83 @@ import {
 
 function httpError(status: number, message: string, code?: string): AppError {
   return new AppError(message, status, code ?? 'ERR-000')
+}
+
+async function compensateReservedUpload({
+  attachmentId,
+  conversationId,
+  locator,
+  rejection,
+  userId,
+}: {
+  attachmentId: string
+  conversationId: string
+  locator: { bucket: string; key: string }
+  rejection: AppError
+  userId: string
+}): Promise<never> {
+  await db.transaction(async (tx) => {
+    const [conversation] = await tx
+      .select({ deletionStartedAt: conversations.deletionStartedAt })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.userId, userId),
+        ),
+      )
+      .for('update')
+    if (conversation?.deletionStartedAt) {
+      await tx
+        .update(conversations)
+        .set({
+          deletionStartedAt: new Date(
+            conversation.deletionStartedAt.getTime() + 1,
+          ),
+        })
+        .where(
+          and(
+            eq(conversations.id, conversationId),
+            eq(conversations.userId, userId),
+          ),
+        )
+    }
+    await tx
+      .update(attachments)
+      .set({ processingStatus: 'compensating' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+  })
+  try {
+    await deleteObject(locator)
+  } catch {
+    await db
+      .update(attachments)
+      .set({ processingStatus: 'cleanup_failed' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+    throw httpError(500, 'File upload cleanup failed. Please try again.')
+  }
+  await db
+    .delete(attachments)
+    .where(
+      and(
+        eq(attachments.id, attachmentId),
+        eq(attachments.conversationId, conversationId),
+        eq(attachments.userId, userId),
+      ),
+    )
+  throw rejection
 }
 
 export async function uploadFileCore({ request }: { request: Request }) {
@@ -83,16 +165,24 @@ export async function uploadFileCore({ request }: { request: Request }) {
   const sanitized = sanitizeFilename(file.name)
   const attachmentId = crypto.randomUUID()
   const r2Key = `users/${userId}/attachments/${attachmentId}/${sanitized}`
+  const locator = { bucket: env.R2_BUCKET_NAME, key: r2Key }
 
-  try {
-    await putObject({ key: r2Key, body: buffer, contentType: mime })
-  } catch (_e) {
-    throw httpError(500, 'File upload failed. Please try again.', 'ERR-010')
-  }
-
-  const [row] = await db
-    .insert(attachments)
-    .values({
+  await db.transaction(async (tx) => {
+    const [currentConversation] = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        userId: conversations.userId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .for('update')
+    if (!currentConversation || currentConversation.userId !== userId) {
+      throw httpError(403, 'Forbidden')
+    }
+    if (currentConversation.deletionStartedAt) {
+      throw httpError(409, 'This conversation is being deleted.')
+    }
+    await tx.insert(attachments).values({
       id: attachmentId,
       userId,
       conversationId,
@@ -101,11 +191,81 @@ export async function uploadFileCore({ request }: { request: Request }) {
       fileSize: file.size,
       mimeType: mime,
       r2Key,
-      r2Bucket: process.env.R2_BUCKET_NAME as string,
-      processingStatus: 'pending',
+      r2Bucket: locator.bucket,
+      processingStatus: 'writing',
       extractedText: null,
     })
-    .returning()
+  })
+
+  try {
+    await putObject({
+      bucket: locator.bucket,
+      key: r2Key,
+      body: buffer,
+      contentType: mime,
+    })
+  } catch (_e) {
+    return compensateReservedUpload({
+      attachmentId,
+      conversationId,
+      locator,
+      rejection: httpError(
+        500,
+        'File upload failed. Please try again.',
+        'ERR-010',
+      ),
+      userId,
+    })
+  }
+
+  const row = await db.transaction(async (tx) => {
+    const [currentConversation] = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        userId: conversations.userId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .for('update')
+    if (
+      !currentConversation ||
+      currentConversation.userId !== userId ||
+      currentConversation.deletionStartedAt
+    ) {
+      await tx
+        .update(attachments)
+        .set({ processingStatus: 'compensating' })
+        .where(
+          and(
+            eq(attachments.id, attachmentId),
+            eq(attachments.conversationId, conversationId),
+            eq(attachments.userId, userId),
+          ),
+        )
+      return undefined
+    }
+    const [completedReservation] = await tx
+      .update(attachments)
+      .set({ processingStatus: 'pending' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+      .returning()
+    return completedReservation
+  })
+  if (!row) {
+    return compensateReservedUpload({
+      attachmentId,
+      conversationId,
+      locator,
+      rejection: httpError(409, 'This conversation is being deleted.'),
+      userId,
+    })
+  }
 
   // Trigger RAG processing async; in test await to make assertions deterministic
   try {
@@ -151,7 +311,10 @@ export async function getAttachmentCore({
   if (!att) throw httpError(404, 'Not found')
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
-  const { body, contentType } = await getObject(att.r2Key)
+  const { body, contentType } = await getObject({
+    bucket: att.r2Bucket,
+    key: att.r2Key,
+  })
   const buffer = body
   const disposition = parsed.data.download ? 'attachment' : 'inline'
   return new Response(new Uint8Array(buffer), {
@@ -188,12 +351,26 @@ export async function deleteAttachmentCore({
   if (!att) throw httpError(404, 'Not found')
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
 
+  const [artifactVersion] = await db
+    .select({ id: artifactVersions.id })
+    .from(artifactVersions)
+    .where(
+      and(
+        eq(artifactVersions.attachmentId, att.id),
+        eq(artifactVersions.conversationId, att.conversationId),
+      ),
+    )
+    .limit(1)
+  if (artifactVersion) throw httpError(409, 'This file cannot be deleted.')
+
   try {
-    await deleteObject(att.r2Key)
+    await deleteObject({ bucket: att.r2Bucket, key: att.r2Key })
   } catch {
-    // ignore if not found
+    throw httpError(500, 'File deletion failed. Please try again.')
   }
-  await db.delete(attachments).where(eq(attachments.id, data.id))
+  await db
+    .delete(attachments)
+    .where(and(eq(attachments.id, data.id), eq(attachments.userId, userId)))
   return { success: true as const }
 }
 
@@ -214,7 +391,16 @@ export async function getAttachmentsCore({
     .where(eq(conversations.id, data.conversationId))
   if (!conv || conv.userId !== userId) throw httpError(403, 'Forbidden')
   const rows = await db
-    .select()
+    .select({
+      id: attachments.id,
+      messageId: attachments.messageId,
+      conversationId: attachments.conversationId,
+      fileName: attachments.fileName,
+      fileSize: attachments.fileSize,
+      mimeType: attachments.mimeType,
+      processingStatus: attachments.processingStatus,
+      createdAt: attachments.createdAt,
+    })
     .from(attachments)
     .where(eq(attachments.conversationId, data.conversationId))
   return rows

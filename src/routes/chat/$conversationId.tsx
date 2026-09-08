@@ -1,15 +1,45 @@
 import { ZapIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { ArtifactCanvas } from '@/components/artifacts/ArtifactCanvas'
+import { ConversationArtifactLayout } from '@/components/artifacts/ConversationArtifactLayout'
 import { Composer } from '@/components/chat/Composer'
 import { InsufficientCreditsDialog } from '@/components/chat/InsufficientCreditsDialog'
 import { type ChatMessage, MessageList } from '@/components/chat/MessageList'
 import { GlobalNav } from '@/components/layout/GlobalNav'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
-import { createArtifactSseParser } from '@/lib/ai/artifact-stream'
+import {
+  type ArtifactStreamEvent,
+  createArtifactSseParser,
+} from '@/lib/ai/artifact-stream'
 import { parseStreamEvent } from '@/lib/ai/multiplex'
+import {
+  consumeArtifactEventResponse,
+  stopConfirmedCompareGenerations,
+  updateArtifactGenerationFromEvent,
+} from '@/lib/artifacts/compare-stream'
+import type {
+  ArtifactDescriptor,
+  ArtifactDetail,
+  ArtifactSummary,
+} from '@/lib/artifacts/contracts'
+import { artifactDescriptorSchema } from '@/lib/artifacts/contracts'
+import {
+  type ArtifactMentionDraft,
+  type ArtifactMentionInput,
+  addArtifactMention,
+  resolveArtifactDispatch,
+} from '@/lib/artifacts/mentions'
+import {
+  closeArtifactPanel,
+  closeArtifactTab,
+  createInitialArtifactWorkspace,
+  openArtifact,
+  rememberArtifactScroll,
+  selectArtifactVersion,
+} from '@/lib/artifacts/workspace-state'
 import {
   COMPARE_GUTTER_CLASS,
   COMPARE_MAX_WIDTH_CLASS,
@@ -21,15 +51,17 @@ import {
   takePendingMessageForConversation,
 } from '@/lib/chat/guest-draft'
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
-import {
-  artifactKindForSkill,
-  buildArtifactAck,
-  isArtifactSkill,
-} from '@/lib/chat/skills'
+import { artifactKindForSkill, buildArtifactAck } from '@/lib/chat/skills'
 import { getDefaultModelPreference } from '@/lib/models/preference'
 import { hydrateMessages } from '@/lib/utils/conversation-hydration'
 import {
+  getArtifact,
+  listConversationArtifacts,
+} from '@/server/functions/artifacts'
+import {
   generateArtifact,
+  generateArtifacts,
+  generateCompareArtifacts,
   retryGeneration,
   sendCompareMessage,
   sendMessage,
@@ -120,6 +152,32 @@ function ChatThread() {
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [artifactWorkspace, setArtifactWorkspace] = useState(() =>
+    createInitialArtifactWorkspace(),
+  )
+  const artifactSummariesQuery = useQuery({
+    queryKey: ['conversation-artifacts', conversationId],
+    queryFn: () => listConversationArtifacts({ data: { conversationId } }),
+    staleTime: 30_000,
+  })
+  const artifactDetailQueries = useQueries({
+    queries: artifactWorkspace.openArtifactIds.map((artifactId) => ({
+      queryKey: ['artifact', artifactId],
+      queryFn: () => getArtifact({ data: { artifactId } }),
+      staleTime: 30_000,
+    })),
+  })
+  const artifactDetailsById: Record<string, ArtifactDetail> = {}
+  for (
+    let index = 0;
+    index < artifactWorkspace.openArtifactIds.length;
+    index++
+  ) {
+    const artifactId = artifactWorkspace.openArtifactIds[index]
+    const detail = artifactDetailQueries[index]?.data
+    if (detail) artifactDetailsById[artifactId] = detail
+  }
+  const artifactSummaries = artifactSummariesQuery.data ?? []
   const refreshConversationList = () => {
     void queryClient.invalidateQueries({ queryKey: ['conversations'] })
   }
@@ -137,6 +195,167 @@ function ChatThread() {
   const [credits, setCredits] = useState(creditBalance)
   const [resettingCredits, setResettingCredits] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [composerMentions, setComposerMentions] = useState<
+    ArtifactMentionDraft[]
+  >([])
+
+  const handleOpenArtifact = (
+    artifact: ArtifactDescriptor | { artifactId: string; versionId: string },
+  ) => {
+    setArtifactWorkspace((current) =>
+      openArtifact(current, {
+        artifactId: artifact.artifactId,
+        versionId: artifact.versionId,
+      }),
+    )
+  }
+
+  const handleOpenArtifacts = (artifacts: ArtifactDescriptor[]) => {
+    setArtifactWorkspace((current) =>
+      artifacts.reduce(
+        (workspace, artifact) =>
+          openArtifact(workspace, {
+            artifactId: artifact.artifactId,
+            versionId: artifact.versionId,
+          }),
+        current,
+      ),
+    )
+  }
+
+  const handleAddMentionFromCanvas = (input: {
+    artifactId: string
+    versionId: string
+    mode: 'context' | 'revise'
+  }) => {
+    const summary = artifactSummaries.find(
+      (s) => s.artifactId === input.artifactId,
+    )
+    if (!summary) return
+    const candidate = {
+      artifact: summary,
+      kindLabel:
+        summary.kind === 'prd'
+          ? 'PRD'
+          : summary.kind === 'agent-skill'
+            ? 'Agent Skill'
+            : 'Checklist',
+      modelDisplayName: summary.modelId,
+    }
+    const nextState = addArtifactMention(
+      {
+        mentions: composerMentions,
+        activeQuery: null,
+        selectedIndex: 0,
+        feedback: null,
+      },
+      candidate,
+      input.mode,
+    )
+    setComposerMentions(nextState.mentions)
+  }
+
+  const mergeCreatedArtifact = (
+    event: Extract<ArtifactStreamEvent, { type: 'artifact-created' }>,
+  ) => {
+    const descriptor = artifactDescriptorSchema.parse({
+      artifactId: event.artifactId,
+      versionId: event.versionId,
+      attachmentId: event.artifact.attachmentId,
+      generationId: event.generationId,
+      kind: event.kind,
+      title: event.title,
+      fileName: event.artifact.fileName,
+      fileSize: event.artifact.fileSize,
+      mimeType: event.artifact.mimeType,
+      version: event.version,
+      modelId: event.modelId,
+      routerModelId: event.routerModelId,
+    })
+    queryClient.setQueryData<ArtifactSummary[]>(
+      ['conversation-artifacts', conversationId],
+      (current = []) => {
+        const previous = current.find(
+          (summary) => summary.artifactId === descriptor.artifactId,
+        )
+        const summary: ArtifactSummary = {
+          artifactId: descriptor.artifactId,
+          kind: descriptor.kind,
+          title: descriptor.title,
+          attachmentId: descriptor.attachmentId,
+          fileName: descriptor.fileName,
+          fileSize: descriptor.fileSize,
+          mimeType: descriptor.mimeType,
+          modelId: descriptor.modelId,
+          routerModelId: descriptor.routerModelId,
+          currentVersionId: descriptor.versionId,
+          currentVersion: descriptor.version,
+          versionCount: Math.max(
+            previous?.versionCount ?? 0,
+            descriptor.version,
+          ),
+          updatedAt: new Date(),
+        }
+        return previous
+          ? current.map((item) =>
+              item.artifactId === descriptor.artifactId ? summary : item,
+            )
+          : [summary, ...current]
+      },
+    )
+    void queryClient.invalidateQueries({
+      queryKey: ['artifact', descriptor.artifactId],
+    })
+    handleOpenArtifact(descriptor)
+    return descriptor
+  }
+
+  const applyCompareArtifactEvent = (
+    event: ArtifactStreamEvent,
+    updateGeneration: (
+      event: Pick<ArtifactStreamEvent, 'generationId' | 'modelId'>,
+      update: (
+        generation: NonNullable<ChatMessage['compareGenerations']>[number],
+      ) => NonNullable<ChatMessage['compareGenerations']>[number],
+    ) => void,
+  ) => {
+    if (event.type === 'artifact-status') {
+      updateGeneration(event, (generation) =>
+        event.phase === 'failed' || event.phase === 'cancelled'
+          ? {
+              ...generation,
+              status: event.phase,
+              error:
+                event.phase === 'failed'
+                  ? { message: event.message, code: 'ERR-016' }
+                  : undefined,
+            }
+          : generation,
+      )
+    } else if (event.type === 'artifact-created') {
+      const descriptor = mergeCreatedArtifact(event)
+      updateGeneration(event, (generation) => ({
+        ...generation,
+        content: event.summary,
+        artifact: descriptor,
+      }))
+    } else if (event.type === 'artifact-error') {
+      updateGeneration(event, (generation) => ({
+        ...generation,
+        status: 'failed',
+        error: { message: event.message ?? event.code, code: event.code },
+      }))
+    } else if (event.type === 'artifact-done') {
+      updateGeneration(event, (generation) => ({
+        ...generation,
+        status: event.status,
+        error:
+          event.status === 'failed' && !generation.error
+            ? { message: 'Artifact generation failed.', code: 'ERR-016' }
+            : generation.error,
+      }))
+    }
+  }
 
   const handleResetCredits = async () => {
     if (resettingCredits) return
@@ -283,13 +502,13 @@ function ChatThread() {
       const parser = createArtifactSseParser({
         onEvent: (event) => {
           if (event.type === 'artifact-status') {
-            if (event.phase === 'error') {
+            if (event.phase === 'failed') {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId
                     ? {
                         ...m,
-                        artifactStatus: 'error',
+                        artifactStatus: 'failed',
                         errorMessage: event.message,
                         streaming: false,
                       }
@@ -324,13 +543,14 @@ function ChatThread() {
               )
             }
           } else if (event.type === 'artifact-created') {
+            const descriptor = mergeCreatedArtifact(event)
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
                   ? {
                       ...m,
                       artifactKind: event.kind,
-                      artifact: { kind: event.kind, ...event.artifact },
+                      artifact: descriptor,
                       content: event.summary,
                     }
                   : m,
@@ -342,7 +562,7 @@ function ChatThread() {
                 m.id === assistantId
                   ? {
                       ...m,
-                      artifactStatus: 'error',
+                      artifactStatus: 'failed',
                       errorMessage: event.message ?? event.code,
                       streaming: false,
                     }
@@ -356,7 +576,7 @@ function ChatThread() {
                   ? {
                       ...m,
                       artifactStatus:
-                        event.status === 'failed' ? 'error' : event.status,
+                        event.status === 'failed' ? 'failed' : event.status,
                       streaming: false,
                     }
                   : m,
@@ -368,7 +588,7 @@ function ChatThread() {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, artifactStatus: 'error' as const, streaming: false }
+                ? { ...m, artifactStatus: 'failed' as const, streaming: false }
                 : m,
             ),
           )
@@ -411,7 +631,7 @@ function ChatThread() {
             m.id === assistantId
               ? {
                   ...m,
-                  artifactStatus: 'error',
+                  artifactStatus: 'failed',
                   errorMessage:
                     err.message ||
                     (kind === 'agent-skill'
@@ -429,18 +649,295 @@ function ChatThread() {
     }
   }
 
+  const handleSendArtifactRevise = async (
+    content: string,
+    modelId: string,
+    targets: ArtifactMentionInput[],
+    contextMentions: ArtifactMentionInput[],
+    attachmentIds?: string[],
+    enableWebSearch?: boolean,
+  ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
+    }
+    const assistantIds = targets.map(() => crypto.randomUUID())
+    const assistantMsgs: ChatMessage[] = targets.map((target, idx) => {
+      const summary = artifactSummaries.find(
+        (s) => s.artifactId === target.artifactId,
+      )
+      const kind = summary?.kind ?? 'prd'
+      return {
+        id: assistantIds[idx],
+        role: 'assistant',
+        content: '',
+        modelId,
+        streaming: true,
+        artifactStatus: 'preparing',
+        artifactKind: kind,
+        artifactAck: buildArtifactAck(kind, content),
+      }
+    })
+    setMessages((prev) => [...prev, userMsg, ...assistantMsgs])
+    setIsStreaming(true)
+
+    try {
+      const response = (await generateArtifacts({
+        data: {
+          conversationId,
+          modelId,
+          content,
+          operation: {
+            type: 'revise',
+            targets,
+            context: contextMentions,
+          },
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
+      })) as Response
+
+      const genId = response.headers.get('X-Generation-Id')
+      if (genId) setGenerationId(genId)
+
+      refreshConversationList()
+      setTimeout(refreshConversationList, 3000)
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('Response stream not readable')
+
+      const decoder = new TextDecoder()
+      const parser = createArtifactSseParser({
+        onEvent: (event) => {
+          if (event.type === 'artifact-created') {
+            const descriptor = mergeCreatedArtifact(event)
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.role !== 'assistant') return msg
+                if (msg.artifactKind === event.kind) {
+                  return {
+                    ...msg,
+                    artifact: descriptor,
+                    artifactStatus: 'completed' as const,
+                    content: event.summary,
+                    streaming: false,
+                  }
+                }
+                return msg
+              }),
+            )
+          } else if (event.type === 'artifact-status') {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (
+                  msg.role === 'assistant' &&
+                  event.generationId === msg.generationRunId
+                ) {
+                  return {
+                    ...msg,
+                    artifactStatus: event.phase,
+                    artifactSection: event.section,
+                  }
+                }
+                return msg
+              }),
+            )
+          } else if (event.type === 'artifact-error') {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (
+                  msg.role === 'assistant' &&
+                  event.generationId === msg.generationRunId
+                ) {
+                  return {
+                    ...msg,
+                    artifactStatus: 'failed' as const,
+                    errorMessage: event.message ?? 'Revisi artifact gagal.',
+                    streaming: false,
+                  }
+                }
+                return msg
+              }),
+            )
+          }
+        },
+        onError: () => {},
+      })
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.push(decoder.decode(value, { stream: true }))
+      }
+      parser.flush()
+
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      refreshConversationList()
+      void refreshCredits()
+    } catch (e) {
+      const err = e as Error & { status?: number; code?: string }
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          (assistantIds as readonly string[]).includes(m.id)
+            ? {
+                ...m,
+                artifactStatus: 'failed',
+                errorMessage: err.message || 'Revisi artifact gagal.',
+                streaming: false,
+              }
+            : m,
+        ),
+      )
+    } finally {
+      setIsStreaming(false)
+      setGenerationId(null)
+    }
+  }
+
+  const handleSendCompareArtifactRevise = async (
+    content: string,
+    modelIds: string[],
+    targets: ArtifactMentionInput[],
+    contextMentions: ArtifactMentionInput[],
+    attachmentIds?: string[],
+    enableWebSearch?: boolean,
+  ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
+    }
+    const compareAssistantId = crypto.randomUUID()
+    const initialGens = modelIds.map((mid) => ({
+      id: crypto.randomUUID(),
+      modelId: mid,
+      status: 'streaming',
+      content: '',
+    }))
+    const compareMsg: ChatMessage = {
+      id: compareAssistantId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      compareGenerations: initialGens,
+    }
+    setMessages((prev) => [...prev, userMsg, compareMsg])
+    setIsStreaming(true)
+
+    try {
+      const response = (await generateCompareArtifacts({
+        data: {
+          conversationId,
+          modelIds,
+          content,
+          operation: {
+            type: 'revise',
+            targets,
+            context: contextMentions,
+          },
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
+      })) as Response
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('Response stream not readable')
+
+      const createdArtifacts: ArtifactDescriptor[] = []
+      const decoder = new TextDecoder()
+      const parser = createArtifactSseParser({
+        onEvent: (event) => {
+          if (event.type === 'artifact-created') {
+            const descriptor = mergeCreatedArtifact(event)
+            createdArtifacts.push(descriptor)
+          }
+        },
+        onError: () => {},
+      })
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.push(decoder.decode(value, { stream: true }))
+      }
+      parser.flush()
+
+      if (createdArtifacts.length > 0) {
+        handleOpenArtifacts(createdArtifacts)
+      }
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      refreshConversationList()
+      void refreshCredits()
+    } catch (e) {
+      const err = e as Error & { status?: number; code?: string }
+      if (err.status === 402 || err.code === 'ERR-019') {
+        setUpgradeOpen(true)
+      }
+    } finally {
+      setIsStreaming(false)
+      setGenerationId(null)
+    }
+  }
+
   const handleSend = async (
     content: string,
     modelId: string,
     skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
+    artifactMentions: ArtifactMentionInput[] = [],
   ) => {
-    if (isArtifactSkill(skillId)) {
+    const dispatch = resolveArtifactDispatch({
+      skillId: skillId as Parameters<
+        typeof resolveArtifactDispatch
+      >[0]['skillId'],
+      mentions: artifactMentions,
+    })
+
+    if (dispatch.type === 'artifact-revise') {
+      return handleSendArtifactRevise(
+        content,
+        modelId,
+        dispatch.targets,
+        dispatch.context,
+        attachmentIds,
+        enableWebSearch,
+      )
+    }
+
+    if (dispatch.type === 'artifact-create') {
       return handleSendArtifact(
         content,
         modelId,
-        skillId,
+        dispatch.skillId,
         attachmentIds,
         enableWebSearch,
       )
@@ -449,6 +946,15 @@ function ChatThread() {
       id: crypto.randomUUID(),
       role: 'user',
       content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
     }
     const assistantId = crypto.randomUUID()
     const assistantMsg: ChatMessage = {
@@ -469,6 +975,7 @@ function ChatThread() {
           content,
           attachmentIds,
           enableWebSearch: enableWebSearch ?? false,
+          artifactMentions,
         },
       })) as Response
       const genId = response.headers.get('X-Generation-Id')
@@ -612,22 +1119,183 @@ function ChatThread() {
     }
   }
 
-  const handleSendCompare = async (
+  const handleSendCompareArtifact = async (
     content: string,
     modelIds: string[],
     skillId: string,
     attachmentIds?: string[],
     enableWebSearch?: boolean,
   ) => {
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+    }
+    const compareAssistantId = crypto.randomUUID()
+    const compareMsg: ChatMessage = {
+      id: compareAssistantId,
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      compareGenerations: modelIds.map((selectedModelId) => ({
+        id: crypto.randomUUID(),
+        modelId: selectedModelId,
+        status: 'streaming',
+        content: '',
+      })),
+    }
+    setMessages((current) => [...current, userMsg, compareMsg])
+    setIsStreaming(true)
+
+    const updateGeneration = (
+      event: Pick<ArtifactStreamEvent, 'generationId' | 'modelId'>,
+      update: (
+        generation: NonNullable<ChatMessage['compareGenerations']>[number],
+      ) => NonNullable<ChatMessage['compareGenerations']>[number],
+    ) => {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === compareAssistantId && message.compareGenerations
+            ? {
+                ...message,
+                compareGenerations: updateArtifactGenerationFromEvent(
+                  message.compareGenerations,
+                  event,
+                  update,
+                ),
+              }
+            : message,
+        ),
+      )
+    }
+
+    try {
+      const response = await generateCompareArtifacts({
+        data: {
+          conversationId,
+          modelIds,
+          content,
+          operation: { type: 'create', skillId },
+          attachmentIds,
+          enableWebSearch: enableWebSearch ?? false,
+        },
+      })
+      refreshConversationList()
+      setTimeout(refreshConversationList, 3000)
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('Artifact comparison stream is unavailable.')
+      }
+      const decoder = new TextDecoder()
+      const parser = createArtifactSseParser({
+        onEvent: (event) => applyCompareArtifactEvent(event, updateGeneration),
+        onError: () => {},
+      })
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        parser.push(decoder.decode(value, { stream: true }))
+      }
+      parser.flush()
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === compareAssistantId
+            ? { ...message, streaming: false }
+            : message,
+        ),
+      )
+      const persisted = await getMessages({ data: { conversationId } })
+      setMessages(
+        hydrateMessages(persisted as Parameters<typeof hydrateMessages>[0]),
+      )
+      void queryClient.invalidateQueries({
+        queryKey: ['conversation-artifacts', conversationId],
+      })
+      refreshConversationList()
+      void refreshCredits()
+    } catch (error) {
+      const failure = error instanceof Error ? error.message : 'Unknown error'
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === compareAssistantId
+            ? {
+                ...message,
+                streaming: false,
+                compareGenerations: message.compareGenerations?.map(
+                  (generation) =>
+                    generation.status === 'streaming'
+                      ? {
+                          ...generation,
+                          status: 'failed',
+                          error: { message: failure, code: 'ERR-016' },
+                        }
+                      : generation,
+                ),
+              }
+            : message,
+        ),
+      )
+    } finally {
+      setIsStreaming(false)
+    }
+  }
+
+  const handleSendCompare = async (
+    content: string,
+    modelIds: string[],
+    skillId: string,
+    attachmentIds?: string[],
+    enableWebSearch?: boolean,
+    artifactMentions: ArtifactMentionInput[] = [],
+  ) => {
     if (!isCompareSelectionValid(modelIds)) return
     setMode('compare')
     void setConversationMode({
       data: { id: conversationId, mode: 'compare' },
     }).catch(() => {})
+
+    const dispatch = resolveArtifactDispatch({
+      skillId: skillId as Parameters<
+        typeof resolveArtifactDispatch
+      >[0]['skillId'],
+      mentions: artifactMentions,
+    })
+
+    if (dispatch.type === 'artifact-revise') {
+      return handleSendCompareArtifactRevise(
+        content,
+        modelIds,
+        dispatch.targets,
+        dispatch.context,
+        attachmentIds,
+        enableWebSearch,
+      )
+    }
+
+    if (dispatch.type === 'artifact-create') {
+      return handleSendCompareArtifact(
+        content,
+        modelIds,
+        dispatch.skillId,
+        attachmentIds,
+        enableWebSearch,
+      )
+    }
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content,
+      artifactMentions: composerMentions.map((m, idx) => ({
+        artifactId: m.artifactId,
+        versionId: m.versionId,
+        mode: m.mode,
+        position: idx,
+        title: m.title,
+        kind: m.kind,
+        version: m.version,
+      })),
     }
     const compareAssistantId = crypto.randomUUID()
     const initialGens = modelIds.map((mid) => ({
@@ -669,6 +1337,7 @@ function ChatThread() {
           content,
           attachmentIds,
           enableWebSearch: enableWebSearch ?? false,
+          artifactMentions,
         },
       })) as Response
 
@@ -739,7 +1408,13 @@ function ChatThread() {
                   genIdToIndex.set(event.generationId, modelIdx)
                   updateCompareGen((gens) =>
                     gens.map((g, i) =>
-                      i === modelIdx ? { ...g, id: event.generationId } : g,
+                      i === modelIdx
+                        ? {
+                            ...g,
+                            id: event.generationId,
+                            serverGenerationId: event.generationId,
+                          }
+                        : g,
                     ),
                   )
                 }
@@ -988,26 +1663,31 @@ function ChatThread() {
         m.streaming && m.compareGenerations && m.compareGenerations.length > 0,
     )
     if (streamingCompareMsg?.compareGenerations) {
-      for (const g of streamingCompareMsg.compareGenerations) {
-        if (g.status === 'streaming') {
-          try {
-            await stopGeneration({ data: { generationId: g.id } })
-          } catch {}
-        }
-      }
+      const stopResult = await stopConfirmedCompareGenerations(
+        streamingCompareMsg.compareGenerations,
+        (confirmedGenerationId) =>
+          stopGeneration({
+            data: { generationId: confirmedGenerationId },
+          }),
+      )
+      const stopped = new Set(stopResult.stoppedGenerationIds)
       setMessages((prev) =>
         prev.map((m) =>
           m.id === streamingCompareMsg.id
             ? {
                 ...m,
-                streaming: false,
+                streaming: stopResult.hasUnstoppedGeneration,
                 compareGenerations: m.compareGenerations?.map((g) =>
-                  g.status === 'streaming' ? { ...g, status: 'cancelled' } : g,
+                  g.serverGenerationId && stopped.has(g.serverGenerationId)
+                    ? { ...g, status: 'cancelled' }
+                    : g,
                 ),
               }
             : m,
         ),
       )
+      setIsStreaming(stopResult.hasUnstoppedGeneration)
+      return
     }
 
     if (generationId) {
@@ -1023,16 +1703,29 @@ function ChatThread() {
   }
 
   const handleStopPerModel = async (genId: string) => {
-    try {
-      await stopGeneration({ data: { generationId: genId } })
-    } catch {}
+    const generation = messages
+      .flatMap((message) => message.compareGenerations ?? [])
+      .find(
+        (candidate) =>
+          candidate.id === genId || candidate.serverGenerationId === genId,
+      )
+    if (!generation) return
+    const stopResult = await stopConfirmedCompareGenerations(
+      [generation],
+      (confirmedGenerationId) =>
+        stopGeneration({ data: { generationId: confirmedGenerationId } }),
+    )
+    if (stopResult.stoppedGenerationIds.length === 0) return
+    const stoppedGenerationId = stopResult.stoppedGenerationIds[0]
     setMessages((prev) =>
       prev.map((m) =>
         m.compareGenerations
           ? {
               ...m,
               compareGenerations: m.compareGenerations.map((g) =>
-                g.id === genId ? { ...g, status: 'cancelled' } : g,
+                g.serverGenerationId === stoppedGenerationId
+                  ? { ...g, status: 'cancelled' }
+                  : g,
               ),
             }
           : m,
@@ -1041,13 +1734,35 @@ function ChatThread() {
   }
 
   const handleRetry = async (genId: string) => {
+    const retryMessage = messages.find((message) =>
+      message.compareGenerations?.some(
+        (generation) =>
+          generation.id === genId || generation.serverGenerationId === genId,
+      ),
+    )
+    const targetGeneration = retryMessage?.compareGenerations?.find(
+      (generation) =>
+        generation.id === genId || generation.serverGenerationId === genId,
+    )
+    if (!retryMessage || !targetGeneration) return
+    setIsStreaming(true)
     setMessages((prev) =>
       prev.map((m) =>
-        m.compareGenerations
+        m.id === retryMessage.id && m.compareGenerations
           ? {
               ...m,
+              streaming: true,
               compareGenerations: m.compareGenerations.map((g) =>
-                g.id === genId ? { ...g, status: 'streaming', content: '' } : g,
+                g.id === targetGeneration.id
+                  ? {
+                      ...g,
+                      status: 'streaming',
+                      content: '',
+                      error: undefined,
+                      artifact: undefined,
+                      serverGenerationId: undefined,
+                    }
+                  : g,
               ),
             }
           : m,
@@ -1057,6 +1772,50 @@ function ChatThread() {
       const response = (await retryGeneration({
         data: { generationId: genId },
       })) as Response
+      if (response.headers.get('X-Artifact-Kind')) {
+        const updateRetriedArtifactGeneration = (
+          event: Pick<ArtifactStreamEvent, 'generationId' | 'modelId'>,
+          update: (
+            generation: NonNullable<ChatMessage['compareGenerations']>[number],
+          ) => NonNullable<ChatMessage['compareGenerations']>[number],
+        ) => {
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === retryMessage.id && message.compareGenerations
+                ? {
+                    ...message,
+                    compareGenerations: updateArtifactGenerationFromEvent(
+                      message.compareGenerations,
+                      event,
+                      update,
+                      genId,
+                    ),
+                  }
+                : message,
+            ),
+          )
+        }
+
+        await consumeArtifactEventResponse(
+          response,
+          (event) =>
+            applyCompareArtifactEvent(event, updateRetriedArtifactGeneration),
+          async () => {
+            const persisted = await getMessages({ data: { conversationId } })
+            setMessages(
+              hydrateMessages(
+                persisted as Parameters<typeof hydrateMessages>[0],
+              ),
+            )
+            void queryClient.invalidateQueries({
+              queryKey: ['conversation-artifacts', conversationId],
+            })
+            refreshConversationList()
+            void refreshCredits()
+          },
+        )
+        return
+      }
       const reader = response.body?.getReader()
       if (!reader) {
         const text = await response.text()
@@ -1148,6 +1907,15 @@ function ChatThread() {
             : m,
         ),
       )
+    } finally {
+      setIsStreaming(false)
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === retryMessage.id
+            ? { ...message, streaming: false }
+            : message,
+        ),
+      )
     }
   }
 
@@ -1189,7 +1957,7 @@ function ChatThread() {
             m.id === retryAckId
               ? {
                   ...m,
-                  artifactStatus: 'error',
+                  artifactStatus: 'failed',
                   errorMessage: 'Gagal menjalankan ulang pembuatan.',
                   streaming: false,
                 }
@@ -1202,14 +1970,14 @@ function ChatThread() {
       const parser = createArtifactSseParser({
         onEvent: (event) => {
           if (event.type === 'artifact-status') {
-            if (event.phase === 'error' || event.phase === 'cancelled') {
+            if (event.phase === 'failed' || event.phase === 'cancelled') {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === retryAckId
                     ? {
                         ...m,
                         artifactStatus:
-                          event.phase === 'error' ? 'error' : 'cancelled',
+                          event.phase === 'failed' ? 'failed' : 'cancelled',
                         errorMessage: event.message,
                         streaming: false,
                       }
@@ -1226,13 +1994,14 @@ function ChatThread() {
               )
             }
           } else if (event.type === 'artifact-created') {
+            const descriptor = mergeCreatedArtifact(event)
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === retryAckId
                   ? {
                       ...m,
                       artifactKind: event.kind,
-                      artifact: { kind: event.kind, ...event.artifact },
+                      artifact: descriptor,
                       content: event.summary,
                     }
                   : m,
@@ -1244,7 +2013,7 @@ function ChatThread() {
                 m.id === retryAckId
                   ? {
                       ...m,
-                      artifactStatus: 'error',
+                      artifactStatus: 'failed',
                       errorMessage: event.message ?? event.code,
                       streaming: false,
                     }
@@ -1258,7 +2027,7 @@ function ChatThread() {
                   ? {
                       ...m,
                       artifactStatus:
-                        event.status === 'failed' ? 'error' : event.status,
+                        event.status === 'failed' ? 'failed' : event.status,
                       streaming: false,
                     }
                   : m,
@@ -1272,7 +2041,7 @@ function ChatThread() {
               m.id === retryAckId
                 ? {
                     ...m,
-                    artifactStatus: 'error' as const,
+                    artifactStatus: 'failed' as const,
                     errorMessage: 'Koneksi terputus saat membuat ulang.',
                     streaming: false,
                   }
@@ -1303,7 +2072,7 @@ function ChatThread() {
           m.id === retryAckId
             ? {
                 ...m,
-                artifactStatus: 'error',
+                artifactStatus: 'failed',
                 errorMessage:
                   err.message || 'Gagal menjalankan ulang pembuatan.',
                 streaming: false,
@@ -1315,6 +2084,29 @@ function ChatThread() {
       setIsStreaming(false)
       setGenerationId(null)
     }
+  }
+
+  const handleSelectArtifactTab = (artifactId: string) => {
+    setArtifactWorkspace((current) => openArtifact(current, { artifactId }))
+  }
+  const handleArtifactVersionChange = (input: {
+    artifactId: string
+    versionId: string
+  }) => {
+    setArtifactWorkspace((current) => selectArtifactVersion(current, input))
+  }
+  const handleCloseArtifactTab = (artifactId: string) => {
+    setArtifactWorkspace((current) => closeArtifactTab(current, artifactId))
+  }
+  const handleCloseArtifactPanel = () => {
+    setArtifactWorkspace((current) => closeArtifactPanel(current))
+  }
+  const handleRememberArtifactScroll = (input: {
+    artifactId: string
+    versionId: string
+    scrollTop: number
+  }) => {
+    setArtifactWorkspace((current) => rememberArtifactScroll(current, input))
   }
 
   return (
@@ -1356,7 +2148,7 @@ function ChatThread() {
           ) : undefined
         }
       />
-      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {webSearchToast && (
           <div
             role="status"
@@ -1366,73 +2158,104 @@ function ChatThread() {
             Web search tidak tersedia. Melanjutkan tanpa hasil web.
           </div>
         )}
-        <div
-          ref={scrollRef}
-          data-testid="chat-messages-scroll-area"
-          className="zona-scroll flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
-        >
-          <header
-            className={`sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white transition-[padding] duration-200 ${
-              hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
-            }`}
-          >
-            <div
-              className={`mx-auto flex w-full items-center justify-between transition-[max-width] duration-200 ${
-                hasUsedCompareMode ? COMPARE_MAX_WIDTH_CLASS : 'max-w-[860px]'
-              }`}
-            >
-              {compareEnabled && (
-                <span
-                  data-testid="topbar-compare-label"
-                  className="text-[14px] font-medium text-stone"
+        <ConversationArtifactLayout
+          canvasOpen={artifactWorkspace.isArtifactPanelOpen}
+          chatPane={
+            <>
+              <div
+                ref={scrollRef}
+                data-testid="chat-messages-scroll-area"
+                className="zona-scroll flex h-full min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
+              >
+                <header
+                  className={`sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white transition-[padding] duration-200 ${
+                    hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
+                  }`}
                 >
-                  Mode banding · {compareModelIds.length} model
-                </span>
-              )}
-              <span className="flex-1" />
-            </div>
-          </header>
+                  <div
+                    className={`mx-auto flex w-full items-center justify-between transition-[max-width] duration-200 ${
+                      hasUsedCompareMode
+                        ? COMPARE_MAX_WIDTH_CLASS
+                        : 'max-w-[860px]'
+                    }`}
+                  >
+                    {compareEnabled && (
+                      <span
+                        data-testid="topbar-compare-label"
+                        className="text-[14px] font-medium text-stone"
+                      >
+                        Mode banding · {compareModelIds.length} model
+                      </span>
+                    )}
+                    <span className="flex-1" />
+                  </div>
+                </header>
 
-          <MessageList
-            messages={messages}
-            onRetryGeneration={handleRetry}
-            onStopGeneration={handleStopPerModel}
-            onRetryArtifact={handleRetryArtifact}
-            scrollRef={scrollRef}
-            hasUsedCompareMode={hasUsedCompareMode}
-          />
-        </div>
+                <MessageList
+                  messages={messages}
+                  onRetryGeneration={handleRetry}
+                  onStopGeneration={handleStopPerModel}
+                  onRetryArtifact={handleRetryArtifact}
+                  onOpenArtifact={handleOpenArtifact}
+                  onOpenArtifacts={handleOpenArtifacts}
+                  scrollRef={scrollRef}
+                  hasUsedCompareMode={hasUsedCompareMode}
+                />
+              </div>
 
-        <div
-          data-testid="chat-composer-container"
-          className={`pointer-events-none absolute bottom-0 left-0 right-0 z-20 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 transition-[padding] duration-200 ${
-            hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
-          }`}
-        >
-          <div
-            className={`pointer-events-auto mx-auto w-full transition-[max-width] duration-200 ${
-              hasUsedCompareMode ? COMPARE_MAX_WIDTH_CLASS : 'max-w-[860px]'
-            }`}
-          >
-            <Composer
-              onSend={handleSend}
-              onSendCompare={handleSendCompare}
-              onStop={handleStop}
-              isStreaming={isStreaming}
-              credits={credits}
-              modelValue={modelId}
-              onModelChange={handleModelChange}
-              skillValue={skillId}
-              onSkillChange={setSkillId}
-              compareEnabled={compareEnabled}
-              onCompareEnabledChange={setCompareEnabled}
-              compareModelIds={compareModelIds}
-              onCompareModelIdsChange={setCompareModelIds}
-              conversationId={conversationId}
-              placement="inline"
+              <div
+                data-testid="chat-composer-container"
+                className={`pointer-events-none absolute bottom-0 left-0 right-0 z-20 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 transition-[padding] duration-200 ${
+                  hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
+                }`}
+              >
+                <div
+                  className={`pointer-events-auto mx-auto w-full transition-[max-width] duration-200 ${
+                    hasUsedCompareMode
+                      ? COMPARE_MAX_WIDTH_CLASS
+                      : 'max-w-[860px]'
+                  }`}
+                >
+                  <Composer
+                    onSend={handleSend}
+                    onSendCompare={handleSendCompare}
+                    onStop={handleStop}
+                    isStreaming={isStreaming}
+                    credits={credits}
+                    modelValue={modelId}
+                    onModelChange={handleModelChange}
+                    skillValue={skillId}
+                    onSkillChange={setSkillId}
+                    compareEnabled={compareEnabled}
+                    onCompareEnabledChange={setCompareEnabled}
+                    compareModelIds={compareModelIds}
+                    onCompareModelIdsChange={setCompareModelIds}
+                    conversationId={conversationId}
+                    placement="inline"
+                    availableArtifacts={artifactSummaries}
+                    mentionsValue={composerMentions}
+                    onMentionsChange={setComposerMentions}
+                  />
+                </div>
+              </div>
+            </>
+          }
+          canvasPane={
+            <ArtifactCanvas
+              summaries={artifactSummaries}
+              detailsByArtifactId={artifactDetailsById}
+              workspace={artifactWorkspace}
+              onSelectTab={handleSelectArtifactTab}
+              onVersionChange={handleArtifactVersionChange}
+              onCloseTab={handleCloseArtifactTab}
+              onClosePanel={handleCloseArtifactPanel}
+              onBackToChat={handleCloseArtifactPanel}
+              onCopy={() => undefined}
+              onRememberScroll={handleRememberArtifactScroll}
+              onAddMention={handleAddMentionFromCanvas}
             />
-          </div>
-        </div>
+          }
+        />
       </div>
       <InsufficientCreditsDialog
         open={upgradeOpen}

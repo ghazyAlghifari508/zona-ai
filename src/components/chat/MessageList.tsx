@@ -12,6 +12,8 @@ import {
 import { ChecklistAwareContent } from '@/components/chat/ChecklistAwareContent'
 import { ProviderIcon } from '@/components/ui/ProviderIcons'
 import type { ArtifactPhase } from '@/lib/ai/artifact-stream'
+import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
+import type { SafeArtifactMention } from '@/lib/artifacts/mentions'
 import {
   getChecklistCopyText,
   resolveChecklistDisplay,
@@ -22,6 +24,7 @@ import {
 } from '@/lib/chat/compare-card-width'
 import type { ArtifactKind } from '@/lib/chat/skills'
 import { getModelProviderName } from '@/lib/models/filter'
+import { ArtifactMentionTokens } from '../artifacts/ArtifactMentionTokens'
 import { ArtifactProgress } from './ArtifactProgress'
 import { CitationDrawer, type CitationSource } from './CitationDrawer'
 import { CompareGrid } from './CompareGrid'
@@ -32,10 +35,21 @@ import { MarkdownContent } from './MarkdownContent'
 import { TypingDots } from './TypingDots'
 import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
+export type ChatMessageArtifact =
+  | ArtifactDescriptor
+  | {
+      kind: ArtifactKind
+      attachmentId: string
+      fileName: string
+      fileSize: number
+      mimeType: string
+    }
+
 export type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  artifactMentions?: SafeArtifactMention[]
   modelId?: string
   routerModelId?: string
   routingReason?: string
@@ -49,15 +63,10 @@ export type ChatMessage = {
   artifactKind?: ArtifactKind
   artifactAck?: string
   generationRunId?: string
-  artifact?: {
-    kind: ArtifactKind
-    attachmentId: string
-    fileName: string
-    fileSize: number
-    mimeType: string
-  }
+  artifact?: ChatMessageArtifact
   compareGenerations?: Array<{
     id: string
+    serverGenerationId?: string
     modelId: string
     status: string
     content: string
@@ -70,6 +79,7 @@ export type ChatMessage = {
     comparisonRunId?: string | null
     messageId?: string
     error?: { message?: string; code?: string } | unknown
+    artifact?: ArtifactDescriptor
     webSources?: Array<{
       url: string
       title: string | null
@@ -113,6 +123,8 @@ export function MessageList({
   onRetryGeneration,
   onStopGeneration,
   onRetryArtifact,
+  onOpenArtifact,
+  onOpenArtifacts,
   scrollRef,
   hasUsedCompareMode,
 }: {
@@ -120,6 +132,10 @@ export function MessageList({
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
+  onOpenArtifact?: (
+    artifact: ArtifactDescriptor | { artifactId: string; versionId: string },
+  ) => void
+  onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   hasUsedCompareMode?: boolean
 }) {
@@ -207,6 +223,8 @@ export function MessageList({
                     onRetryGeneration={onRetryGeneration}
                     onStopGeneration={onStopGeneration}
                     onRetryArtifact={onRetryArtifact}
+                    onOpenArtifact={onOpenArtifact}
+                    onOpenArtifacts={onOpenArtifacts}
                     hasUsedCompareMode={hasUsedCompareMode}
                   />
                 </div>
@@ -223,6 +241,8 @@ export function MessageList({
                 onRetryGeneration={onRetryGeneration}
                 onStopGeneration={onStopGeneration}
                 onRetryArtifact={onRetryArtifact}
+                onOpenArtifact={onOpenArtifact}
+                onOpenArtifacts={onOpenArtifacts}
                 hasUsedCompareMode={hasUsedCompareMode}
               />
             ))}
@@ -251,6 +271,8 @@ const MessageItem = memo(function MessageItem({
   onRetryGeneration,
   onStopGeneration,
   onRetryArtifact,
+  onOpenArtifact,
+  onOpenArtifacts,
   hasUsedCompareMode,
 }: {
   message: ChatMessage
@@ -258,12 +280,24 @@ const MessageItem = memo(function MessageItem({
   onRetryGeneration?: (generationId: string) => void
   onStopGeneration?: (generationId: string) => void
   onRetryArtifact?: (generationId: string) => void
+  onOpenArtifact?: (
+    artifact: ArtifactDescriptor | { artifactId: string; versionId: string },
+  ) => void
+  onOpenArtifacts?: (artifacts: ArtifactDescriptor[]) => void
   hasUsedCompareMode?: boolean
 }) {
   const entry = findCatalogEntry(catalog, message.modelId)
   if (message.role === 'user') {
     return (
-      <div className="message-row-contain flex w-full justify-end py-3">
+      <div className="message-row-contain flex w-full flex-col items-end py-3">
+        {message.artifactMentions && message.artifactMentions.length > 0 && (
+          <div className="mb-1 flex justify-end">
+            <ArtifactMentionTokens
+              mentions={message.artifactMentions}
+              onOpenArtifact={onOpenArtifact}
+            />
+          </div>
+        )}
         <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-accent px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-white shadow-sm shadow-black/10 whitespace-pre-wrap [overflow-wrap:anywhere]">
           {message.content}
         </div>
@@ -279,6 +313,8 @@ const MessageItem = memo(function MessageItem({
           generations={message.compareGenerations}
           onRetry={onRetryGeneration}
           onStop={onStopGeneration}
+          onOpenArtifact={onOpenArtifact}
+          onOpenArtifacts={onOpenArtifacts}
         />
       </div>
     )
@@ -312,6 +348,8 @@ const MessageItem = memo(function MessageItem({
           generations={[singleGen]}
           onRetry={onRetryGeneration}
           onStop={onStopGeneration}
+          onOpenArtifact={onOpenArtifact}
+          onOpenArtifacts={onOpenArtifacts}
         />
       </div>
     )
@@ -354,7 +392,7 @@ const MessageItem = memo(function MessageItem({
                 errorMessage={message.errorMessage}
                 ack={message.artifactAck}
               />
-              {message.artifactStatus === 'error' &&
+              {message.artifactStatus === 'failed' &&
                 message.generationRunId &&
                 onRetryArtifact && (
                   <div className="pl-9">
@@ -389,7 +427,14 @@ const MessageItem = memo(function MessageItem({
                 renderMarkdown={(text) => <MarkdownContent text={text} />}
               />
             )}
-          {message.artifact && <FileCard artifact={message.artifact} />}
+          {message.artifact && (
+            <FileCard
+              artifact={message.artifact}
+              onOpen={
+                'artifactId' in message.artifact ? onOpenArtifact : undefined
+              }
+            />
+          )}
           {message.errorMessage && !message.artifactStatus && (
             <InlineError
               code={message.errorCode}

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
-import { db } from '../db/index'
+import { type DatabaseTransaction, db } from '../db/index'
 import { creditTransactions } from '../db/schema'
+import { AppError } from '../utils/errors'
 
 if (typeof window !== 'undefined') {
   throw new Error(
@@ -108,6 +109,40 @@ export async function deductCompareCredits({
       modelId: modelIds[i],
       balanceAfter,
       description: `Compare via ${modelIds[i]}`,
+    })
+  }
+  return balanceAfter
+}
+
+export async function reserveGenerationBatchCredits(
+  tx: DatabaseTransaction,
+  args: {
+    userId: string
+    reservations: Array<{
+      generationRunId: string
+      modelId: string
+      amount: number
+    }>
+  },
+): Promise<number> {
+  const total = args.reservations.reduce((sum, r) => sum + r.amount, 0)
+  const res = await tx.execute(
+    sql`UPDATE users SET credits = credits - ${total} WHERE id=${args.userId} AND credits >= ${total} RETURNING credits`,
+  )
+  const rows = getRows<{ credits: number }>(res)
+  if (rows.length === 0) {
+    throw new AppError('Kredit tidak mencukupi', 402, 'ERR-019')
+  }
+  const balanceAfter = rows[0].credits
+  for (const reservation of args.reservations) {
+    await tx.insert(creditTransactions).values({
+      userId: args.userId,
+      generationRunId: reservation.generationRunId,
+      amount: -reservation.amount,
+      type: 'usage',
+      modelId: reservation.modelId,
+      balanceAfter,
+      description: `Prompt via ${reservation.modelId}`,
     })
   }
   return balanceAfter

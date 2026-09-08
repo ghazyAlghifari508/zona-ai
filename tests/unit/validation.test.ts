@@ -17,18 +17,18 @@ describe('chatSchema', () => {
   })
 })
 
-it('artifactSchema accepts prd-plan and agent-skill only', () => {
+it('artifactSchema accepts prd-plan, agent-skill, and checklist', () => {
   const base = { modelId: 'auto', content: 'hello', skillId: 'agent-skill' }
   expect(artifactSchema.safeParse(base).success).toBe(true)
   expect(
     artifactSchema.safeParse({ ...base, skillId: 'prd-plan' }).success,
   ).toBe(true)
+  expect(
+    artifactSchema.safeParse({ ...base, skillId: 'checklist' }).success,
+  ).toBe(true)
   expect(artifactSchema.safeParse({ ...base, skillId: 'none' }).success).toBe(
     false,
   )
-  expect(
-    artifactSchema.safeParse({ ...base, skillId: 'checklist' }).success,
-  ).toBe(false)
 })
 
 it('chatSchema still accepts all four registry skills', () => {

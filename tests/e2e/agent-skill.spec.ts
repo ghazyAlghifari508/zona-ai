@@ -12,14 +12,25 @@ import {
   sessions,
   users,
 } from '../../src/lib/db/schema'
-import { deleteObject, putObject } from '../../src/lib/r2/client'
+import { env } from '../../src/lib/env.server'
+import {
+  deleteObject,
+  putObject,
+  type StoredObjectLocator,
+} from '../../src/lib/r2/client'
+import {
+  gotoChatAndWaitForArtifactHydration,
+  reloadAndWaitForArtifactHydration,
+} from './artifact-hydration'
 
 test.use({ acceptDownloads: true })
 
 const scopedUserId = () => `agent-skill-e2e-${test.info().project.name}`
 const scopedEmail = (id: string) => `${id}@example.com`
+const AGENT_SKILL_FIXTURE_MODEL_ID = 'agent-skill-e2e-model'
+const AGENT_SKILL_FIXTURE_ROUTER_MODEL_ID = 'agent-skill-e2e-router-model'
 
-const pendingR2Keys: string[] = []
+const pendingR2Objects: StoredObjectLocator[] = []
 
 async function clearConversations() {
   await db.delete(conversations).where(eq(conversations.userId, scopedUserId()))
@@ -69,10 +80,10 @@ test.beforeEach(async ({ context }) => {
 })
 
 test.afterEach(async () => {
-  const keys = pendingR2Keys.splice(0)
-  for (const key of keys) {
+  const objects = pendingR2Objects.splice(0)
+  for (const locator of objects) {
     try {
-      await deleteObject(key)
+      await deleteObject(locator)
     } catch {
       // best-effort cleanup of seeded R2 bytes
     }
@@ -108,7 +119,7 @@ test('compare mode blocks agent-skill submit with clear validation', async ({
     .values({ userId, title: 'agent-skill guard thread' })
     .returning()
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByTestId('message-list')).toBeVisible()
   await expect(page.getByTestId('skill-selector-trigger')).toBeEnabled()
   const trigger = page.getByTestId('skill-selector-trigger')
@@ -188,11 +199,12 @@ test('seeded artifact survives reload and downloads intact', async ({
   const attachmentId = crypto.randomUUID()
   const r2Key = `users/${userId}/attachments/${attachmentId}/${fileName}`
   await putObject({
+    bucket: env.R2_BUCKET_NAME,
     key: r2Key,
     body: Buffer.from(SEEDED_MARKDOWN, 'utf8'),
     contentType: 'text/markdown',
   })
-  pendingR2Keys.push(r2Key)
+  pendingR2Objects.push({ bucket: env.R2_BUCKET_NAME, key: r2Key })
 
   const [conversation] = await db
     .insert(conversations)
@@ -218,8 +230,8 @@ test('seeded artifact survives reload and downloads intact', async ({
   await db.insert(generationRuns).values({
     messageId: assistantMessage.id,
     conversationId: conversation.id,
-    modelId: 'auto',
-    routerModelId: 'e2e-seed-router-model',
+    modelId: AGENT_SKILL_FIXTURE_MODEL_ID,
+    routerModelId: AGENT_SKILL_FIXTURE_ROUTER_MODEL_ID,
     skillId: 'agent-skill',
     status: 'completed',
     content: null,
@@ -233,22 +245,18 @@ test('seeded artifact survives reload and downloads intact', async ({
     fileSize,
     mimeType: 'text/markdown',
     r2Key,
-    r2Bucket: process.env.R2_BUCKET_NAME ?? 'zona-ai-files',
+    r2Bucket: env.R2_BUCKET_NAME,
     processingStatus: 'completed',
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByTestId('message-list')).toHaveAttribute(
     'data-message-count',
     '2',
   )
   await expect(page.getByTestId('artifact-file-card')).toBeVisible()
-  await expect(page.getByTestId('artifact-download-btn')).toHaveAttribute(
-    'href',
-    `/api/attachments/${attachmentId}?download=1`,
-  )
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByTestId('message-list')).toHaveAttribute(
     'data-message-count',
     '2',
@@ -261,8 +269,8 @@ test('seeded artifact survives reload and downloads intact', async ({
   ])
   expect(download.suggestedFilename()).toBe(fileName)
   const downloadPath = await download.path()
-  expect(downloadPath).not.toBeNull()
-  const downloaded = await readFile(downloadPath as string, 'utf8')
+  if (!downloadPath) throw new Error('download path unavailable')
+  const downloaded = await readFile(downloadPath, 'utf8')
   expect(downloaded).toBe(SEEDED_MARKDOWN)
 })
 
@@ -290,21 +298,21 @@ test('failed generation shows recoverable error and no empty file', async ({
   await db.insert(generationRuns).values({
     messageId: assistantMessage.id,
     conversationId: conversation.id,
-    modelId: 'auto',
-    routerModelId: 'e2e-seed-router-model',
+    modelId: AGENT_SKILL_FIXTURE_MODEL_ID,
+    routerModelId: AGENT_SKILL_FIXTURE_ROUTER_MODEL_ID,
     skillId: 'agent-skill',
     status: 'failed',
     content: '',
     error: { message: 'seeded model failure', code: 'ERR-001' },
   })
 
-  await page.goto(`/chat/${conversation.id}`)
+  await gotoChatAndWaitForArtifactHydration(page, `/chat/${conversation.id}`)
   await expect(page.getByRole('note')).toBeVisible()
-  await expect(page.getByTestId('artifact-file-card')).toHaveCount(0)
+  await expect(page.getByTestId('artifact-file-card')).not.toBeAttached()
   await expect(page.getByTestId('composer-input')).toBeEnabled()
 
-  await page.reload()
+  await reloadAndWaitForArtifactHydration(page)
   await expect(page.getByRole('note')).toBeVisible()
-  await expect(page.getByTestId('artifact-file-card')).toHaveCount(0)
+  await expect(page.getByTestId('artifact-file-card')).not.toBeAttached()
   await expect(page.getByTestId('composer-input')).toBeEnabled()
 })
