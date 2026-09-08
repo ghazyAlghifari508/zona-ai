@@ -29,7 +29,7 @@ import { artifactDescriptorSchema } from '@/lib/artifacts/contracts'
 import {
   type ArtifactMentionDraft,
   type ArtifactMentionInput,
-  addArtifactMention,
+  addOrFocusArtifactMention,
   resolveArtifactDispatch,
 } from '@/lib/artifacts/mentions'
 import {
@@ -242,7 +242,7 @@ function ChatThread() {
             : 'Checklist',
       modelDisplayName: summary.modelId,
     }
-    const nextState = addArtifactMention(
+    const nextState = addOrFocusArtifactMention(
       {
         mentions: composerMentions,
         activeQuery: null,

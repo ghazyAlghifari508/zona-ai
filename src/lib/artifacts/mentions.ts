@@ -266,6 +266,33 @@ export function setArtifactMentionMode(
   }
 }
 
+export function addOrFocusArtifactMention(
+  state: ArtifactMentionDraftState,
+  candidate: ArtifactMentionCandidate,
+  mode: ArtifactMentionMode,
+): ArtifactMentionDraftState {
+  const existing = state.mentions.find(
+    (m) => m.artifactId === candidate.artifact.artifactId,
+  )
+  if (existing) {
+    return {
+      ...state,
+      feedback: null,
+      mentions: state.mentions.map((m) =>
+        m.artifactId === candidate.artifact.artifactId
+          ? {
+              ...m,
+              mode,
+              versionId: candidate.artifact.currentVersionId,
+              version: candidate.artifact.currentVersion,
+            }
+          : m,
+      ),
+    }
+  }
+  return addArtifactMention(state, candidate, mode)
+}
+
 export function moveMentionPickerSelection(
   state: ArtifactMentionDraftState,
   direction: -1 | 1,
