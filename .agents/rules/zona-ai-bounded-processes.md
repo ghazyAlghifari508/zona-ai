@@ -60,6 +60,21 @@ For local browser work, use one of these bounded patterns instead:
 
 Never use fire-and-forget detachment from the terminal harness for task-owned servers. A printed PID is not proof that the invoking tool call has released all inherited handles.
 
+### Dev servers ALWAYS block the agent terminal tool call (never invoke them directly)
+
+`bun run dev`, `bun x vite dev`, and every watch-mode command NEVER exit. Invoking one directly in the agent terminal tool always ends the same way: Vite prints `ready` and `Local: http://localhost:3000`, then the call sits frozen until the timeout kills it — and the timeout kills the server with it. The `Local:` line is a trap, not a success signal. This is a known, forbidden failure mode; do not rediscover it.
+
+Required pattern for a live review server the USER asked for (user-owned, meant to stay up):
+
+1. Inject the silent env pattern into the tool-call process first, then launch detached in its own console with NO redirected handles:
+   `Start-Process -FilePath "bun" -ArgumentList "run","dev" -WorkingDirectory <repo> -WindowStyle Minimized -PassThru`
+2. Capture the returned PID and verify ownership with `Get-CimInstance Win32_Process`.
+3. Poll readiness with a finite deadline: `Get-NetTCPConnection -LocalPort 3000 -State Listen` plus one HTTP request returning a response.
+4. Report the PID so the user (or the next task) can stop it with `taskkill /PID <pid> /T /F`.
+5. Never `-RedirectStandardOutput`, `-RedirectStandardError`, or `-NoNewWindow` — inherited handles keep the tool call open and fake a hang.
+
+For task-owned servers (tests, one-shot verification), stick to the bounded patterns above and always tear the tree down in `finally`.
+
 ---
 
 ## Rule 3: Kill the Verified Process Tree on Windows
