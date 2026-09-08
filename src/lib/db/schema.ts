@@ -31,16 +31,27 @@ const artifactKindSql = sql.join(
 const artifactTitleMaxLengthSql = sql.raw(String(ARTIFACT_TITLE_MAX_LENGTH))
 
 // users — Better Auth managed + credits
-export const users = pgTable('users', {
-  id: text('id').primaryKey(),
-  name: text('name'),
-  email: text('email').notNull().unique(),
-  emailVerified: boolean('email_verified').default(false),
-  image: text('image'),
-  credits: integer('credits').notNull().default(100),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-})
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    name: text('name'),
+    email: text('email').notNull().unique(),
+    emailVerified: boolean('email_verified').default(false),
+    image: text('image'),
+    credits: integer('credits').notNull().default(100),
+    role: text('role').notNull().default('user'),
+    banned: boolean('banned').notNull().default(false),
+    banReason: text('ban_reason'),
+    banExpires: timestamp('ban_expires', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('users_role_idx').on(table.role),
+    index('users_banned_idx').on(table.banned),
+  ],
+)
 
 export const sessions = pgTable(
   'sessions',
@@ -605,5 +616,68 @@ export const webSources = pgTable(
       table.generationRunId,
       table.position,
     ),
+  ],
+)
+
+export const modelSettings = pgTable('model_settings', {
+  modelId: text('model_id').primaryKey(),
+  isActive: boolean('is_active').notNull().default(true),
+  disabledReason: text('disabled_reason'),
+  updatedBy: text('updated_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+})
+
+export const feedback = pgTable(
+  'feedback',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    stepsToReproduce: text('steps_to_reproduce'),
+    expectedBehavior: text('expected_behavior'),
+    actualBehavior: text('actual_behavior'),
+    attachmentR2Key: text('attachment_r2_key'),
+    attachmentFileName: text('attachment_file_name'),
+    attachmentMimeType: text('attachment_mime_type'),
+    attachmentFileSize: integer('attachment_file_size'),
+    status: text('status').notNull().default('new'),
+    adminNotes: text('admin_notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('feedback_user_id_idx').on(table.userId),
+    index('feedback_status_idx').on(table.status),
+    index('feedback_type_idx').on(table.type),
+    index('feedback_created_at_idx').on(table.createdAt.desc()),
+  ],
+)
+
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    adminId: text('admin_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    adminEmail: text('admin_email').notNull(),
+    action: text('action').notNull(),
+    targetId: text('target_id').notNull(),
+    targetType: text('target_type').notNull(),
+    metadata: jsonb('metadata').$type<Record<string, unknown> | null>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('audit_logs_admin_id_idx').on(table.adminId),
+    index('audit_logs_action_idx').on(table.action),
+    index('audit_logs_target_idx').on(table.targetType, table.targetId),
+    index('audit_logs_created_at_idx').on(table.createdAt.desc()),
   ],
 )

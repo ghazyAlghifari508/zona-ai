@@ -12,6 +12,14 @@ if (typeof window !== 'undefined') {
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg', usePlural: true }),
   emailAndPassword: { enabled: false },
+  user: {
+    additionalFields: {
+      role: { type: 'string', defaultValue: 'user', input: false },
+      banned: { type: 'boolean', defaultValue: false, input: false },
+      banReason: { type: 'string', required: false, input: false },
+      banExpires: { type: 'date', required: false, input: false },
+    },
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
