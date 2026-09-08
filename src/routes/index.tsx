@@ -280,7 +280,7 @@ function ChatHome() {
                   data-testid="reset-credits-btn"
                   onClick={handleResetCredits}
                   disabled={resettingCredits}
-                  className="mr-1 flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+                  className="flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
                   title="Reset ke 100 kredit (mode dev)"
                 >
                   <HugeiconsIcon

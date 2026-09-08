@@ -2165,7 +2165,7 @@ function ChatThread() {
                     user={user}
                     authState="authenticated"
                     mode="app"
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-2.5 sm:gap-3"
                     leading={
                       process.env.NODE_ENV !== 'production' ? (
                         <button
@@ -2173,7 +2173,7 @@ function ChatThread() {
                           data-testid="reset-credits-btn"
                           onClick={handleResetCredits}
                           disabled={resettingCredits}
-                          className="mr-1 flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+                          className="flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
                           title="Reset ke 100 kredit (mode dev)"
                         >
                           <HugeiconsIcon
