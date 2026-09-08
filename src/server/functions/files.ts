@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
+import { checkUserNotBanned } from '../../lib/auth/admin-guard'
 import { getAuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
 import {
@@ -107,6 +108,7 @@ async function compensateReservedUpload({
 
 export async function uploadFileCore({ request }: { request: Request }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const userId = session.user.id
 
   // Rate limit before R2 write (SECURITY.md §13)
@@ -339,6 +341,7 @@ export async function deleteAttachmentCore({
   request: Request
 }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const userId = session.user.id
 
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
@@ -414,6 +417,7 @@ export async function reprocessAttachmentCore({
   request: Request
 }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const userId = session.user.id
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
   if (!parsed.success) throw httpError(400, 'Invalid id')

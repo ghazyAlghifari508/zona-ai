@@ -3,6 +3,7 @@ import { db } from '../../lib/db/index'
 import { auditLogs, modelSettings } from '../../lib/db/schema'
 import { getModelById } from '../../lib/models/registry'
 
+// Enforces admin authentication via requireAdminSession (delegates to getAuthSession)
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/admin-models.ts is server-only')
 }

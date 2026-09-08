@@ -1,6 +1,7 @@
 import { AppError } from '../../lib/utils/errors'
 import { getModelOverridesMap, isModelAvailable } from './admin-models'
 
+// Request boundary handled by caller chat.ts (which enforces getAuthSession)
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/compare.ts is server-only')
 }

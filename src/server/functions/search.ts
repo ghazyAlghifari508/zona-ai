@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
+import { checkUserNotBanned } from '../../lib/auth/admin-guard'
 import { getAuthSession } from '../../lib/auth/session'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import { searchProvider } from '../../lib/tavily/client'
@@ -26,6 +27,7 @@ export async function searchWebCore({
   request: Request
 }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   // Rate limit per-user (SECURITY.md §13)
   enforceRateLimit({
     key: `search:${session.user.id}`,
