@@ -55,6 +55,49 @@ export function ConversationArtifactLayout({
   const canvasWidthRef = useRef(canvasWidth)
   canvasWidthRef.current = canvasWidth
 
+  const [isMounted, setIsMounted] = useState(canvasOpen)
+  const [isExpanded, setIsExpanded] = useState(canvasOpen)
+  const isInitialMount = useRef(true)
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rafRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+
+    if (canvasOpen) {
+      setIsMounted(true)
+      setIsExpanded(false)
+
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = requestAnimationFrame(() => {
+          setIsExpanded(true)
+        })
+      })
+    } else {
+      setIsExpanded(false)
+      closeTimeoutRef.current = setTimeout(() => {
+        setIsMounted(false)
+      }, 250)
+    }
+
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [canvasOpen])
+
   const clampWidth = useCallback(
     (rawWidth: number, containerWidth?: number): number => {
       const measured = containerRef.current?.getBoundingClientRect().width
@@ -143,12 +186,12 @@ export function ConversationArtifactLayout({
         data-testid="chat-pane"
         className={`relative h-full min-h-0 min-w-0 overflow-hidden flex-1 flex flex-col ${
           canvasOpen ? 'hidden md:flex' : 'flex'
-        } ${isDragging ? '' : 'transition-[flex-grow,width] duration-300 ease-in-out'}`}
+        }`}
       >
         {chatPane}
       </div>
 
-      {canvasOpen ? (
+      {isMounted ? (
         /* biome-ignore lint/a11y/useSemanticElements: interactive resizable splitter requires role="separator" */
         <div
           role="separator"
@@ -160,7 +203,13 @@ export function ConversationArtifactLayout({
           data-testid="artifact-layout-separator"
           onPointerDown={handlePointerDown}
           onKeyDown={handleKeyDown}
-          className="relative hidden md:flex items-center justify-center w-2 -mx-1 shrink-0 z-30 cursor-col-resize select-none touch-none group outline-none"
+          className={`relative hidden md:flex items-center justify-center w-2 -mx-1 shrink-0 z-30 cursor-col-resize select-none touch-none group outline-none ${
+            isDragging
+              ? ''
+              : isExpanded
+                ? 'transition-opacity duration-280 ease-[cubic-bezier(0.16,1,0.3,1)]'
+                : 'transition-opacity duration-240 ease-[cubic-bezier(0.4,0,0.2,1)]'
+          } ${isExpanded ? 'opacity-100' : 'opacity-0'}`}
         >
           <div className="h-full w-px bg-hairline group-hover:bg-hairline-strong group-active:bg-accent group-focus-visible:bg-accent transition-colors" />
         </div>
@@ -168,12 +217,37 @@ export function ConversationArtifactLayout({
 
       <div
         data-testid="canvas-pane"
-        style={canvasOpen ? { width: `${canvasWidth}px` } : { width: 0 }}
+        style={
+          isMounted
+            ? { width: isExpanded ? `${canvasWidth}px` : 0 }
+            : { width: 0 }
+        }
         className={`h-full min-h-0 min-w-0 overflow-hidden shrink-0 ${
-          canvasOpen ? 'flex flex-col w-full md:w-auto' : 'hidden'
-        } ${isDragging ? '' : 'transition-[width] duration-300 ease-in-out'}`}
+          isMounted ? 'flex flex-col w-full md:w-auto' : 'hidden'
+        } ${
+          isDragging
+            ? ''
+            : isExpanded
+              ? 'transition-[width] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)]'
+              : 'transition-[width] duration-240 ease-[cubic-bezier(0.4,0,0.2,1)]'
+        }`}
       >
-        {canvasPane}
+        <div
+          style={{ width: `${canvasWidth}px`, maxWidth: '100vw' }}
+          className={`h-full min-h-0 flex flex-col shrink-0 ${
+            isDragging
+              ? ''
+              : isExpanded
+                ? 'transition-[transform,opacity] duration-280 ease-[cubic-bezier(0.16,1,0.3,1)]'
+                : 'transition-[transform,opacity] duration-240 ease-[cubic-bezier(0.4,0,0.2,1)]'
+          } ${
+            isExpanded
+              ? 'translate-x-0 opacity-100'
+              : 'translate-x-6 opacity-60'
+          }`}
+        >
+          {canvasPane}
+        </div>
       </div>
     </div>
   )
