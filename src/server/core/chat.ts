@@ -10,6 +10,7 @@ import {
 } from '../../lib/ai/credits'
 import { createMultiplexStream, type StreamEvent } from '../../lib/ai/multiplex'
 import { buildSystemPrompt } from '../../lib/ai/system-prompt'
+import { checkUserNotBanned } from '../../lib/auth/admin-guard'
 import { getAuthSession } from '../../lib/auth/session'
 import { isArtifactSkill, skillSupportsCompare } from '../../lib/chat/skills'
 import { generateAiTitle } from '../../lib/chat/title'
@@ -44,6 +45,7 @@ import {
 } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
+import { isModelAvailable } from './admin-models'
 import { buildArtifactCatalogContext } from './artifact-catalog-context'
 import {
   type ArtifactMentionSource,
@@ -148,9 +150,18 @@ export async function sendMessageCore({
   request: Request
 }): Promise<Response> {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const userId = session.user.id
 
-  // Rate limit before any DB write / credit deduction (SECURITY.md �13)
+  if (!isModelAvailable(data.modelId)) {
+    throw new AppError(
+      'Model ini sedang dinonaktifkan oleh administrator.',
+      400,
+      'ERR-MODEL-DISABLED',
+    )
+  }
+
+  // Rate limit before any DB write / credit deduction (SECURITY.md §13)
   enforceRateLimit({
     key: `chat:${userId}`,
     limit: RATE_LIMIT_CHAT_PER_MINUTE,
@@ -181,6 +192,7 @@ export async function sendMessageCore({
   if (input.modelId === 'auto') {
     const resolved = resolveAutoModel(input.content, {
       credits: currentCredits,
+      isAvailable: isModelAvailable,
     })
     routerModelId = resolved.routerModelId
     cost = resolved.cost
@@ -190,6 +202,14 @@ export async function sendMessageCore({
       typeof modelEntry.creditCost === 'number'
         ? modelEntry.creditCost
         : modelEntry.creditCost.max
+  }
+
+  if (!isModelAvailable(routerModelId)) {
+    throw new AppError(
+      'Model ini sedang dinonaktifkan oleh administrator.',
+      400,
+      'ERR-MODEL-DISABLED',
+    )
   }
 
   if (currentCredits < cost) {
@@ -610,9 +630,20 @@ export async function sendCompareMessageCore({
 }): Promise<Response> {
   const data = compareSchema.parse(rawData) as z.infer<typeof compareSchema>
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const userId = session.user.id
 
-  // Rate limit before any DB write / credit deduction (SECURITY.md �13)
+  for (const mid of data.modelIds) {
+    if (!isModelAvailable(mid)) {
+      throw new AppError(
+        'Model ini sedang dinonaktifkan oleh administrator.',
+        400,
+        'ERR-MODEL-DISABLED',
+      )
+    }
+  }
+
+  // Rate limit before any DB write / credit deduction (SECURITY.md §13)
   enforceRateLimit({
     key: `compare:${userId}`,
     limit: RATE_LIMIT_COMPARE_PER_MINUTE,
@@ -1382,6 +1413,7 @@ export async function retryGenerationCore({
   request: Request
 }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const [gen] = await db
     .select()
     .from(generationRuns)
@@ -1395,6 +1427,13 @@ export async function retryGenerationCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   if (gen.status !== 'failed')
     throw new AppError('Only failed generations can be retried', 400, 'ERR-003')
+  if (!isModelAvailable(gen.modelId)) {
+    throw new AppError(
+      'Model ini sedang dinonaktifkan oleh administrator.',
+      400,
+      'ERR-MODEL-DISABLED',
+    )
+  }
   if (isArtifactSkill(gen.skillId ?? 'none')) {
     return retryArtifactGenerationCore({ generationId, request })
   }

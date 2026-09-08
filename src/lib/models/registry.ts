@@ -680,22 +680,29 @@ export function getAvailableModels(): ModelRegistryEntry[] {
   return modelRegistry.filter((m) => m.enabled)
 }
 
-export function getModelCatalog(): ModelCatalogEntry[] {
-  return getAvailableModels().map((m) => ({
-    id: m.id,
-    displayName: m.displayName,
-    provider: m.provider,
-    vendor: m.vendor,
-    intelligenceLevel: m.intelligenceLevel,
-    intelligenceScore: m.intelligenceScore,
-    intelligenceBars: m.intelligenceBars,
-    confidence: m.confidence,
-    description: m.description,
-    isDefault: m.isDefault ?? false,
-    creditTier: m.creditTier,
-    creditCost: m.creditCost,
-    capabilities: m.capabilities,
-  }))
+export function getModelCatalog(
+  overrides?: Map<string, { isActive: boolean; disabledReason: string | null }>,
+): ModelCatalogEntry[] {
+  return getAvailableModels().map((m) => {
+    const override = overrides?.get(m.id) ?? overrides?.get(m.routerModelId)
+    return {
+      id: m.id,
+      displayName: m.displayName,
+      provider: m.provider,
+      vendor: m.vendor,
+      intelligenceLevel: m.intelligenceLevel,
+      intelligenceScore: m.intelligenceScore,
+      intelligenceBars: m.intelligenceBars,
+      confidence: m.confidence,
+      description: m.description,
+      isDefault: m.isDefault ?? false,
+      creditTier: m.creditTier,
+      creditCost: m.creditCost,
+      capabilities: m.capabilities,
+      isActive: override ? override.isActive : true,
+      disabledReason: override ? override.disabledReason : null,
+    }
+  })
 }
 
 export function getModelById(id: string): ModelRegistryEntry {

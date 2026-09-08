@@ -50,4 +50,6 @@ export interface ModelCatalogEntry {
   creditTier: ModelRegistryEntry['creditTier']
   creditCost: ModelRegistryEntry['creditCost']
   capabilities: ModelRegistryEntry['capabilities']
+  isActive?: boolean
+  disabledReason?: string | null
 }
