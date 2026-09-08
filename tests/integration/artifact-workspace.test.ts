@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { and, eq, inArray } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db/index'
 import {
@@ -31,17 +31,17 @@ vi.mock('../../src/lib/auth/session', () => ({
   })),
 }))
 
+import { getArtifactVersionRoute } from '../../src/routes/api/artifacts/$artifactId/versions/$versionId'
+import {
+  getArtifactCore,
+  listConversationArtifactsCore,
+} from '../../src/server/core/artifact-reads.server'
 import {
   getOwnedArtifact,
   getOwnedArtifactVersion,
   listConversationArtifactSummaries,
 } from '../../src/server/core/artifact-repository'
 import { readArtifactVersionContentCore } from '../../src/server/core/artifact-workspace'
-import {
-  getArtifactCore,
-  listConversationArtifactsCore,
-} from '../../src/server/functions/artifacts'
-import { getArtifactVersionRoute } from '../../src/routes/api/artifacts/$artifactId/versions/$versionId'
 
 const OWNER_ID = 'artifact-workspace-owner'
 const OTHER_USER_ID = 'artifact-workspace-other'
@@ -244,7 +244,9 @@ describe('artifact workspace reads', () => {
     expect(JSON.stringify(result)).not.toContain(ownerArtifact.r2Key)
     expect(JSON.stringify(result)).not.toContain('persisted-artifact-bucket')
     expect(JSON.stringify(result)).not.toContain('extracted copy must not leak')
-    expect(JSON.stringify(result)).not.toContain('operational copy must not leak')
+    expect(JSON.stringify(result)).not.toContain(
+      'operational copy must not leak',
+    )
   })
 
   it('returns safe ordered artifact detail metadata without storage fields', async () => {
@@ -266,7 +268,9 @@ describe('artifact workspace reads', () => {
     expect(JSON.stringify(result)).not.toContain(ownerArtifact.r2Key)
     expect(JSON.stringify(result)).not.toContain('persisted-artifact-bucket')
     expect(JSON.stringify(result)).not.toContain('extracted copy must not leak')
-    expect(JSON.stringify(result)).not.toContain('operational copy must not leak')
+    expect(JSON.stringify(result)).not.toContain(
+      'operational copy must not leak',
+    )
   })
 
   it('authorizes the complete owner, artifact, version, attachment, and generation chain', async () => {
