@@ -683,19 +683,6 @@ export function Composer({
       }
     >
       <div className="mx-auto max-w-[860px] space-y-2">
-        {compareEnabled && compareModelIds.length >= 2 && (
-          <div className="flex items-center justify-between rounded-md border border-hairline bg-sky-tint px-3 py-2 text-[13px] text-ink">
-            <span data-testid="composer-compare-banner">
-              Compare mode: {compareModelIds.length} model • Total:{' '}
-              {compareTotal} Kredit
-            </span>
-            {compareInsufficient && (
-              <span className="text-xs text-stone">
-                Butuh {compareTotal} (Sisa {credits})
-              </span>
-            )}
-          </div>
-        )}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: composer drag container */}
         <div
           data-testid="composer"
@@ -705,6 +692,29 @@ export function Composer({
           onDrop={handleDrop}
           className="relative flex flex-col gap-2 rounded-xl border border-hairline-strong bg-pure-white p-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.07)] transition-colors duration-200 focus-within:border-ink/30"
         >
+          {compareEnabled && compareModelIds.length >= 2 && (
+            <div
+              data-testid="composer-compare-status"
+              className="flex items-center justify-between border-b border-hairline/60 px-1 pb-1.5 text-[12px]"
+            >
+              <span
+                data-testid="composer-compare-banner"
+                className="flex items-center gap-1.5 font-medium text-ink/75"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-notion-blue" />
+                <span>{compareModelIds.length} model</span>
+                <span className="text-stone/40">•</span>
+                <span className="font-semibold text-ink">
+                  {compareTotal} kredit
+                </span>
+              </span>
+              {compareInsufficient && (
+                <span className="text-[11px] font-medium text-coral">
+                  Butuh {compareTotal} (Sisa {credits})
+                </span>
+              )}
+            </div>
+          )}
           {dragOver && (
             <div
               data-testid="drag-overlay"
@@ -914,18 +924,10 @@ export function Composer({
             )}
           </div>
         </div>
-        {compareEnabled && compareModelIds.length >= 2 ? (
-          compareInsufficient ? (
-            <p className="px-2 text-[13px] text-stone">
-              Kredit tidak cukup untuk compare ini.
-            </p>
-          ) : null
-        ) : (
-          isPremium && (
-            <p className="px-2 text-[13px] text-stone">
-              GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
-            </p>
-          )
+        {!compareEnabled && isPremium && (
+          <p className="px-2 text-[13px] text-stone">
+            GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
+          </p>
         )}
       </div>
     </div>

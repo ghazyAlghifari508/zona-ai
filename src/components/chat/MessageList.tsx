@@ -192,7 +192,7 @@ export function MessageList({
           hasUsedCompareMode
             ? `${COMPARE_MAX_WIDTH_CLASS} ${COMPARE_GUTTER_CLASS}`
             : 'max-w-[860px] px-4 lg:px-6'
-        } pt-2 ${scrollRef ? 'pb-36' : 'pb-6'}`}
+        } pt-2 ${scrollRef ? (hasUsedCompareMode ? 'pb-52' : 'pb-44') : 'pb-6'}`}
       >
         {shouldVirtualize ? (
           <div
