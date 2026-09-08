@@ -21,6 +21,7 @@ import {
   creditTransactions,
   documentChunks,
   generationRuns,
+  messageArtifactMentions,
   messages,
   usageRecords,
   webSources,
@@ -43,6 +44,16 @@ import {
 } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
+import { buildArtifactCatalogContext } from './artifact-catalog-context'
+import {
+  type ArtifactMentionSource,
+  buildMentionContext,
+  loadArtifactMentionSources,
+  persistArtifactMentions,
+  type ResolvedArtifactMention,
+  resolveArtifactMentions,
+} from './artifact-mentions'
+import { listConversationArtifactSummaries } from './artifact-repository'
 import { finalizeTerminalRun, retryArtifactGenerationCore } from './artifacts'
 import { buildModelHistory } from './history'
 
@@ -216,6 +227,36 @@ export async function sendMessageCore({
     void autoTitleConversation(convId, input.content)
   }
 
+  if (input.artifactMentions?.some((m) => m.mode === 'revise')) {
+    throw new AppError(
+      'Mention revise tidak diizinkan pada chat biasa. Gunakan operasi revisi.',
+      400,
+      'ERR-003',
+    )
+  }
+
+  let mentionSources: ArtifactMentionSource[] = []
+  let resolvedMentions: ResolvedArtifactMention[] = []
+  if (input.artifactMentions?.length) {
+    resolvedMentions = await resolveArtifactMentions({
+      userId,
+      conversationId: convId,
+      mentions: input.artifactMentions,
+    })
+    mentionSources = await loadArtifactMentionSources(resolvedMentions)
+  }
+
+  let catalogContext = ''
+  if (!input.artifactMentions?.length) {
+    const summaries = await listConversationArtifactSummaries({
+      userId,
+      conversationId: convId,
+    })
+    if (summaries.length > 0) {
+      catalogContext = buildArtifactCatalogContext(summaries)
+    }
+  }
+
   await db
     .update(conversations)
     .set({ updatedAt: new Date() })
@@ -225,6 +266,14 @@ export async function sendMessageCore({
     .insert(messages)
     .values({ conversationId: convId, role: 'user', content: input.content })
     .returning()
+
+  if (resolvedMentions.length > 0) {
+    await persistArtifactMentions(db, {
+      messageId: _userMsg.id,
+      conversationId: convId,
+      mentions: resolvedMentions,
+    })
+  }
 
   const [assistantMsg] = await db
     .insert(messages)
@@ -287,6 +336,7 @@ export async function sendMessageCore({
   await db.insert(generationRuns).values({
     id: genId,
     messageId: assistantMsg.id,
+    requestMessageId: _userMsg.id,
     conversationId: convId,
     modelId: input.modelId,
     routerModelId,
@@ -307,7 +357,18 @@ export async function sendMessageCore({
     throw e
   }
 
-  const aiMessages: ModelMessage[] = await buildModelHistory(convId)
+  const aiMessages: ModelMessage[] = (await buildModelHistory(convId)).filter(
+    (m) => !(m.role === 'assistant' && m.content === ''),
+  )
+  if (mentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(mentionSources)
+    const lastUserIdx = aiMessages.findLastIndex((m) => m.role === 'user')
+    if (lastUserIdx >= 0) {
+      aiMessages.splice(lastUserIdx, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
 
   let ragContext: string[] = []
   try {
@@ -375,7 +436,8 @@ export async function sendMessageCore({
   const systemPrompt =
     buildSystemPrompt({ skillId: input.skillId, hasWebSources: hasWeb }) +
     ragSuffix +
-    webContext
+    webContext +
+    (catalogContext ? `\n\n${catalogContext}` : '')
 
   const abortController = new AbortController()
   controllers.set(genId, abortController)
@@ -619,10 +681,48 @@ export async function sendCompareMessageCore({
     convId = conv.id
   }
 
+  if (data.artifactMentions?.some((m) => m.mode === 'revise')) {
+    throw new AppError(
+      'Mention revise tidak diizinkan pada chat biasa. Gunakan operasi revisi.',
+      400,
+      'ERR-003',
+    )
+  }
+
+  let mentionSources: ArtifactMentionSource[] = []
+  let resolvedMentions: ResolvedArtifactMention[] = []
+  if (data.artifactMentions?.length) {
+    resolvedMentions = await resolveArtifactMentions({
+      userId,
+      conversationId: convId,
+      mentions: data.artifactMentions,
+    })
+    mentionSources = await loadArtifactMentionSources(resolvedMentions)
+  }
+
+  let catalogContext = ''
+  if (!data.artifactMentions?.length) {
+    const summaries = await listConversationArtifactSummaries({
+      userId,
+      conversationId: convId,
+    })
+    if (summaries.length > 0) {
+      catalogContext = buildArtifactCatalogContext(summaries)
+    }
+  }
+
   const [userMsg] = await db
     .insert(messages)
     .values({ conversationId: convId, role: 'user', content: data.content })
     .returning()
+
+  if (resolvedMentions.length > 0) {
+    await persistArtifactMentions(db, {
+      messageId: userMsg.id,
+      conversationId: convId,
+      mentions: resolvedMentions,
+    })
+  }
 
   const shouldAutoTitle =
     !data.conversationId ||
@@ -706,6 +806,7 @@ export async function sendCompareMessageCore({
     await db.insert(generationRuns).values({
       id: genIds[i],
       messageId: assistantMessages[i].id,
+      requestMessageId: userMsg.id,
       comparisonRunId: null,
       conversationId: convId,
       modelId: data.modelIds[i],
@@ -833,15 +934,27 @@ export async function sendCompareMessageCore({
       hasWebSources: hasWebCompare,
     }) +
     ragSuffix +
-    webContextCompare
+    webContextCompare +
+    (catalogContext ? `\n\n${catalogContext}` : '')
 
-  const aiMessages: ModelMessage[] = history.map(
-    (m) =>
-      ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.content,
-      }) as ModelMessage,
-  )
+  const aiMessages: ModelMessage[] = history
+    .filter((m) => !(m.role === 'assistant' && m.content === ''))
+    .map(
+      (m) =>
+        ({
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+        }) as ModelMessage,
+    )
+  if (mentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(mentionSources)
+    const lastUserIdx = aiMessages.findLastIndex((m) => m.role === 'user')
+    if (lastUserIdx >= 0) {
+      aiMessages.splice(lastUserIdx, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
   if (fileParts.length) {
     for (let i = aiMessages.length - 1; i >= 0; i--) {
       if (aiMessages[i].role === 'user') {
@@ -1315,6 +1428,7 @@ export async function retryGenerationCore({
   await db.insert(generationRuns).values({
     id: newGenId,
     messageId: newMsg.id,
+    requestMessageId: gen.requestMessageId,
     comparisonRunId: gen.comparisonRunId,
     conversationId: gen.conversationId,
     modelId: gen.modelId,
@@ -1330,8 +1444,38 @@ export async function retryGenerationCore({
     amount: cost,
   })
 
+  let retryMentionSources: ArtifactMentionSource[] = []
+  if (gen.requestMessageId) {
+    const mentionRows = await db
+      .select({
+        artifactId: messageArtifactMentions.artifactId,
+        versionId: messageArtifactMentions.versionId,
+        mode: messageArtifactMentions.mode,
+      })
+      .from(messageArtifactMentions)
+      .where(eq(messageArtifactMentions.messageId, gen.requestMessageId))
+      .orderBy(asc(messageArtifactMentions.position))
+
+    if (mentionRows.length > 0) {
+      const resolved = await resolveArtifactMentions({
+        userId: session.user.id,
+        conversationId: gen.conversationId,
+        mentions: mentionRows,
+      })
+      retryMentionSources = await loadArtifactMentionSources(resolved)
+    }
+  }
+
   // For simplicity, reuse sendCompare single logic with streamText
   const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
+  if (retryMentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(retryMentionSources)
+    if (aiMessages.length > 0) {
+      aiMessages.splice(aiMessages.length - 1, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
   const abortController = new AbortController()
   controllers.set(newGenId, abortController)
   const startTime = Date.now()
