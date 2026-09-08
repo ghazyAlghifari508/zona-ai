@@ -757,7 +757,7 @@ test('chat stays scrollable and composer submits while canvas is open', async ({
   await expect(sendButton).toBeEnabled()
   await sendButton.click()
   await expect(composerInput).toHaveValue('')
-  await expect(sendButton).toBeEnabled()
+  await expect(sendButton).toBeDisabled()
   expect(sendIntercepted).toBe(true)
   await expect(page.getByTestId('artifact-canvas')).toBeVisible()
 })
