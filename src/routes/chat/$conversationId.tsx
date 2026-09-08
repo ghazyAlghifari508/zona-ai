@@ -2123,31 +2123,6 @@ function ChatThread() {
         })
       }}
     >
-      <GlobalNav
-        user={user}
-        authState="authenticated"
-        mode="app"
-        leading={
-          process.env.NODE_ENV !== 'production' ? (
-            <button
-              type="button"
-              data-testid="reset-credits-btn"
-              onClick={handleResetCredits}
-              disabled={resettingCredits}
-              className="mr-1 flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
-              title="Reset ke 100 kredit (mode dev)"
-            >
-              <HugeiconsIcon
-                icon={ZapIcon}
-                size={14}
-                strokeWidth={1.75}
-                className="text-amber-500"
-              />
-              {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
-            </button>
-          ) : undefined
-        }
-      />
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {webSearchToast && (
           <div
@@ -2169,16 +2144,12 @@ function ChatThread() {
               >
                 <header
                   className={`sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between bg-pure-white transition-[padding] duration-200 ${
-                    hasUsedCompareMode ? COMPARE_GUTTER_CLASS : 'px-4 lg:px-6'
+                    hasUsedCompareMode
+                      ? COMPARE_GUTTER_CLASS
+                      : 'pl-14 pr-4 lg:pl-6 lg:pr-6'
                   }`}
                 >
-                  <div
-                    className={`mx-auto flex w-full items-center justify-between transition-[max-width] duration-200 ${
-                      hasUsedCompareMode
-                        ? COMPARE_MAX_WIDTH_CLASS
-                        : 'max-w-[860px]'
-                    }`}
-                  >
+                  <div className="flex items-center gap-2">
                     {compareEnabled && (
                       <span
                         data-testid="topbar-compare-label"
@@ -2187,8 +2158,33 @@ function ChatThread() {
                         Mode banding · {compareModelIds.length} model
                       </span>
                     )}
-                    <span className="flex-1" />
                   </div>
+                  <GlobalNav
+                    user={user}
+                    authState="authenticated"
+                    mode="app"
+                    className="flex items-center gap-1"
+                    leading={
+                      process.env.NODE_ENV !== 'production' ? (
+                        <button
+                          type="button"
+                          data-testid="reset-credits-btn"
+                          onClick={handleResetCredits}
+                          disabled={resettingCredits}
+                          className="mr-1 flex min-h-8 items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
+                          title="Reset ke 100 kredit (mode dev)"
+                        >
+                          <HugeiconsIcon
+                            icon={ZapIcon}
+                            size={14}
+                            strokeWidth={1.75}
+                            className="text-amber-500"
+                          />
+                          {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
+                        </button>
+                      ) : undefined
+                    }
+                  />
                 </header>
 
                 <MessageList

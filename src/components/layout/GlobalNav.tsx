@@ -1,4 +1,4 @@
-﻿import { ArrowLeft01Icon, Login03Icon } from '@hugeicons/core-free-icons'
+import { ArrowLeft01Icon, Login03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
@@ -17,6 +17,7 @@ type Props = {
   mode?: 'app' | 'marketing'
   /** Optional slot for dev-only actions (e.g. Reset 100 Kredit). */
   leading?: ReactNode
+  className?: string
 }
 
 export function GlobalNav({
@@ -26,9 +27,15 @@ export function GlobalNav({
   signingIn,
   mode = 'app',
   leading,
+  className,
 }: Props) {
   return (
-    <div className="fixed top-3 right-0 z-50 flex items-center gap-1 pr-4 lg:pr-6">
+    <div
+      className={
+        className ??
+        'fixed top-3 right-0 z-50 flex items-center gap-1 pr-4 lg:pr-6'
+      }
+    >
       {mode === 'app' && leading}
       <Link
         to="/faq"
