@@ -36,12 +36,16 @@ const serverFunctionFiles = [
 // which the checks below still require to call getAuthSession.
 const NO_REQUEST_BOUNDARY = new Set([
   'artifact-finalization.ts',
+  'artifact-operations.ts',
   'artifact-profiles.ts',
   'artifact-repository.ts',
   'artifact-workspace.ts',
   'history.ts',
   'prd.ts',
 ])
+
+const ARTIFACT_PLANNER = 'artifact-operations.ts'
+const ARTIFACT_PLANNER_CALLER = 'artifact-generation.ts'
 
 function baseName(f: string): string {
   return f.split(/[\\/]/).pop() ?? f
@@ -119,6 +123,32 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
     const coreFiles = walk(join(SRC, 'server', 'core'))
     for (const name of NO_REQUEST_BOUNDARY) {
       expect(coreFiles.filter((f) => baseName(f) === name).length).toBe(1)
+    }
+  })
+
+  it('artifact planner exemption is secured by its authenticated direct caller', () => {
+    expect(NO_REQUEST_BOUNDARY.has(ARTIFACT_PLANNER)).toBe(true)
+
+    const coreFiles = walk(join(SRC, 'server', 'core'))
+    const directCallers = coreFiles.filter((f) => {
+      if (baseName(f) === ARTIFACT_PLANNER) return false
+      const content = readFileSync(f, 'utf8')
+      return /\b(planArtifactOperations|planCompareArtifactOperations)\s*\(/.test(
+        content,
+      )
+    })
+    expect(directCallers.map(baseName)).toEqual([ARTIFACT_PLANNER_CALLER])
+
+    const caller = readFileSync(directCallers[0], 'utf8')
+    for (const [requestBoundary, planner] of [
+      ['generateArtifactsCore', 'planArtifactOperations'],
+      ['generateCompareArtifactsCore', 'planCompareArtifactOperations'],
+    ]) {
+      expect(caller).toMatch(
+        new RegExp(
+          `export async function ${requestBoundary}\\([\\s\\S]*?const session = await getAuthSession\\(request\\)[\\s\\S]*?const userId = session\\.user\\.id[\\s\\S]*?${planner}\\(\\{\\s*userId,`,
+        ),
+      )
     }
   })
 
