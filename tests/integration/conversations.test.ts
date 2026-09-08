@@ -25,14 +25,27 @@ import {
 const ownerId = 'phase-04-owner'
 const otherId = 'phase-04-other'
 
-const { deleteObjectMock } = vi.hoisted(() => ({
+const { deleteObjectMock, putObjectMock } = vi.hoisted(() => ({
   deleteObjectMock: vi.fn(
     async (_locator: { bucket: string; key: string }): Promise<void> => {},
+  ),
+  putObjectMock: vi.fn(
+    async (_input: {
+      bucket: string
+      key: string
+      body: Uint8Array
+      contentType: string
+    }): Promise<void> => {},
   ),
 }))
 
 vi.mock('../../src/lib/r2/client', () => ({
   deleteObject: deleteObjectMock,
+  putObject: putObjectMock,
+}))
+
+vi.mock('../../src/lib/rag/process', () => ({
+  processDocument: vi.fn(async () => {}),
 }))
 
 vi.mock('../../src/lib/auth/session', () => ({
@@ -43,6 +56,21 @@ vi.mock('../../src/lib/auth/session', () => ({
 
 const requestFor = (userId: string) =>
   new Request('http://localhost', { headers: { 'x-test-user': userId } })
+
+function createGate() {
+  let open = () => {}
+  const wait = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  return { open, wait }
+}
+
+function settle<T>(promise: Promise<T>) {
+  return promise.then(
+    (value) => ({ status: 'fulfilled' as const, value }),
+    (error: unknown) => ({ error, status: 'rejected' as const }),
+  )
+}
 
 async function cleanup() {
   await db
@@ -145,6 +173,8 @@ describe('conversation persistence', () => {
   beforeEach(() => {
     deleteObjectMock.mockReset()
     deleteObjectMock.mockResolvedValue(undefined)
+    putObjectMock.mockReset()
+    putObjectMock.mockResolvedValue(undefined)
   })
 
   afterAll(cleanup)
@@ -390,6 +420,105 @@ describe('conversation persistence', () => {
     ).toHaveLength(2)
   })
 
+  it('fences an ordinary upload that reaches persistence during single-conversation cleanup', async () => {
+    const { deleteConversationCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const { uploadFileCore } = await import('../../src/server/functions/files')
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: ownerId, title: 'Concurrent upload' })
+      .returning({ id: conversations.id })
+    const originalLocator = {
+      bucket: 'ordinary-race-bucket',
+      key: `ordinary-race/${crypto.randomUUID()}-original.txt`,
+    }
+    const originalAttachment = await seedAttachment({
+      conversationId: conversation.id,
+      userId: ownerId,
+      ...originalLocator,
+    })
+    const putEntered = createGate()
+    const releasePut = createGate()
+    const deleteEntered = createGate()
+    const releaseDelete = createGate()
+    putObjectMock.mockImplementationOnce(async () => {
+      putEntered.open()
+      await releasePut.wait
+    })
+    deleteObjectMock.mockImplementation(async (locator) => {
+      if (locator.key === originalLocator.key) {
+        deleteEntered.open()
+        await releaseDelete.wait
+      }
+    })
+    const file = new File([Buffer.from('%PDF-1.4 race')], 'race.pdf', {
+      type: 'application/pdf',
+    })
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('conversationId', conversation.id)
+    const uploadPromise = settle(
+      uploadFileCore({
+        request: new Request('http://localhost/upload', {
+          method: 'POST',
+          body: formData,
+          headers: { 'x-test-user': ownerId },
+        }),
+      }),
+    )
+    await putEntered.wait
+    const deletionPromise = settle(
+      deleteConversationCore({
+        data: { id: conversation.id },
+        request: requestFor(ownerId),
+      }),
+    )
+    await deleteEntered.wait
+    releasePut.open()
+    const uploadResult = await uploadPromise
+    releaseDelete.open()
+    const deletionResult = await deletionPromise
+
+    expect(uploadResult.status).toBe('rejected')
+    if (uploadResult.status !== 'rejected') {
+      throw new Error('concurrent upload unexpectedly succeeded')
+    }
+    expect(uploadResult.error).toMatchObject({ status: 409 })
+    expect(deletionResult.status).toBe('rejected')
+    if (deletionResult.status !== 'rejected') {
+      throw new Error('concurrent deletion unexpectedly succeeded')
+    }
+    expect(deletionResult.error).toMatchObject({ status: 409 })
+
+    const [writtenObject] = putObjectMock.mock.calls[0] ?? []
+    if (!writtenObject) throw new Error('upload object write was not observed')
+    expect(deleteObjectMock).toHaveBeenCalledWith({
+      bucket: writtenObject.bucket,
+      key: writtenObject.key,
+    })
+    const [retainedConversation] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.id, conversation.id))
+    const retainedAttachments = await db
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(eq(attachments.conversationId, conversation.id))
+    expect(retainedConversation?.id).toBe(conversation.id)
+    expect(retainedAttachments.map(({ id }) => id)).toEqual([
+      originalAttachment.id,
+    ])
+
+    deleteObjectMock.mockResolvedValue(undefined)
+    await expect(
+      deleteConversationCore({
+        data: { id: conversation.id },
+        request: requestFor(ownerId),
+      }),
+    ).resolves.toEqual({ success: true })
+  })
+
   it('rejects cross-user conversation deletion before storage access', async () => {
     const { deleteConversationCore } = await import(
       '../../src/server/core/conversations'
@@ -569,6 +698,140 @@ describe('conversation persistence', () => {
       )
     expect(retainedConversations).toHaveLength(2)
     expect(retainedAttachments).toHaveLength(2)
+
+    deleteObjectMock.mockResolvedValue(undefined)
+    await expect(
+      deleteAllConversationsCore({ request: requestFor(ownerId) }),
+    ).resolves.toEqual({ success: true })
+  })
+
+  it('fences artifact finalization during delete-all and retains failed compensation for retry', async () => {
+    const { finalizeArtifactVersion } = await import(
+      '../../src/server/core/artifact-finalization'
+    )
+    const { deleteAllConversationsCore } = await import(
+      '../../src/server/core/conversations'
+    )
+    const [conversation] = await db
+      .insert(conversations)
+      .values({ userId: ownerId, title: 'Concurrent artifact' })
+      .returning({ id: conversations.id })
+    const originalLocator = {
+      bucket: 'artifact-race-bucket',
+      key: `artifact-race/${crypto.randomUUID()}-original.txt`,
+    }
+    const originalAttachment = await seedAttachment({
+      conversationId: conversation.id,
+      userId: ownerId,
+      ...originalLocator,
+    })
+    const [message] = await db
+      .insert(messages)
+      .values({
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: '',
+      })
+      .returning({ id: messages.id })
+    const [generation] = await db
+      .insert(generationRuns)
+      .values({
+        conversationId: conversation.id,
+        messageId: message.id,
+        modelId: ownerId,
+        routerModelId: `test/${ownerId}`,
+        skillId: 'agent-skill',
+        status: 'streaming',
+      })
+      .returning({ id: generationRuns.id })
+    const putEntered = createGate()
+    const releasePut = createGate()
+    const deleteEntered = createGate()
+    const releaseDelete = createGate()
+    let writtenArtifactKey = ''
+    putObjectMock.mockImplementationOnce(async (input) => {
+      writtenArtifactKey = input.key
+      putEntered.open()
+      await releasePut.wait
+    })
+    let deletionCallCount = 0
+    deleteObjectMock.mockImplementation(async (locator) => {
+      deletionCallCount += 1
+      if (deletionCallCount === 1) {
+        deleteEntered.open()
+        await releaseDelete.wait
+        return
+      }
+      if (deletionCallCount === 2 && locator.key === writtenArtifactKey) {
+        throw new Error('compensation unavailable')
+      }
+    })
+    const finalizationPromise = settle(
+      finalizeArtifactVersion({
+        userId: ownerId,
+        conversationId: conversation.id,
+        messageId: message.id,
+        generationId: generation.id,
+        kind: 'agent-skill',
+        title: 'Concurrent Artifact',
+        modelId: ownerId,
+        routerModelId: `test/${ownerId}`,
+        fileName: 'concurrent-artifact.md',
+        mimeType: 'text/markdown',
+        bytes: new TextEncoder().encode('# Concurrent artifact\n'),
+        summary: 'Artifact fixture',
+        usage: null,
+        timing: { latencyMs: 10, timeToFirstTokenMs: 2 },
+        finalizationMode: 'create',
+      }),
+    )
+    await putEntered.wait
+    const deletionPromise = settle(
+      deleteAllConversationsCore({ request: requestFor(ownerId) }),
+    )
+    await deleteEntered.wait
+    releasePut.open()
+    const finalizationResult = await finalizationPromise
+    releaseDelete.open()
+    const deletionResult = await deletionPromise
+
+    expect(finalizationResult.status).toBe('rejected')
+    if (finalizationResult.status !== 'rejected') {
+      throw new Error('concurrent artifact finalization unexpectedly succeeded')
+    }
+    expect(finalizationResult.error).toMatchObject({ status: 500 })
+    expect(deletionResult.status).toBe('rejected')
+    if (deletionResult.status !== 'rejected') {
+      throw new Error('concurrent delete-all unexpectedly succeeded')
+    }
+    expect(deletionResult.error).toMatchObject({ status: 409 })
+
+    const [writtenObject] = putObjectMock.mock.calls[0] ?? []
+    if (!writtenObject)
+      throw new Error('artifact object write was not observed')
+    const retainedLocators = await db
+      .select({
+        id: attachments.id,
+        bucket: attachments.r2Bucket,
+        key: attachments.r2Key,
+      })
+      .from(attachments)
+      .where(eq(attachments.conversationId, conversation.id))
+    expect(retainedLocators).toEqual(
+      expect.arrayContaining([
+        { id: originalAttachment.id, ...originalLocator },
+        {
+          id: expect.any(String),
+          bucket: writtenObject.bucket,
+          key: writtenObject.key,
+        },
+      ]),
+    )
+    const [retainedConversation] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.id, conversation.id))
+    expect(retainedConversation?.id).toBe(conversation.id)
 
     deleteObjectMock.mockResolvedValue(undefined)
     await expect(

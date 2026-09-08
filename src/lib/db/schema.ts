@@ -104,6 +104,9 @@ export const conversations = pgTable(
     title: text('title'),
     mode: text('mode').notNull().default('normal'),
     modelId: text('model_id'),
+    deletionStartedAt: timestamp('deletion_started_at', {
+      withTimezone: true,
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

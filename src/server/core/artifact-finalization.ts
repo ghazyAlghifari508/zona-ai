@@ -175,10 +175,39 @@ type CommitArgs = {
   expectedCurrentVersionId: string | null
 }
 
+type CommitResult =
+  | { descriptor: ArtifactDescriptor; status: 'committed' }
+  | { status: 'conversation-deleting' }
+
 async function commitFinalizedVersion(
   tx: DatabaseTransaction,
   args: CommitArgs,
-): Promise<ArtifactDescriptor> {
+): Promise<CommitResult> {
+  const [conversation] = await tx
+    .select({
+      deletionStartedAt: conversations.deletionStartedAt,
+      userId: conversations.userId,
+    })
+    .from(conversations)
+    .where(eq(conversations.id, args.conversationId))
+    .for('update')
+  if (!conversation || conversation.userId !== args.userId) {
+    throw new AppError('Forbidden', 403, 'ERR-003')
+  }
+  if (conversation.deletionStartedAt) {
+    await tx
+      .update(attachments)
+      .set({ processingStatus: 'compensating' })
+      .where(
+        and(
+          eq(attachments.id, args.attachmentId),
+          eq(attachments.conversationId, args.conversationId),
+          eq(attachments.userId, args.userId),
+        ),
+      )
+    return { status: 'conversation-deleting' }
+  }
+
   const current = await tx
     .select({ status: generationRuns.status })
     .from(generationRuns)
@@ -244,19 +273,16 @@ async function commitFinalizedVersion(
     })
   }
 
-  await tx.insert(attachments).values({
-    id: args.attachmentId,
-    userId: args.userId,
-    conversationId: args.conversationId,
-    messageId: args.messageId,
-    fileName: args.fileName,
-    fileSize: args.fileSize,
-    mimeType: args.mimeType,
-    r2Key: args.r2Key,
-    r2Bucket: args.r2Bucket,
-    processingStatus: 'completed',
-    extractedText: null,
-  })
+  await tx
+    .update(attachments)
+    .set({ processingStatus: 'completed' })
+    .where(
+      and(
+        eq(attachments.id, args.attachmentId),
+        eq(attachments.conversationId, args.conversationId),
+        eq(attachments.userId, args.userId),
+      ),
+    )
   await tx.insert(artifactVersions).values({
     id: args.versionId,
     artifactId: args.artifactId,
@@ -324,20 +350,102 @@ async function commitFinalizedVersion(
     })
   }
 
-  return artifactDescriptorSchema.parse({
-    artifactId: args.artifactId,
-    versionId: args.versionId,
-    attachmentId: args.attachmentId,
-    generationId: args.generationId,
-    kind: args.kind,
-    title: args.title,
-    fileName: args.fileName,
-    fileSize: args.fileSize,
-    mimeType: args.mimeType,
-    version: versionNumber,
-    modelId: args.modelId,
-    routerModelId: args.routerModelId,
+  return {
+    descriptor: artifactDescriptorSchema.parse({
+      artifactId: args.artifactId,
+      versionId: args.versionId,
+      attachmentId: args.attachmentId,
+      generationId: args.generationId,
+      kind: args.kind,
+      title: args.title,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      mimeType: args.mimeType,
+      version: versionNumber,
+      modelId: args.modelId,
+      routerModelId: args.routerModelId,
+    }),
+    status: 'committed',
+  }
+}
+
+async function compensateFinalization({
+  attachmentId,
+  conversationId,
+  locator,
+  rejection,
+  removeObject,
+  userId,
+}: {
+  attachmentId: string
+  conversationId: string
+  locator: StoredObjectLocator
+  rejection: unknown
+  removeObject: (locator: StoredObjectLocator) => Promise<void>
+  userId: string
+}): Promise<never> {
+  await db.transaction(async (tx) => {
+    const [conversation] = await tx
+      .select({ deletionStartedAt: conversations.deletionStartedAt })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.userId, userId),
+        ),
+      )
+      .for('update')
+    if (conversation?.deletionStartedAt) {
+      await tx
+        .update(conversations)
+        .set({
+          deletionStartedAt: new Date(
+            conversation.deletionStartedAt.getTime() + 1,
+          ),
+        })
+        .where(
+          and(
+            eq(conversations.id, conversationId),
+            eq(conversations.userId, userId),
+          ),
+        )
+    }
+    await tx
+      .update(attachments)
+      .set({ processingStatus: 'compensating' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
   })
+  try {
+    await removeObject(locator)
+  } catch {
+    await db
+      .update(attachments)
+      .set({ processingStatus: 'cleanup_failed' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+    throw new AppError('Artifact cleanup failed.', 500, 'ERR-013')
+  }
+  await db
+    .delete(attachments)
+    .where(
+      and(
+        eq(attachments.id, attachmentId),
+        eq(attachments.conversationId, conversationId),
+        eq(attachments.userId, userId),
+      ),
+    )
+  throw rejection
 }
 
 export async function finalizeArtifactVersion(
@@ -452,16 +560,58 @@ export async function finalizeArtifactVersion(
     bucket: env.R2_BUCKET_NAME,
     key: r2Key,
   }
-  await writeObject({
-    bucket: locator.bucket,
-    key: locator.key,
-    body: input.bytes,
-    contentType: input.mimeType,
+  await db.transaction(async (tx) => {
+    const [currentConversation] = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        userId: conversations.userId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, input.conversationId))
+      .for('update')
+    if (!currentConversation || currentConversation.userId !== input.userId) {
+      throw new AppError('Forbidden', 403, 'ERR-003')
+    }
+    if (currentConversation.deletionStartedAt) {
+      throw new AppError('This conversation is being deleted.', 409, 'ERR-003')
+    }
+    await tx.insert(attachments).values({
+      id: attachmentId,
+      userId: input.userId,
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+      fileName: input.fileName,
+      fileSize,
+      mimeType: input.mimeType,
+      r2Key,
+      r2Bucket: locator.bucket,
+      processingStatus: 'writing',
+      extractedText: null,
+    })
   })
 
-  const markdown = Buffer.from(input.bytes).toString('utf8')
   try {
-    return await db.transaction((tx) =>
+    await writeObject({
+      bucket: locator.bucket,
+      key: locator.key,
+      body: input.bytes,
+      contentType: input.mimeType,
+    })
+  } catch (error) {
+    return compensateFinalization({
+      attachmentId,
+      conversationId: input.conversationId,
+      locator,
+      rejection: error,
+      removeObject,
+      userId: input.userId,
+    })
+  }
+
+  const markdown = Buffer.from(input.bytes).toString('utf8')
+  let result: CommitResult
+  try {
+    result = await db.transaction((tx) =>
       commitFinalizedVersion(tx, {
         mode: input.finalizationMode,
         userId: input.userId,
@@ -497,11 +647,28 @@ export async function finalizeArtifactVersion(
       }),
     )
   } catch (error) {
-    try {
-      await removeObject(locator)
-    } catch (cleanupError) {
-      console.error('Artifact R2 compensation failed', cleanupError)
-    }
-    throw error
+    return compensateFinalization({
+      attachmentId,
+      conversationId: input.conversationId,
+      locator,
+      rejection: error,
+      removeObject,
+      userId: input.userId,
+    })
   }
+  if (result.status === 'conversation-deleting') {
+    return compensateFinalization({
+      attachmentId,
+      conversationId: input.conversationId,
+      locator,
+      rejection: new AppError(
+        'This conversation is being deleted.',
+        409,
+        'ERR-003',
+      ),
+      removeObject,
+      userId: input.userId,
+    })
+  }
+  return result.descriptor
 }

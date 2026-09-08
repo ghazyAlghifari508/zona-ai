@@ -28,6 +28,83 @@ function httpError(status: number, message: string, code?: string): AppError {
   return new AppError(message, status, code ?? 'ERR-000')
 }
 
+async function compensateReservedUpload({
+  attachmentId,
+  conversationId,
+  locator,
+  rejection,
+  userId,
+}: {
+  attachmentId: string
+  conversationId: string
+  locator: { bucket: string; key: string }
+  rejection: AppError
+  userId: string
+}): Promise<never> {
+  await db.transaction(async (tx) => {
+    const [conversation] = await tx
+      .select({ deletionStartedAt: conversations.deletionStartedAt })
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.id, conversationId),
+          eq(conversations.userId, userId),
+        ),
+      )
+      .for('update')
+    if (conversation?.deletionStartedAt) {
+      await tx
+        .update(conversations)
+        .set({
+          deletionStartedAt: new Date(
+            conversation.deletionStartedAt.getTime() + 1,
+          ),
+        })
+        .where(
+          and(
+            eq(conversations.id, conversationId),
+            eq(conversations.userId, userId),
+          ),
+        )
+    }
+    await tx
+      .update(attachments)
+      .set({ processingStatus: 'compensating' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+  })
+  try {
+    await deleteObject(locator)
+  } catch {
+    await db
+      .update(attachments)
+      .set({ processingStatus: 'cleanup_failed' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+    throw httpError(500, 'File upload cleanup failed. Please try again.')
+  }
+  await db
+    .delete(attachments)
+    .where(
+      and(
+        eq(attachments.id, attachmentId),
+        eq(attachments.conversationId, conversationId),
+        eq(attachments.userId, userId),
+      ),
+    )
+  throw rejection
+}
+
 export async function uploadFileCore({ request }: { request: Request }) {
   const session = await getAuthSession(request)
   const userId = session.user.id
@@ -88,21 +165,24 @@ export async function uploadFileCore({ request }: { request: Request }) {
   const sanitized = sanitizeFilename(file.name)
   const attachmentId = crypto.randomUUID()
   const r2Key = `users/${userId}/attachments/${attachmentId}/${sanitized}`
+  const locator = { bucket: env.R2_BUCKET_NAME, key: r2Key }
 
-  try {
-    await putObject({
-      bucket: env.R2_BUCKET_NAME,
-      key: r2Key,
-      body: buffer,
-      contentType: mime,
-    })
-  } catch (_e) {
-    throw httpError(500, 'File upload failed. Please try again.', 'ERR-010')
-  }
-
-  const [row] = await db
-    .insert(attachments)
-    .values({
+  await db.transaction(async (tx) => {
+    const [currentConversation] = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        userId: conversations.userId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .for('update')
+    if (!currentConversation || currentConversation.userId !== userId) {
+      throw httpError(403, 'Forbidden')
+    }
+    if (currentConversation.deletionStartedAt) {
+      throw httpError(409, 'This conversation is being deleted.')
+    }
+    await tx.insert(attachments).values({
       id: attachmentId,
       userId,
       conversationId,
@@ -111,11 +191,81 @@ export async function uploadFileCore({ request }: { request: Request }) {
       fileSize: file.size,
       mimeType: mime,
       r2Key,
-      r2Bucket: env.R2_BUCKET_NAME,
-      processingStatus: 'pending',
+      r2Bucket: locator.bucket,
+      processingStatus: 'writing',
       extractedText: null,
     })
-    .returning()
+  })
+
+  try {
+    await putObject({
+      bucket: locator.bucket,
+      key: r2Key,
+      body: buffer,
+      contentType: mime,
+    })
+  } catch (_e) {
+    return compensateReservedUpload({
+      attachmentId,
+      conversationId,
+      locator,
+      rejection: httpError(
+        500,
+        'File upload failed. Please try again.',
+        'ERR-010',
+      ),
+      userId,
+    })
+  }
+
+  const row = await db.transaction(async (tx) => {
+    const [currentConversation] = await tx
+      .select({
+        deletionStartedAt: conversations.deletionStartedAt,
+        userId: conversations.userId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .for('update')
+    if (
+      !currentConversation ||
+      currentConversation.userId !== userId ||
+      currentConversation.deletionStartedAt
+    ) {
+      await tx
+        .update(attachments)
+        .set({ processingStatus: 'compensating' })
+        .where(
+          and(
+            eq(attachments.id, attachmentId),
+            eq(attachments.conversationId, conversationId),
+            eq(attachments.userId, userId),
+          ),
+        )
+      return undefined
+    }
+    const [completedReservation] = await tx
+      .update(attachments)
+      .set({ processingStatus: 'pending' })
+      .where(
+        and(
+          eq(attachments.id, attachmentId),
+          eq(attachments.conversationId, conversationId),
+          eq(attachments.userId, userId),
+        ),
+      )
+      .returning()
+    return completedReservation
+  })
+  if (!row) {
+    return compensateReservedUpload({
+      attachmentId,
+      conversationId,
+      locator,
+      rejection: httpError(409, 'This conversation is being deleted.'),
+      userId,
+    })
+  }
 
   // Trigger RAG processing async; in test await to make assertions deterministic
   try {
