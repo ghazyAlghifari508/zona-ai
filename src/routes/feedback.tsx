@@ -239,72 +239,70 @@ function FeedbackPage() {
       subtitle="Bantu kami menyempurnakan Zona.ai dengan membagikan saran, ide fitur, atau kendala yang Anda temukan."
       maxWidth="narrow"
     >
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="mx-auto w-full max-w-xl">
         {submitted ? (
-          <div className="rounded-2xl border border-hairline bg-pure-white p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
+          <div className="rounded-xl border border-hairline bg-pure-white p-8 text-center">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-success/10 text-success">
               <HugeiconsIcon
                 icon={CheckmarkCircle02Icon}
-                size={28}
+                size={22}
                 strokeWidth={2}
                 aria-hidden="true"
               />
             </div>
-            <h2 className="mt-4 text-xl font-semibold text-ink">
+            <h2 className="mt-3.5 text-lg font-semibold text-ink">
               Feedback Berhasil Dikirim
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-graphite">
+            <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-graphite">
               Terima kasih atas kontribusi Anda. Setiap masukan ditinjau
               langsung oleh tim pengembang kami untuk meningkatkan kualitas
               Zona.ai.
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <div className="mt-6 flex justify-center gap-3">
               <button
                 type="button"
                 onClick={handleResetForm}
-                className="rounded-xl border border-hairline bg-pure-white px-4 py-2 text-sm font-medium text-ink transition-colors duration-200 hover:border-hairline-strong hover:bg-paper"
+                className="rounded-lg border border-hairline bg-pure-white px-3.5 py-1.5 text-xs font-medium text-ink transition-colors hover:border-hairline-strong hover:bg-paper"
               >
                 Kirim Feedback Lain
               </button>
               <Link
                 to="/"
-                className="rounded-xl bg-notion-blue px-4 py-2 text-sm font-medium text-white transition-opacity duration-200 hover:opacity-90"
+                className="rounded-lg bg-notion-blue px-3.5 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
               >
                 Kembali ke Workspace
               </Link>
             </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-hairline bg-pure-white p-6 sm:p-8">
+          <div className="rounded-xl border border-hairline bg-pure-white p-6 sm:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
             {!activeSession?.user && authState !== 'loading' && (
-              <div className="mb-6 flex items-start gap-3 rounded-xl border border-hairline bg-paper p-4 text-left">
-                <HugeiconsIcon
-                  icon={Alert01Icon}
-                  size={20}
-                  className="mt-0.5 shrink-0 text-notion-blue"
-                  aria-hidden="true"
-                />
-                <div className="flex-1 text-sm text-graphite">
-                  <p className="font-medium text-ink">Perlu Masuk Akun</p>
-                  <p className="mt-0.5">
-                    Anda perlu masuk dengan akun Zona.ai agar kami dapat
-                    menghubungi Anda terkait perkembangan feedback ini.
-                  </p>
-                  <Link
-                    to="/auth/sign-in"
-                    className="mt-2 inline-block font-medium text-notion-blue hover:underline"
-                  >
-                    Masuk Sekarang &rarr;
-                  </Link>
+              <div className="mb-5 flex items-center justify-between rounded-lg border border-hairline bg-paper px-3.5 py-2.5 text-xs text-graphite">
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon
+                    icon={Alert01Icon}
+                    size={15}
+                    className="shrink-0 text-stone"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    Masuk dengan akun Zona.ai untuk mengirimkan feedback.
+                  </span>
                 </div>
+                <Link
+                  to="/auth/sign-in"
+                  className="ml-2 shrink-0 font-medium text-notion-blue hover:underline"
+                >
+                  Masuk &rarr;
+                </Link>
               </div>
             )}
 
             {errorMessage && (
-              <div className="mb-6 flex items-center gap-2.5 rounded-xl border border-coral/30 bg-danger-soft px-4 py-3 text-sm text-coral">
+              <div className="mb-5 flex items-center gap-2 rounded-lg border border-coral/30 bg-danger-soft px-3.5 py-2.5 text-xs text-coral">
                 <HugeiconsIcon
                   icon={Alert01Icon}
-                  size={18}
+                  size={15}
                   strokeWidth={2}
                   className="shrink-0"
                   aria-hidden="true"
@@ -313,12 +311,12 @@ function FeedbackPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <span className="block text-xs font-semibold uppercase tracking-wider text-stone">
-                  Kategori Feedback
+                <span className="mb-2 block text-xs font-semibold text-graphite">
+                  Jenis Feedback
                 </span>
-                <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                <div className="inline-flex flex-wrap rounded-lg border border-hairline bg-paper p-1 text-xs">
                   {FEEDBACK_TYPES.map((t) => {
                     const isSelected = type === t.id
                     return (
@@ -326,43 +324,35 @@ function FeedbackPage() {
                         key={t.id}
                         type="button"
                         onClick={() => setType(t.id)}
-                        className={`flex flex-col rounded-xl border p-3.5 text-left transition-all duration-150 ${
+                        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-all ${
                           isSelected
-                            ? 'border-notion-blue bg-sky-tint/25 text-notion-blue'
-                            : 'border-hairline bg-paper/60 text-graphite hover:border-hairline-strong hover:bg-paper'
+                            ? 'bg-pure-white font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
+                            : 'text-stone hover:text-ink'
                         }`}
                       >
-                        <span className="flex items-center gap-2">
-                          <HugeiconsIcon
-                            icon={t.icon}
-                            size={16}
-                            strokeWidth={2}
-                            className={
-                              isSelected ? 'text-notion-blue' : 'text-stone'
-                            }
-                            aria-hidden="true"
-                          />
-                          <span
-                            className={`text-sm font-semibold ${
-                              isSelected ? 'text-ink' : 'text-ink'
-                            }`}
-                          >
-                            {t.title}
-                          </span>
-                        </span>
-                        <span className="mt-1 text-xs leading-relaxed text-stone">
-                          {t.desc}
-                        </span>
+                        <HugeiconsIcon
+                          icon={t.icon}
+                          size={14}
+                          strokeWidth={2}
+                          className={
+                            isSelected ? 'text-notion-blue' : 'text-stone'
+                          }
+                          aria-hidden="true"
+                        />
+                        <span>{t.title}</span>
                       </button>
                     )
                   })}
                 </div>
+                <p className="mt-1.5 text-xs text-stone">
+                  {FEEDBACK_TYPES.find((t) => t.id === type)?.desc}
+                </p>
               </div>
 
               <div>
                 <label
                   htmlFor="feedback-title"
-                  className="block text-xs font-semibold uppercase tracking-wider text-stone"
+                  className="mb-1.5 block text-xs font-semibold text-graphite"
                 >
                   Judul <span className="text-coral">*</span>
                 </label>
@@ -380,14 +370,14 @@ function FeedbackPage() {
                   }
                   required
                   maxLength={200}
-                  className="mt-2 w-full rounded-xl border border-hairline bg-paper px-3.5 py-2.5 text-sm text-ink placeholder:text-stone/60 focus:border-notion-blue focus:outline-none"
+                  className="w-full rounded-lg border border-hairline bg-paper px-3.5 py-2 text-sm text-ink placeholder:text-stone/60 transition-colors focus:border-notion-blue focus:bg-pure-white focus:outline-none"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="feedback-description"
-                  className="block text-xs font-semibold uppercase tracking-wider text-stone"
+                  className="mb-1.5 block text-xs font-semibold text-graphite"
                 >
                   Deskripsi <span className="text-coral">*</span>
                 </label>
@@ -399,33 +389,32 @@ function FeedbackPage() {
                   placeholder="Jelaskan secara detail apa yang Anda alami atau ide yang Anda usulkan..."
                   required
                   maxLength={5000}
-                  className="mt-2 w-full rounded-xl border border-hairline bg-paper px-3.5 py-2.5 text-sm text-ink placeholder:text-stone/60 focus:border-notion-blue focus:outline-none"
+                  className="w-full rounded-lg border border-hairline bg-paper px-3.5 py-2 text-sm text-ink placeholder:text-stone/60 transition-colors focus:border-notion-blue focus:bg-pure-white focus:outline-none"
                 />
               </div>
 
               {type === 'bug' && (
-                <div className="space-y-4 rounded-xl border border-hairline bg-paper/40 p-4">
-                  <div className="border-b border-hairline pb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-stone">
-                      Detail Kendala Teknis (Opsional)
-                    </span>
-                  </div>
+                <div className="space-y-3.5 border-l-2 border-hairline pl-3.5">
+                  <span className="block text-xs font-semibold text-graphite">
+                    Detail Kendala Teknis{' '}
+                    <span className="font-normal text-stone">(Opsional)</span>
+                  </span>
 
                   <div>
                     <label
                       htmlFor="steps-to-reproduce"
-                      className="block text-xs font-medium text-graphite"
+                      className="mb-1 block text-xs font-medium text-stone"
                     >
-                      Langkah-langkah Mereproduksi Bug
+                      Langkah-langkah mereproduksi
                     </label>
                     <textarea
                       id="steps-to-reproduce"
                       rows={2}
                       value={stepsToReproduce}
                       onChange={(e) => setStepsToReproduce(e.target.value)}
-                      placeholder="1. Masuk ke halaman...\n2. Klik opsi...\n3. Muncul pesan error..."
+                      placeholder="1. Buka halaman...\n2. Klik opsi...\n3. Muncul error..."
                       maxLength={3000}
-                      className="mt-1.5 w-full rounded-xl border border-hairline bg-pure-white px-3 py-2 text-xs text-ink placeholder:text-stone/60 focus:border-notion-blue focus:outline-none"
+                      className="w-full rounded-lg border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-stone/60 transition-colors focus:border-notion-blue focus:bg-pure-white focus:outline-none"
                     />
                   </div>
 
@@ -433,35 +422,35 @@ function FeedbackPage() {
                     <div>
                       <label
                         htmlFor="expected-behavior"
-                        className="block text-xs font-medium text-graphite"
+                        className="mb-1 block text-xs font-medium text-stone"
                       >
-                        Perilaku yang Diharapkan
+                        Perilaku yang diharapkan
                       </label>
                       <input
                         id="expected-behavior"
                         type="text"
                         value={expectedBehavior}
                         onChange={(e) => setExpectedBehavior(e.target.value)}
-                        placeholder="Contoh: File langsung terunduh"
+                        placeholder="Contoh: File terunduh"
                         maxLength={2000}
-                        className="mt-1.5 w-full rounded-xl border border-hairline bg-pure-white px-3 py-2 text-xs text-ink placeholder:text-stone/60 focus:border-notion-blue focus:outline-none"
+                        className="w-full rounded-lg border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-stone/60 transition-colors focus:border-notion-blue focus:bg-pure-white focus:outline-none"
                       />
                     </div>
                     <div>
                       <label
                         htmlFor="actual-behavior"
-                        className="block text-xs font-medium text-graphite"
+                        className="mb-1 block text-xs font-medium text-stone"
                       >
-                        Perilaku yang Terjadi
+                        Perilaku yang terjadi
                       </label>
                       <input
                         id="actual-behavior"
                         type="text"
                         value={actualBehavior}
                         onChange={(e) => setActualBehavior(e.target.value)}
-                        placeholder="Contoh: Tidak ada respon dan tombol macet"
+                        placeholder="Contoh: Tombol macet"
                         maxLength={2000}
-                        className="mt-1.5 w-full rounded-xl border border-hairline bg-pure-white px-3 py-2 text-xs text-ink placeholder:text-stone/60 focus:border-notion-blue focus:outline-none"
+                        className="w-full rounded-lg border border-hairline bg-paper px-3 py-1.5 text-xs text-ink placeholder:text-stone/60 transition-colors focus:border-notion-blue focus:bg-pure-white focus:outline-none"
                       />
                     </div>
                   </div>
@@ -469,74 +458,74 @@ function FeedbackPage() {
               )}
 
               <div>
-                <span className="block text-xs font-semibold uppercase tracking-wider text-stone">
-                  Lampiran (Tangkapan Layar / PDF, Maksimal 10MB)
+                <span className="mb-1.5 block text-xs font-semibold text-graphite">
+                  Lampiran{' '}
+                  <span className="font-normal text-stone">
+                    (Opsional, maks. 10MB)
+                  </span>
                 </span>
-                <div className="mt-2">
-                  {attachment ? (
-                    <div className="flex items-center justify-between rounded-xl border border-hairline bg-paper px-3.5 py-2.5">
-                      <div className="flex items-center gap-2.5 truncate">
-                        <HugeiconsIcon
-                          icon={Attachment01Icon}
-                          size={16}
-                          className="shrink-0 text-notion-blue"
-                          aria-hidden="true"
-                        />
-                        <span className="truncate text-xs font-medium text-ink">
-                          {attachment.name}
-                        </span>
-                        <span className="shrink-0 text-[11px] text-stone">
-                          ({(attachment.size / 1024).toFixed(0)} KB)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleRemoveFile}
-                        className="ml-2 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-stone hover:bg-danger-soft hover:text-coral"
-                        title="Hapus file"
-                      >
-                        <HugeiconsIcon
-                          icon={Delete02Icon}
-                          size={14}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-hairline-strong bg-paper/50 px-4 py-4 text-xs font-medium text-graphite transition-colors hover:border-notion-blue hover:bg-sky-tint/10">
+                {attachment ? (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-paper px-3 py-1.5 text-xs">
+                    <HugeiconsIcon
+                      icon={Attachment01Icon}
+                      size={14}
+                      className="shrink-0 text-notion-blue"
+                      aria-hidden="true"
+                    />
+                    <span className="max-w-[220px] truncate font-medium text-ink">
+                      {attachment.name}
+                    </span>
+                    <span className="shrink-0 text-[11px] text-stone">
+                      ({(attachment.size / 1024).toFixed(0)} KB)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="ml-1 inline-flex items-center text-stone transition-colors hover:text-coral"
+                      title="Hapus file"
+                      aria-label="Hapus file lampiran"
+                    >
                       <HugeiconsIcon
-                        icon={Attachment01Icon}
-                        size={16}
-                        className="text-stone"
+                        icon={Delete02Icon}
+                        size={13}
                         aria-hidden="true"
                       />
-                      <span>Pilih screenshot atau dokumen PDF</span>
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,application/pdf"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
+                    </button>
+                  </div>
+                ) : (
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-hairline bg-paper px-3 py-1.5 text-xs font-medium text-graphite transition-colors hover:border-hairline-strong hover:bg-paper-dark hover:text-ink">
+                    <HugeiconsIcon
+                      icon={Attachment01Icon}
+                      size={14}
+                      className="text-stone"
+                      aria-hidden="true"
+                    />
+                    <span>Tambah lampiran (gambar atau PDF)</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,application/pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
 
-              <div className="pt-2">
+              <div className="flex items-center justify-end border-t border-hairline pt-4">
                 <button
                   type="submit"
                   disabled={submitting || !activeSession?.user}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-notion-blue px-5 py-3 text-sm font-semibold text-white transition-opacity duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-notion-blue px-4 py-2 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
                       <HugeiconsIcon
                         icon={Loading03Icon}
-                        size={16}
+                        size={14}
                         className="animate-spin"
                         aria-hidden="true"
                       />
-                      <span>Mengirimkan feedback...</span>
+                      <span>Mengirimkan...</span>
                     </>
                   ) : (
                     <span>Kirim Feedback</span>
