@@ -158,7 +158,9 @@ export function ModelSelector({
         (value.includes('/') && value.split('/')[1] === m.id)
 
     const insufficient = isInsufficient(m.id)
+    const isDisabled = m.isActive === false
     const blocked =
+      isDisabled ||
       insufficient ||
       (compareEnabled && isCompareModelBlocked(compareModelIds, m.id))
 
@@ -180,9 +182,11 @@ export function ModelSelector({
         }}
         disabled={blocked}
         title={
-          insufficient
-            ? `Butuh ${typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max} (Sisa ${credits})`
-            : undefined
+          isDisabled
+            ? (m.disabledReason ?? 'Sedang tidak tersedia')
+            : insufficient
+              ? `Butuh ${typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max} (Sisa ${credits})`
+              : undefined
         }
         className={cn(
           'relative flex w-full gap-3 rounded-md px-2.5 py-2 text-left transition-colors duration-200',
@@ -222,6 +226,14 @@ export function ModelSelector({
             {m.creditTier === 'premium' && (
               <span className="shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10.5px] font-semibold text-on-tint">
                 Premium
+              </span>
+            )}
+            {isDisabled && (
+              <span
+                data-testid={`model-disabled-badge-${m.id}`}
+                className="shrink-0 rounded-full bg-stone/10 px-1.5 py-0.5 text-[10.5px] font-medium text-stone"
+              >
+                Sedang tidak tersedia
               </span>
             )}
           </span>
@@ -357,11 +369,20 @@ export function ModelSelector({
                 (catalog.length === 0 ? 'Memuat...' : 'Auto')}
             </span>
           )}
-          {selected && !compareEnabled && (
-            <span className="hidden sm:inline-block shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-on-tint">
-              {costLabel(selected)}
-            </span>
-          )}
+          {selected &&
+            !compareEnabled &&
+            (selected.isActive === false ? (
+              <span
+                data-testid="model-selector-selected-disabled-badge"
+                className="hidden sm:inline-block shrink-0 rounded-full bg-stone/10 px-1.5 py-0.5 text-[10px] font-medium text-stone"
+              >
+                Sedang tidak tersedia
+              </span>
+            ) : (
+              <span className="hidden sm:inline-block shrink-0 rounded-full bg-sky-tint px-1.5 py-0.5 text-[10px] font-semibold text-on-tint">
+                {costLabel(selected)}
+              </span>
+            ))}
           <HugeiconsIcon
             icon={ArrowDown01Icon}
             size={13}

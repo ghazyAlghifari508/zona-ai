@@ -4,13 +4,72 @@ import type { ModelCatalogEntry } from '@/lib/models/types'
 let cachedCatalog: ModelCatalogEntry[] = []
 let catalogRequest: Promise<ModelCatalogEntry[]> | null = null
 
-function loadModelCatalog() {
+export interface ModelSettingOverride {
+  modelId: string
+  isActive: boolean
+  disabledReason?: string | null
+}
+
+export function mergeModelSettings(
+  entries: ModelCatalogEntry[],
+  settings?: ModelSettingOverride[] | null,
+): ModelCatalogEntry[] {
+  if (!settings || settings.length === 0) {
+    return entries.map((entry) => ({
+      ...entry,
+      isActive: entry.isActive !== false,
+      disabledReason: entry.disabledReason ?? null,
+    }))
+  }
+
+  const settingsMap = new Map(settings.map((s) => [s.modelId, s]))
+
+  return entries.map((entry) => {
+    let override = settingsMap.get(entry.id)
+    if (!override) {
+      for (const [key, value] of settingsMap.entries()) {
+        if (
+          key === entry.id ||
+          entry.id.endsWith(`/${key}`) ||
+          key.endsWith(`/${entry.id}`)
+        ) {
+          override = value
+          break
+        }
+      }
+    }
+
+    const isActive = override ? override.isActive : entry.isActive
+    const disabledReason = override
+      ? (override.disabledReason ?? null)
+      : (entry.disabledReason ?? null)
+
+    return {
+      ...entry,
+      isActive: isActive !== false,
+      disabledReason,
+    }
+  })
+}
+
+export function clearModelCatalogCache(): void {
+  cachedCatalog = []
+  catalogRequest = null
+}
+
+export function loadModelCatalog(
+  settingsFetcher?: () => Promise<ModelSettingOverride[] | null>,
+): Promise<ModelCatalogEntry[]> {
   if (!catalogRequest) {
     catalogRequest = import('@/server/functions/models')
-      .then(({ getModelCatalog }) => getModelCatalog())
-      .then((entries) => {
-        cachedCatalog = entries
-        return entries
+      .then(async ({ getModelCatalog }) => {
+        const entries = await getModelCatalog()
+        const settings = settingsFetcher
+          ? await settingsFetcher().catch(() => null)
+          : null
+        const merged = mergeModelSettings(entries, settings)
+        cachedCatalog = merged
+        return merged
       })
       .catch((error: unknown) => {
         catalogRequest = null
@@ -20,11 +79,13 @@ function loadModelCatalog() {
   return catalogRequest
 }
 
-export function useModelCatalog(): ModelCatalogEntry[] {
+export function useModelCatalog(
+  settingsFetcher?: () => Promise<ModelSettingOverride[] | null>,
+): ModelCatalogEntry[] {
   const [catalog, setCatalog] = useState<ModelCatalogEntry[]>(cachedCatalog)
   useEffect(() => {
     let active = true
-    loadModelCatalog()
+    loadModelCatalog(settingsFetcher)
       .then((entries) => {
         if (active) setCatalog(entries)
       })
@@ -32,7 +93,7 @@ export function useModelCatalog(): ModelCatalogEntry[] {
     return () => {
       active = false
     }
-  }, [])
+  }, [settingsFetcher])
   return catalog
 }
 
