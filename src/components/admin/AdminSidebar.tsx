@@ -83,7 +83,7 @@ export function AdminSidebar({
   return (
     <aside
       data-testid="admin-sidebar"
-      className={`flex h-full flex-col border-r border-hairline bg-paper select-none transition-all duration-300 ease-in-out ${
+      className={`flex h-full flex-col border-r border-hairline bg-sidebar select-none transition-all duration-300 ease-in-out ${
         collapsed ? 'w-[68px]' : 'w-64'
       } ${className}`}
     >
@@ -171,6 +171,7 @@ export function AdminSidebar({
           <Link
             key={item.to}
             to={item.to}
+            preload="intent"
             data-testid={item.testId}
             onClick={handleNavClick}
             title={collapsed ? item.name : undefined}
