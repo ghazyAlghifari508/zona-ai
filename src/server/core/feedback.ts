@@ -265,10 +265,11 @@ export async function uploadFeedbackAttachmentCore(params: {
     throw new AppError('Format request tidak valid.', 400, 'ERR-011')
   }
 
-  const file = formData.get('file') as File | null
-  if (!file || typeof file.size !== 'number') {
+  const rawFile = formData.get('file')
+  if (!(rawFile instanceof File) || typeof rawFile.size !== 'number') {
     throw new AppError('Berkas lampiran tidak ditemukan.', 400, 'ERR-011')
   }
+  const file = rawFile
 
   const mimeType = (file.type || '').trim().toLowerCase()
   if (!isAllowedFeedbackMime(mimeType)) {
@@ -289,7 +290,9 @@ export async function uploadFeedbackAttachmentCore(params: {
     throw new AppError('Format file tidak valid atau rusak.', 400, 'ERR-011')
   }
 
-  const rawFeedbackId = (formData.get('feedbackId') as string | null)?.trim()
+  const rawFeedbackEntry = formData.get('feedbackId')
+  const rawFeedbackId =
+    typeof rawFeedbackEntry === 'string' ? rawFeedbackEntry.trim() : null
   const feedbackId =
     rawFeedbackId && rawFeedbackId.length > 0
       ? rawFeedbackId
