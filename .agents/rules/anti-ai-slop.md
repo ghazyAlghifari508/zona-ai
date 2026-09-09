@@ -1,4 +1,4 @@
-﻿# Anti-AI-Slop Design Rules
+# Anti-AI-Slop Design Rules
 
 > **MANDATORY DIRECTIVE FOR ALL AI AGENTS AND DEVELOPERS**  
 > Sumber kebenaran visual aplikasi ini adalah **DESIGN.md** (Notion Style: *warm paper notebook under afternoon sun*).  
@@ -53,12 +53,17 @@
 
 ---
 
-## 5. Dilarang Keras: Dark Mode Generik / Glassmorphism
+## 5. Dilarang Keras: Dark Mode Generik, Glassmorphism, & Blind Theming (Contrast Slop)
 * **Larangan:**
   - Jangan buat tema gelap (*dark mode*) bertabur kaca buram (*glassmorphism*, `backdrop-blur-md bg-black/60`).
   - Jangan ada pattern garis-garis kotak (*grid dots / grid lines cyberpunk*).
-* **Aturan Sesuai DESIGN.md:**
-  - Tema aplikasi adalah **Light Editorial** di kanvas paper hangat `#f6f5f4`: terasa seperti buku catatan kertas hangat di bawah sinar matahari sore yang lapang dan bersahabat. Larangan dark glass / glassmorphism tetap.
+  - **Dilarang keras Blind Inversion / Asal Tempel `dark:`:** Dilarang menambahkan modifier `dark:...` secara serampangan atau menebak-nebak utility Tailwind per komponen tanpa sistem token yang utuh.
+  - **Dilarang keras Camouflaged Text (Teks Menyatu dengan Background):** Sangat dilarang mengubah warna background elemen/tombol (misal `dark:bg-*`) tanpa secara eksplisit dan berpasangan mengubah warna teks di dalamnya (`dark:text-*`), atau sebaliknya. Teks tombol, badge, atau label tidak boleh pernah menyatu, pudar, atau tidak terbaca di atas background-nya (misal: tombol dengan teks yang warnanya hampir sama atau identik dengan background tombol).
+  - **Dilarang Merusak Baseline Light Mode:** Saat diminta mengadaptasi tema atau dark mode, dilarang merusak kontras, hierarki warna, atau class styling light mode yang sudah rapi dan terbukti bagus.
+* **Aturan & Disiplin Pasangan Token (Atomic Token Pairing):**
+  - Tema default aplikasi adalah **Light Editorial** di kanvas paper hangat `#f6f5f4`: terasa seperti buku catatan kertas hangat di bawah sinar matahari sore yang lapang dan bersahabat.
+  - **Atomic Foreground-Background Pairing:** Setiap deklarasi background warna (`bg-*` / `dark:bg-*`) WAJIB selalu berpasangan dengan warna teks (`text-*` / `dark:text-*`) dan border (`border-*` / `dark:border-*`) yang memiliki rasio kontras tinggi dan jelas (memenuhi standar WCAG AA minimal 4.5:1 untuk teks normal).
+  - Jika mengimplementasikan dark mode atau variasi tema apa pun, gunakan semantic token berpasangan (seperti `--background` + `--foreground`, `--primary` + `--primary-foreground`), BUKAN hardcoded modifier sepihak yang menyebabkan teks hilang atau kontras anjlok.
 
 ---
 
@@ -98,3 +103,4 @@
 6. [ ] Apakah layout halaman konsisten dengan shell global dan tidak berubah-ubah strukturnya?
 7. [ ] Apakah sudah sesuai dengan pedoman komponen di `DESIGN.md`?
 8. [ ] Apakah shadow hanya muncul di composer / dropdown-popover / sidebar mobile overlay?
+9. [ ] Apakah setiap elemen interaktif (tombol, input, badge) memiliki kontras teks dan background yang berpasangan jelas (tidak menyatu/kamuflase, baik di light mode maupun saat dark mode aktif)?
