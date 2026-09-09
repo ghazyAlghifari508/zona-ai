@@ -139,15 +139,9 @@ export function AdminActivityChart({ data }: AdminActivityChartProps) {
       {/* Header & Filter Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-[15px] font-semibold tracking-tight text-ink">
-              Analisis Aktivitas Penggunaan
-            </h2>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-paper px-2 py-0.5 text-[10px] font-medium text-stone">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Real-time
-            </span>
-          </div>
+          <h2 className="text-[15px] font-semibold tracking-tight text-ink">
+            Analisis Aktivitas Penggunaan
+          </h2>
           <p className="mt-0.5 text-[12px] text-stone">
             Tren konsumsi kuota kredit dan transaksi interaksi model AI dalam
             ekosistem ZonaAI.

@@ -98,15 +98,13 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[20px] font-semibold tracking-tight text-ink">
-            Ringkasan Administrasi
-          </h1>
-          <p className="mt-0.5 text-xs text-stone">
-            Aktivitas pengguna, metrik ekosistem, dan log audit real-time.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-[22px] font-bold tracking-tight text-ink">
+          Ringkasan Administrasi
+        </h1>
+        <p className="mt-1 text-[13px] text-stone">
+          Aktivitas pengguna, metrik ekosistem, dan log audit real-time.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
