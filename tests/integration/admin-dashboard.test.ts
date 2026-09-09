@@ -424,13 +424,25 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
               // totalCreditTransactions
               return Promise.resolve([{ value: 340 }])
             }
-            // recentAuditLogs
-            return {
-              leftJoin: vi.fn().mockReturnValue({
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue(mockRecentLogs),
+            if (currentCall === 8) {
+              // recentAuditLogs
+              return {
+                leftJoin: vi.fn().mockReturnValue({
+                  orderBy: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue(mockRecentLogs),
+                  }),
                 }),
-              }),
+              }
+            }
+            // chartTransactions
+            return {
+              where: vi.fn().mockResolvedValue([
+                {
+                  createdAt: new Date('2026-09-08T12:00:00Z'),
+                  amount: 15,
+                  type: 'deduct',
+                },
+              ]),
             }
           }),
         } as unknown as ReturnType<typeof db.select>
@@ -447,6 +459,8 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
       expect(metrics.totalCreditsInCirculation).toBe(12500)
       expect(metrics.totalCreditTransactions).toBe(340)
       expect(metrics.recentAuditLogs).toEqual(mockRecentLogs)
+      expect(metrics.chartData).toBeDefined()
+      expect(metrics.chartData.length).toBe(30)
     })
 
     it('should handle zero and null aggregates safely', async () => {
@@ -473,12 +487,17 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
             if (currentCall === 7) {
               return Promise.resolve([])
             }
-            return {
-              leftJoin: vi.fn().mockReturnValue({
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockResolvedValue([]),
+            if (currentCall === 8) {
+              return {
+                leftJoin: vi.fn().mockReturnValue({
+                  orderBy: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue([]),
+                  }),
                 }),
-              }),
+              }
+            }
+            return {
+              where: vi.fn().mockResolvedValue([]),
             }
           }),
         } as unknown as ReturnType<typeof db.select>
@@ -495,6 +514,40 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
       expect(metrics.totalCreditsInCirculation).toBe(0)
       expect(metrics.totalCreditTransactions).toBe(0)
       expect(metrics.recentAuditLogs).toEqual([])
+      expect(metrics.chartData).toBeDefined()
+      expect(metrics.chartData.length).toBe(30)
+    })
+
+    it('should build 30 daily metric points correctly via buildDailyMetricPoints', async () => {
+      const { buildDailyMetricPoints } = await import(
+        '../../src/server/core/admin-dashboard'
+      )
+      const baseDate = new Date('2026-09-09T12:00:00Z')
+      const mockTx = [
+        {
+          createdAt: new Date('2026-09-09T08:00:00Z'),
+          amount: 10,
+          type: 'deduct',
+        },
+        {
+          createdAt: new Date('2026-09-09T10:00:00Z'),
+          amount: 25,
+          type: 'deduct',
+        },
+        {
+          createdAt: new Date('2026-09-08T09:00:00Z'),
+          amount: 5,
+          type: 'deduct',
+        },
+      ]
+      const points = buildDailyMetricPoints(mockTx, baseDate)
+      expect(points.length).toBe(30)
+      const todayPoint = points[points.length - 1]
+      expect(todayPoint.creditsUsed).toBe(35)
+      expect(todayPoint.transactionsCount).toBe(2)
+      const yesterdayPoint = points[points.length - 2]
+      expect(yesterdayPoint.creditsUsed).toBe(5)
+      expect(yesterdayPoint.transactionsCount).toBe(1)
     })
   })
 })

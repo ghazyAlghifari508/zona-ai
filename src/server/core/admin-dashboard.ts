@@ -1,4 +1,4 @@
-import { count, desc, eq, isNull, or, sum } from 'drizzle-orm'
+import { count, desc, eq, gte, isNull, or, sum } from 'drizzle-orm'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
 import {
@@ -22,6 +22,64 @@ export interface GetAdminDashboardMetricsParams {
 
 export type RecentAuditLogItem = AuditLogItem
 
+export interface DailyMetricPoint {
+  date: string
+  label: string
+  creditsUsed: number
+  transactionsCount: number
+}
+
+export function buildDailyMetricPoints(
+  transactions: Array<{
+    createdAt: Date | string | null
+    amount: number
+    type: string
+  }>,
+  now: Date = new Date(),
+): DailyMetricPoint[] {
+  const points: DailyMetricPoint[] = []
+  const txByDay = new Map<
+    string,
+    { creditsUsed: number; transactionsCount: number }
+  >()
+
+  if (Array.isArray(transactions)) {
+    for (const tx of transactions) {
+      if (!tx.createdAt) continue
+      const d =
+        typeof tx.createdAt === 'string' ? new Date(tx.createdAt) : tx.createdAt
+      const key = d.toISOString().slice(0, 10)
+      const existing = txByDay.get(key) ?? {
+        creditsUsed: 0,
+        transactionsCount: 0,
+      }
+      if (tx.type === 'deduct') {
+        existing.creditsUsed += Math.abs(tx.amount)
+      }
+      existing.transactionsCount += 1
+      txByDay.set(key, existing)
+    }
+  }
+
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+    const key = d.toISOString().slice(0, 10)
+    const label = new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'short',
+    }).format(d)
+    const stat = txByDay.get(key) ?? { creditsUsed: 0, transactionsCount: 0 }
+    points.push({
+      date: key,
+      label,
+      creditsUsed: stat.creditsUsed,
+      transactionsCount: stat.transactionsCount,
+    })
+  }
+
+  return points
+}
+
 export interface AdminDashboardMetrics {
   totalUsers: number
   activeUsers: number
@@ -31,12 +89,15 @@ export interface AdminDashboardMetrics {
   totalCreditsInCirculation: number
   totalCreditTransactions: number
   recentAuditLogs: RecentAuditLogItem[]
+  chartData: DailyMetricPoint[]
 }
 
 export async function getAdminDashboardMetricsCore(
   params: GetAdminDashboardMetricsParams,
 ): Promise<AdminDashboardMetrics> {
   await requireAdminSession(params.request)
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
   const [
     totalUsersRes,
@@ -47,6 +108,7 @@ export async function getAdminDashboardMetricsCore(
     creditsRes,
     txRes,
     recentAuditLogRows,
+    chartTxRows,
   ] = await Promise.all([
     db.select({ value: count() }).from(users),
     db
@@ -81,9 +143,17 @@ export async function getAdminDashboardMetricsCore(
       .leftJoin(users, eq(auditLogs.adminId, users.id))
       .orderBy(desc(auditLogs.createdAt))
       .limit(10),
+    db
+      .select({
+        createdAt: creditTransactions.createdAt,
+        amount: creditTransactions.amount,
+        type: creditTransactions.type,
+      })
+      .from(creditTransactions)
+      .where(gte(creditTransactions.createdAt, thirtyDaysAgo)),
   ])
 
-  const recentAuditLogs: RecentAuditLogItem[] = recentAuditLogRows.map(
+  const recentAuditLogs: RecentAuditLogItem[] = (recentAuditLogRows ?? []).map(
     (row) => ({
       id: row.id,
       adminId: row.adminId,
@@ -98,6 +168,8 @@ export async function getAdminDashboardMetricsCore(
     }),
   )
 
+  const chartData = buildDailyMetricPoints(chartTxRows ?? [])
+
   return {
     totalUsers: Number(totalUsersRes[0]?.value ?? 0),
     activeUsers: Number(activeUsersRes[0]?.value ?? 0),
@@ -107,5 +179,6 @@ export async function getAdminDashboardMetricsCore(
     totalCreditsInCirculation: Number(creditsRes[0]?.total ?? 0),
     totalCreditTransactions: Number(txRes[0]?.value ?? 0),
     recentAuditLogs,
+    chartData,
   }
 }
