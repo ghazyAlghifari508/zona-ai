@@ -1,5 +1,4 @@
 import {
-  Clock01Icon,
   Coins01Icon,
   CpuIcon,
   EyeIcon,
@@ -11,6 +10,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { AdminActivityChart } from '../../components/admin/AdminActivityChart'
 import type { AdminDashboardMetrics } from '../../server/core/admin-dashboard'
 import { getAdminDashboardMetricsFn } from '../../server/functions/admin-dashboard'
 
@@ -105,39 +105,6 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
     },
   ]
 
-  const quickActions = [
-    {
-      title: 'Kelola Pengguna',
-      desc: 'Cari, tinjau, atau blokir akun',
-      to: '/admin/users',
-      icon: UserGroupIcon,
-    },
-    {
-      title: 'Konfigurasi Model',
-      desc: 'Atur ketersediaan model AI',
-      to: '/admin/models',
-      icon: CpuIcon,
-    },
-    {
-      title: 'Kotak Masuk Feedback',
-      desc: 'Tanggapi saran dan laporan bug',
-      to: '/admin/feedback',
-      icon: Message01Icon,
-    },
-    {
-      title: 'Atur Saldo Kredit',
-      desc: 'Penyesuaian manual kredit pengguna',
-      to: '/admin/credits',
-      icon: Coins01Icon,
-    },
-    {
-      title: 'Buka Log Audit',
-      desc: 'Rekam jejak tindakan administrator',
-      to: '/admin/audit-log',
-      icon: Clock01Icon,
-    },
-  ]
-
   return (
     <div className="space-y-8">
       <div>
@@ -182,33 +149,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
         ))}
       </div>
 
-      <div className="space-y-3">
-        <h2 className="text-[15px] font-semibold text-ink">Aksi Cepat</h2>
-        <div
-          data-testid="admin-quick-shortcuts"
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
-        >
-          {quickActions.map((action) => (
-            <Link
-              key={action.to}
-              to={action.to}
-              className="group flex flex-col rounded-lg border border-hairline bg-pure-white p-4 transition-all hover:border-hairline-strong hover:bg-stone/5"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-paper text-ink transition-colors group-hover:bg-pure-white">
-                <HugeiconsIcon
-                  icon={action.icon}
-                  size={18}
-                  strokeWidth={1.75}
-                />
-              </div>
-              <span className="mt-3 text-[13px] font-medium text-ink">
-                {action.title}
-              </span>
-              <span className="mt-1 text-[11px] text-stone">{action.desc}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+      <AdminActivityChart data={data.chartData ?? []} />
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

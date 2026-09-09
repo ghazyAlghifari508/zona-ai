@@ -10,18 +10,47 @@ interface AdminShellProps {
 
 export function AdminShell({ children }: AdminShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('zona_admin_sidebar_collapsed') === 'true'
+    }
+    return false
+  })
+
+  const handleToggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('zona_admin_sidebar_collapsed', String(next))
+      }
+      return next
+    })
+  }
 
   return (
     <div
       data-testid="admin-shell"
-      className="flex min-h-screen bg-paper text-ink"
+      className="flex min-h-screen bg-white text-ink"
     >
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:shrink-0">
-        <AdminSidebar />
+      {/* Desktop Sidebar with smooth collapse transition */}
+      <div
+        className={`hidden md:fixed md:inset-y-0 md:flex md:shrink-0 transition-all duration-300 ease-in-out z-20 ${
+          isCollapsed ? 'md:w-[68px]' : 'md:w-64'
+        }`}
+      >
+        <AdminSidebar
+          collapsed={isCollapsed}
+          onToggleCollapse={handleToggleCollapse}
+        />
       </div>
 
-      <div className="flex flex-1 flex-col md:pl-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-hairline bg-paper/90 px-4 backdrop-blur-md md:hidden">
+      {/* Main Content Area: pure white with left padding adjusting smoothly */}
+      <div
+        className={`flex flex-1 flex-col bg-white transition-all duration-300 ease-in-out ${
+          isCollapsed ? 'md:pl-[68px]' : 'md:pl-64'
+        }`}
+      >
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
@@ -76,7 +105,7 @@ export function AdminShell({ children }: AdminShellProps) {
           </div>
         )}
 
-        <main className="flex-1 p-4 md:p-8">
+        <main className="flex-1 bg-white p-4 md:p-8">
           <div className="mx-auto max-w-7xl">{children}</div>
         </main>
       </div>

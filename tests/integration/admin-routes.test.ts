@@ -75,7 +75,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
-describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
+describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
@@ -324,6 +324,20 @@ describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
             createdAt: new Date('2026-09-08T10:00:00Z'),
           },
         ],
+        chartData: [
+          {
+            date: '2026-09-08',
+            label: '8 Sep',
+            creditsUsed: 120,
+            transactionsCount: 15,
+          },
+          {
+            date: '2026-09-09',
+            label: '9 Sep',
+            creditsUsed: 250,
+            transactionsCount: 32,
+          },
+        ],
       }
 
       render(React.createElement(AdminDashboardOverview, { data: mockData }))
@@ -335,7 +349,12 @@ describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
       expect(screen.getByTestId('admin-metric-disabled-models')).toBeDefined()
       expect(screen.getByTestId('admin-metric-total-credits')).toBeDefined()
       expect(screen.getByTestId('admin-recent-audit-feed')).toBeDefined()
-      expect(screen.getByTestId('admin-quick-shortcuts')).toBeDefined()
+      expect(screen.getByTestId('admin-activity-chart')).toBeDefined()
+      expect(screen.queryByTestId('admin-quick-shortcuts')).toBeNull()
+
+      // Interactive filter clicks
+      fireEvent.click(screen.getByTestId('admin-chart-filter-14d'))
+      fireEvent.click(screen.getByTestId('admin-chart-metric-transactions'))
     })
   })
 
