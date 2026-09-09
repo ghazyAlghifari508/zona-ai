@@ -24,15 +24,23 @@ import {
   listUsersFn,
   unbanUserFn,
 } from '../../server/functions/admin-users'
+import { getCachedAdminUser } from '../admin'
 
 export const Route = createFileRoute('/admin/users')({
+  staleTime: 30_000,
   loader: async () => {
-    const [{ user }, usersData] = await Promise.all([
-      verifyAdminAccessFn(),
+    let currentAdmin = getCachedAdminUser()
+    const [authResult, usersData] = await Promise.all([
+      currentAdmin
+        ? Promise.resolve({ user: currentAdmin })
+        : verifyAdminAccessFn(),
       listUsersFn({ data: { page: 1, limit: 20 } }),
     ])
+    if (!currentAdmin) {
+      currentAdmin = authResult.user
+    }
     return {
-      currentAdmin: user,
+      currentAdmin,
       usersData,
     }
   },

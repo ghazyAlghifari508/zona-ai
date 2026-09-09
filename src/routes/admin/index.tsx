@@ -15,6 +15,7 @@ import type { AdminDashboardMetrics } from '../../server/core/admin-dashboard'
 import { getAdminDashboardMetricsFn } from '../../server/functions/admin-dashboard'
 
 export const Route = createFileRoute('/admin/')({
+  staleTime: 30_000,
   loader: async () => {
     return getAdminDashboardMetricsFn()
   },

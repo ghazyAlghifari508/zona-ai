@@ -25,6 +25,7 @@ import {
 } from '../../server/functions/credits'
 
 export const Route = createFileRoute('/admin/credits')({
+  staleTime: 30_000,
   loader: async () => {
     const creditsData = await listUserCreditsFn({
       data: { page: 1, limit: 20 },

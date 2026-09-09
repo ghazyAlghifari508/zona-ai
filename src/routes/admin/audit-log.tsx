@@ -16,6 +16,7 @@ import type { AuditLogItem } from '../../server/core/admin-audit'
 import { listAuditLogsFn } from '../../server/functions/admin-audit'
 
 export const Route = createFileRoute('/admin/audit-log')({
+  staleTime: 30_000,
   loader: async () => {
     const auditData = await listAuditLogsFn({
       data: { page: 1, limit: 20 },

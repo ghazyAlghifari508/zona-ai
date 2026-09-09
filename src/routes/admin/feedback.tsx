@@ -25,6 +25,7 @@ import {
 } from '../../server/functions/feedback'
 
 export const Route = createFileRoute('/admin/feedback')({
+  staleTime: 30_000,
   loader: async () => {
     const feedbackData = await listFeedbackFn({
       data: { page: 1, limit: 20 },
