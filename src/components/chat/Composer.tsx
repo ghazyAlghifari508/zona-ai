@@ -827,8 +827,6 @@ export function Composer({
                 onChange={changeSkill}
                 compareEnabled={compareEnabled}
               />
-            </div>
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <input
                 ref={fileRef}
                 type="file"
@@ -896,6 +894,8 @@ export function Composer({
                   strokeWidth={1.75}
                 />
               </button>
+            </div>
+            <div className="flex items-center shrink-0 ml-auto">
               {isStreaming ? (
                 <button
                   type="button"

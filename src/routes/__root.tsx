@@ -6,6 +6,8 @@ import {
   Outlet,
   Scripts,
 } from '@tanstack/react-router'
+import { ErrorView } from '@/components/layout/ErrorView'
+import { NotFoundView } from '@/components/layout/NotFoundView'
 import '../styles/app.css'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
@@ -36,6 +38,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       ],
     }),
     component: Root,
+    notFoundComponent: NotFoundView,
+    errorComponent: ErrorView,
   },
 )
 
