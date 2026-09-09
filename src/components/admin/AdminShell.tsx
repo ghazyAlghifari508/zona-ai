@@ -55,7 +55,7 @@ export function AdminShell({ children }: AdminShellProps) {
               className="fixed inset-0 bg-ink/30 backdrop-blur-xs transition-opacity"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="relative flex w-64 max-w-[80vw] flex-1 flex-col bg-paper shadow-xl">
+            <div className="relative flex w-64 max-w-[80vw] flex-1 flex-col border-r border-hairline bg-paper shadow-xs">
               <div className="absolute top-2 right-2 z-10">
                 <button
                   type="button"
