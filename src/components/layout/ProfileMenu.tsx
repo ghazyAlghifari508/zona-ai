@@ -4,6 +4,7 @@ import {
   Logout01Icon,
   Moon02Icon,
   Settings01Icon,
+  Shield01Icon,
   Sun03Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -26,6 +27,7 @@ type Props = {
         name?: string | null
         email?: string | null
         image?: string | null
+        role?: string | null
       }
     | null
     | undefined
@@ -104,6 +106,23 @@ export function ProfileMenu({ user }: Props) {
             Pengaturan
           </Link>
         </DropdownMenuItem>
+        {user?.role === 'admin' && (
+          <DropdownMenuItem asChild>
+            <Link
+              to="/admin"
+              data-testid="profile-admin"
+              className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] text-ink cursor-pointer transition-colors duration-200 hover:bg-ink/5 focus:bg-ink/5"
+            >
+              <HugeiconsIcon
+                icon={Shield01Icon}
+                size={16}
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           data-testid="profile-theme-toggle"
           onSelect={(event) => {
