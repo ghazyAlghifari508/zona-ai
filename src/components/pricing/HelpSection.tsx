@@ -60,39 +60,43 @@ const HELP_CHANNELS: readonly HelpChannel[] = [
 
 export function HelpSection() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mx-auto grid max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
       {HELP_CHANNELS.map((channel) => {
         const content = (
-          <>
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-xl ${channel.accent}`}
-            >
-              <HugeiconsIcon
-                icon={channel.icon}
-                size={20}
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-            </span>
-            <span className="mt-4 block text-[15px] font-semibold text-ink">
-              {channel.title}
-            </span>
-            <span className="mt-1 block text-[13px] leading-relaxed text-graphite">
-              {channel.description}
-            </span>
-            <span className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-notion-blue">
-              Buka
-              <HugeiconsIcon
-                icon={ArrowRight01Icon}
-                size={14}
-                strokeWidth={2}
-                aria-hidden="true"
-              />
-            </span>
-          </>
+          <div className="flex h-full flex-col justify-between">
+            <div>
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-xl ${channel.accent}`}
+              >
+                <HugeiconsIcon
+                  icon={channel.icon}
+                  size={20}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+              </span>
+              <span className="mt-4 block text-[15px] font-semibold text-ink">
+                {channel.title}
+              </span>
+              <span className="mt-1.5 block text-[13px] leading-relaxed text-graphite">
+                {channel.description}
+              </span>
+            </div>
+            <div className="mt-5 pt-1">
+              <span className="inline-flex items-center gap-1 text-[13px] font-medium text-notion-blue">
+                Buka
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={14}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+              </span>
+            </div>
+          </div>
         )
         const className =
-          'flex flex-col rounded-2xl border border-hairline bg-pure-white p-6 transition-all duration-200 hover:border-hairline-strong hover:-translate-y-0.5'
+          'group flex min-h-[190px] flex-col rounded-2xl border border-hairline bg-pure-white p-6 transition-all duration-200 hover:border-hairline-strong hover:-translate-y-0.5'
 
         if ('href' in channel) {
           return (
