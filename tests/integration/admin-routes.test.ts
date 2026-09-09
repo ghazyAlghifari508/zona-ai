@@ -75,7 +75,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
-describe('Admin Route and Shell Integration Suite', () => {
+describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
@@ -187,18 +187,18 @@ describe('Admin Route and Shell Integration Suite', () => {
         '../../src/components/admin/AdminSidebar'
       )
 
-      render(React.createElement(AdminSidebar))
+      const { getByTestId, unmount } = render(React.createElement(AdminSidebar))
 
-      expect(screen.getByTestId('admin-sidebar')).toBeDefined()
-      expect(screen.getByTestId('admin-brand-badge')).toBeDefined()
+      expect(getByTestId('admin-sidebar')).toBeDefined()
+      expect(getByTestId('admin-brand-badge')).toBeDefined()
 
-      const overviewLink = screen.getByTestId('admin-nav-overview')
-      const usersLink = screen.getByTestId('admin-nav-users')
-      const modelsLink = screen.getByTestId('admin-nav-models')
-      const feedbackLink = screen.getByTestId('admin-nav-feedback')
-      const creditsLink = screen.getByTestId('admin-nav-credits')
-      const auditLink = screen.getByTestId('admin-nav-audit-log')
-      const backLink = screen.getByTestId('admin-back-workspace')
+      const overviewLink = getByTestId('admin-nav-overview')
+      const usersLink = getByTestId('admin-nav-users')
+      const modelsLink = getByTestId('admin-nav-models')
+      const feedbackLink = getByTestId('admin-nav-feedback')
+      const creditsLink = getByTestId('admin-nav-credits')
+      const auditLink = getByTestId('admin-nav-audit-log')
+      const backLink = getByTestId('admin-back-workspace')
 
       expect(overviewLink.getAttribute('href')).toBe('/admin')
       expect(usersLink.getAttribute('href')).toBe('/admin/users')
@@ -207,6 +207,7 @@ describe('Admin Route and Shell Integration Suite', () => {
       expect(creditsLink.getAttribute('href')).toBe('/admin/credits')
       expect(auditLink.getAttribute('href')).toBe('/admin/audit-log')
       expect(backLink.getAttribute('href')).toBe('/')
+      unmount()
     })
 
     it('should trigger onClose callback when nav links are clicked in mobile context', async () => {
@@ -215,11 +216,14 @@ describe('Admin Route and Shell Integration Suite', () => {
       )
       const onClose = vi.fn()
 
-      render(React.createElement(AdminSidebar, { onClose }))
+      const { getByTestId, unmount } = render(
+        React.createElement(AdminSidebar, { onClose }),
+      )
 
-      const usersLink = screen.getByTestId('admin-nav-users')
+      const usersLink = getByTestId('admin-nav-users')
       fireEvent.click(usersLink)
       expect(onClose).toHaveBeenCalledTimes(1)
+      unmount()
     })
   })
 

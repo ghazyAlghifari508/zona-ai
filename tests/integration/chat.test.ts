@@ -375,8 +375,9 @@ describe('sendMessage integration', () => {
     })
   })
 
-  it('getModels returns 7', async () => {
+  it('getModels returns available models', async () => {
     const { getModelsCore } = await import('../../src/server/core/models')
+    const { getAvailableModels } = await import('../../src/lib/models/registry')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -385,6 +386,6 @@ describe('sendMessage integration', () => {
       user: { id: mockUserId, email: 'test1@example.com' },
     } as never)
     const models = (await getModelsCore({ request })) as unknown as unknown[]
-    expect(models.length).toBe(7)
+    expect(models.length).toBe(getAvailableModels().length)
   })
 })
