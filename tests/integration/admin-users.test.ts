@@ -8,12 +8,15 @@ import { auditLogs, users } from '../../src/lib/db/schema'
 import { AppError } from '../../src/lib/utils/errors'
 import {
   banUserCore,
+  deleteUserCore,
   listUsersCore,
   unbanUserCore,
 } from '../../src/server/core/admin-users'
 import {
   banUserFn,
   banUserSchema,
+  deleteUserFn,
+  deleteUserSchema,
   listUsersFn,
   listUsersSchema,
   unbanUserFn,
@@ -36,9 +39,18 @@ describe('Admin User Management & Ban Enforcement', () => {
       expect(typeof listUsersCore).toBe('function')
       expect(typeof banUserCore).toBe('function')
       expect(typeof unbanUserCore).toBe('function')
+      expect(typeof deleteUserCore).toBe('function')
       expect(typeof listUsersFn).toBe('function')
       expect(typeof banUserFn).toBe('function')
       expect(typeof unbanUserFn).toBe('function')
+      expect(typeof deleteUserFn).toBe('function')
+    })
+
+    it('should validate deleteUserSchema correctly', () => {
+      expect(() => deleteUserSchema.parse({})).toThrow()
+      expect(deleteUserSchema.parse({ userId: 'u-123' })).toEqual({
+        userId: 'u-123',
+      })
     })
 
     it('should validate listUsersSchema correctly', () => {
@@ -502,6 +514,114 @@ describe('Admin User Management & Ban Enforcement', () => {
         targetId: 'reformed-user',
         targetType: 'user',
         metadata: null,
+      })
+    })
+
+    it('should prevent deleting admin self or primary admin with 400 ERR-004', async () => {
+      vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
+        session: {
+          id: 's-admin',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: 'admin-1',
+          expiresAt: new Date(Date.now() + 86400000),
+          token: 'tok-admin',
+        },
+        user: {
+          id: 'admin-1',
+          email: 'admin@zona.ai',
+          name: 'Admin User',
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          role: 'admin',
+          banned: false,
+        },
+      })
+
+      vi.spyOn(db, 'select').mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              id: 'admin-1',
+              email: 'admin@zona.ai',
+              role: 'admin',
+            },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.select>)
+
+      const request = new Request('http://localhost:3000/api/admin/users/delete')
+      await expect(
+        deleteUserCore({ request, data: { userId: 'admin-1' } }),
+      ).rejects.toMatchObject({
+        status: 400,
+        code: 'ERR-004',
+      })
+    })
+
+    it('should delete target user and record audit log', async () => {
+      vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
+        session: {
+          id: 's-admin',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userId: 'admin-1',
+          expiresAt: new Date(Date.now() + 86400000),
+          token: 'tok-admin',
+        },
+        user: {
+          id: 'admin-1',
+          email: 'admin@zona.ai',
+          name: 'Admin User',
+          emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          role: 'admin',
+          banned: false,
+        },
+      })
+
+      vi.spyOn(db, 'select').mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              id: 'test-user-to-delete',
+              email: 'delete-me@example.com',
+              name: 'Test User',
+              role: 'user',
+            },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.select>)
+
+      const whereSpy = vi.fn().mockResolvedValue([])
+      vi.spyOn(db, 'delete').mockReturnValue({
+        where: whereSpy,
+      } as unknown as ReturnType<typeof db.delete>)
+
+      let auditEntry: unknown
+      vi.spyOn(db, 'insert').mockReturnValue({
+        values: vi.fn().mockImplementation((val) => {
+          auditEntry = val
+          return Promise.resolve()
+        }),
+      } as unknown as ReturnType<typeof db.insert>)
+
+      const request = new Request('http://localhost:3000/api/admin/users/delete')
+      const res = await deleteUserCore({
+        request,
+        data: { userId: 'test-user-to-delete' },
+      })
+
+      expect(res.success).toBe(true)
+      expect(res.deletedUserId).toBe('test-user-to-delete')
+      expect(whereSpy).toHaveBeenCalled()
+      expect(auditEntry).toMatchObject({
+        adminId: 'admin-1',
+        action: 'user.delete',
+        targetId: 'test-user-to-delete',
+        targetType: 'user',
       })
     })
   })

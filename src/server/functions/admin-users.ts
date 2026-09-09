@@ -1,7 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
-import { banUserCore, listUsersCore, unbanUserCore } from '../core/admin-users'
+import {
+  banUserCore,
+  deleteUserCore,
+  listUsersCore,
+  unbanUserCore,
+} from '../core/admin-users'
 
 export const listUsersSchema = z.object({
   search: z.string().optional().nullable(),
@@ -18,6 +23,10 @@ export const banUserSchema = z.object({
 })
 
 export const unbanUserSchema = z.object({
+  userId: z.string().min(1),
+})
+
+export const deleteUserSchema = z.object({
   userId: z.string().min(1),
 })
 
@@ -50,6 +59,16 @@ export const unbanUserFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const request = getRequest()
     return unbanUserCore({
+      request,
+      data,
+    })
+  })
+
+export const deleteUserFn = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => deleteUserSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest()
+    return deleteUserCore({
       request,
       data,
     })

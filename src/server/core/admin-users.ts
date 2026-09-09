@@ -31,6 +31,10 @@ export interface UnbanUserData {
   userId: string
 }
 
+export interface DeleteUserData {
+  userId: string
+}
+
 export async function listUsersCore(params: ListUsersParams) {
   await requireAdminSession(params.request)
 
@@ -215,5 +219,48 @@ export async function unbanUserCore(params: {
       banReason: null,
       banExpires: null,
     },
+  }
+}
+
+export async function deleteUserCore(params: {
+  request: Request
+  data: DeleteUserData
+}): Promise<{
+  success: true
+  deletedUserId: string
+}> {
+  const session = await requireAdminSession(params.request)
+
+  const [targetUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, params.data.userId))
+
+  if (!targetUser) {
+    throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
+  }
+
+  preventAdminSelfBan(session.user.id, targetUser.id, targetUser.email)
+
+  await db.delete(users).where(eq(users.id, params.data.userId))
+
+  const now = new Date()
+  await db.insert(auditLogs).values({
+    adminId: session.user.id,
+    adminEmail: session.user.email,
+    action: 'user.delete',
+    targetId: params.data.userId,
+    targetType: 'user',
+    metadata: {
+      deletedEmail: targetUser.email,
+      deletedName: targetUser.name,
+      deletedRole: targetUser.role,
+    },
+    createdAt: now,
+  })
+
+  return {
+    success: true,
+    deletedUserId: params.data.userId,
   }
 }

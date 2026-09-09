@@ -1,5 +1,6 @@
 import {
   Alert01Icon,
+  Delete02Icon,
   Loading03Icon,
   Search01Icon,
 } from '@hugeicons/core-free-icons'
@@ -19,6 +20,7 @@ import { UserAvatar } from '../../components/ui/UserAvatar'
 import { verifyAdminAccessFn } from '../../server/functions/admin-auth'
 import {
   banUserFn,
+  deleteUserFn,
   listUsersFn,
   unbanUserFn,
 } from '../../server/functions/admin-users'
@@ -102,6 +104,11 @@ export function AdminUsersView({
     null,
   )
   const [isSubmittingUnban, setIsSubmittingUnban] = useState(false)
+
+  // Delete confirmation state
+  const [deleteTargetUser, setDeleteTargetUser] =
+    useState<AdminUserItem | null>(null)
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false)
 
   const fetchUsers = async (
     targetPage: number,
@@ -191,6 +198,27 @@ export function AdminUsersView({
       )
     } finally {
       setIsSubmittingUnban(false)
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTargetUser) return
+    setIsSubmittingDelete(true)
+    setActionError(null)
+    try {
+      await deleteUserFn({
+        data: {
+          userId: deleteTargetUser.id,
+        },
+      })
+      setDeleteTargetUser(null)
+      await fetchUsers(page, search, roleFilter, statusFilter)
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Gagal menghapus pengguna.',
+      )
+    } finally {
+      setIsSubmittingDelete(false)
     }
   }
 
@@ -360,39 +388,68 @@ export function AdminUsersView({
                         {formatDate(user.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        {user.banned ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {user.banned ? (
+                            <button
+                              type="button"
+                              data-testid={`unban-user-btn-${user.id}`}
+                              onClick={() => setUnbanTargetUser(user)}
+                              className="rounded-md border border-hairline bg-pure-white px-2.5 py-1 text-[12px] font-medium text-ink transition-colors hover:bg-stone/10"
+                            >
+                              Buka Blokir
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              data-testid={`ban-user-btn-${user.id}`}
+                              disabled={isSelfOrPrimary}
+                              onClick={() => {
+                                if (!isSelfOrPrimary) {
+                                  setBanTargetUser(user)
+                                }
+                              }}
+                              title={
+                                isSelfOrPrimary
+                                  ? 'Tidak dapat memblokir akun sendiri atau admin utama'
+                                  : 'Blokir akun pengguna ini'
+                              }
+                              className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                                isSelfOrPrimary
+                                  ? 'cursor-not-allowed border border-hairline bg-paper text-stone/50'
+                                  : 'border border-coral/30 bg-danger-soft text-coral hover:bg-coral/15'
+                              }`}
+                            >
+                              Blokir
+                            </button>
+                          )}
                           <button
                             type="button"
-                            data-testid={`unban-user-btn-${user.id}`}
-                            onClick={() => setUnbanTargetUser(user)}
-                            className="rounded-md border border-hairline bg-pure-white px-3 py-1 text-[12px] font-medium text-ink transition-colors hover:bg-stone/10"
-                          >
-                            Buka Blokir
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            data-testid={`ban-user-btn-${user.id}`}
+                            data-testid={`delete-user-btn-${user.id}`}
                             disabled={isSelfOrPrimary}
                             onClick={() => {
                               if (!isSelfOrPrimary) {
-                                setBanTargetUser(user)
+                                setDeleteTargetUser(user)
                               }
                             }}
                             title={
                               isSelfOrPrimary
-                                ? 'Tidak dapat memblokir akun sendiri atau admin utama'
-                                : 'Blokir akun pengguna ini'
+                                ? 'Tidak dapat menghapus akun sendiri atau admin utama'
+                                : 'Hapus akun pengguna ini'
                             }
-                            className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors ${
+                            className={`rounded-md p-1 transition-colors ${
                               isSelfOrPrimary
-                                ? 'cursor-not-allowed border border-hairline bg-paper text-stone/50'
-                                : 'border border-coral/30 bg-danger-soft text-coral hover:bg-coral/15'
+                                ? 'cursor-not-allowed text-stone/30'
+                                : 'text-stone hover:bg-danger-soft hover:text-coral'
                             }`}
+                            aria-label={`Hapus ${user.name ?? user.email}`}
                           >
-                            Blokir
+                            <HugeiconsIcon
+                              icon={Delete02Icon}
+                              size={15}
+                              strokeWidth={1.75}
+                            />
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -581,6 +638,69 @@ export function AdminUsersView({
                 />
               )}
               <span>Buka Blokir</span>
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <Dialog
+        open={deleteTargetUser !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetUser(null)
+        }}
+      >
+        <DialogContent
+          data-testid="admin-delete-user-modal"
+          className="max-w-md bg-pure-white"
+        >
+          <DialogHeader>
+            <DialogTitle className="text-[17px] font-bold text-coral">
+              Hapus Pengguna Permanen
+            </DialogTitle>
+            <DialogDescription className="text-[13px] text-stone">
+              Apakah Anda yakin ingin menghapus akun ini secara permanen?
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteTargetUser && (
+            <div className="rounded-md border border-coral/20 bg-danger-soft p-3 text-[13px]">
+              <p className="font-semibold text-ink">
+                {deleteTargetUser.name || 'Tanpa Nama'}
+              </p>
+              <p className="text-[12px] text-stone">{deleteTargetUser.email}</p>
+              <p className="mt-2 text-[11px] text-coral">
+                Peringatan: Seluruh riwayat percakapan, sesi, dan data akun akan
+                dihapus permanen dari basis data. Tindakan ini tidak dapat
+                dibatalkan.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <DialogClose asChild>
+              <button
+                type="button"
+                className="rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-stone hover:bg-stone/5"
+              >
+                Batal
+              </button>
+            </DialogClose>
+            <button
+              type="button"
+              data-testid="confirm-delete-user-btn"
+              disabled={isSubmittingDelete}
+              onClick={handleDeleteConfirm}
+              className="flex items-center gap-1.5 rounded-md bg-coral px-3 py-1.5 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {isSubmittingDelete && (
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  size={14}
+                  className="animate-spin"
+                />
+              )}
+              <span>Hapus Pengguna</span>
             </button>
           </DialogFooter>
         </DialogContent>

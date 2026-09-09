@@ -156,14 +156,46 @@ export function ProviderIcon({
       </svg>
     )
   }
+  if (p === 'deepseek') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        fill="#0066FF"
+        aria-hidden="true"
+      >
+        <title>DeepSeek</title>
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5c-2.49 0-4.5-2.01-4.5-4.5S10.51 7.5 13 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z" />
+      </svg>
+    )
+  }
+  if (p === 'zona' || p === 'zona-router' || p === 'auto') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        width={size}
+        height={size}
+        fill="currentColor"
+        aria-hidden="true"
+        className={inverted ? 'text-pure-white' : 'text-notion-blue'}
+      >
+        <title>Zona AI</title>
+        <path d="M12 2L14.5 8.5L21 11L14.5 13.5L12 20L9.5 13.5L3 11L9.5 8.5L12 2Z" />
+      </svg>
+    )
+  }
   return (
-    <span
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="currentColor"
       aria-hidden="true"
-      className={`text-[11px] leading-none font-bold ${
-        inverted ? 'text-pure-white' : 'text-ink'
-      }`}
+      className={inverted ? 'text-pure-white' : 'text-stone'}
     >
-      A
-    </span>
+      <title>AI Model</title>
+      <path d="M12 2L14.5 8.5L21 11L14.5 13.5L12 20L9.5 13.5L3 11L9.5 8.5L12 2Z" />
+    </svg>
   )
 }
