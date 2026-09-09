@@ -27,8 +27,10 @@ export function ProviderIcon({
   size?: number
   inverted?: boolean
 }) {
-  const p = provider.toLowerCase()
-  if (p === 'codex' || p === 'openai') {
+  const p = (provider || '').toLowerCase().trim()
+
+  // 1. OpenAI / Codex
+  if (p === 'codex' || p === 'openai' || p === 'chatgpt') {
     return (
       <svg
         viewBox="0 0 24 24"
@@ -42,6 +44,8 @@ export function ProviderIcon({
       </svg>
     )
   }
+
+  // 2. Anthropic Claude
   if (p === 'anthropic' || p === 'claude') {
     return (
       <svg
@@ -56,6 +60,8 @@ export function ProviderIcon({
       </svg>
     )
   }
+
+  // 3. xAI Grok
   if (p === 'xai' || p === 'grok') {
     return (
       <svg
@@ -70,6 +76,8 @@ export function ProviderIcon({
       </svg>
     )
   }
+
+  // 4. Google Gemini / Antigravity
   if (p === 'antigravity' || p === 'google' || p === 'gemini') {
     return (
       <img
@@ -81,7 +89,9 @@ export function ProviderIcon({
       />
     )
   }
-  if (p === 'qwen') {
+
+  // 5. Qwen / Alibaba
+  if (p === 'qwen' || p === 'alibaba') {
     return (
       <img
         src="/assets/qwen.svg"
@@ -92,7 +102,9 @@ export function ProviderIcon({
       />
     )
   }
-  if (p === 'mimo') {
+
+  // 6. Xiaomi / MiMo
+  if (p === 'mimo' || p === 'xiaomi') {
     return (
       <svg
         viewBox="0 0 24 24"
@@ -102,12 +114,14 @@ export function ProviderIcon({
         aria-hidden="true"
         className="pointer-events-none block"
       >
-        <title>MiMo</title>
+        <title>Xiaomi MiMo</title>
         <path fill="#FF6900" d={XIAOMI_LOGO_PATH} />
       </svg>
     )
   }
-  if (p === 'hunyuan' || p === 'hy') {
+
+  // 7. Tencent / Hunyuan
+  if (p === 'hunyuan' || p === 'hy' || p === 'tencent') {
     return (
       <svg
         viewBox="0 0 24 24"
@@ -117,7 +131,7 @@ export function ProviderIcon({
         aria-hidden="true"
         className="pointer-events-none block"
       >
-        <title>Hunyuan</title>
+        <title>Tencent Hunyuan</title>
         <circle cx="12" cy="12" fill="#0055E9" r="12" />
         <path
           d="M12 0c.518 0 1.028.033 1.528.096A6.188 6.188 0 0112.12 12.28l-.12.001c-2.99 0-5.242 2.179-5.554 5.11-.223 2.086.353 4.412 2.242 6.146C3.672 22.1 0 17.479 0 12 0 5.373 5.373 0 12 0z"
@@ -138,7 +152,9 @@ export function ProviderIcon({
       </svg>
     )
   }
-  if (p === 'glm' || p === 'zhipu') {
+
+  // 8. Zhipu AI / GLM
+  if (p === 'glm' || p === 'zhipu' || p === 'zhipu ai' || p === 'zhipuai') {
     return (
       <svg
         viewBox="0 0 30 30"
@@ -148,7 +164,7 @@ export function ProviderIcon({
         aria-hidden="true"
         className="pointer-events-none block"
       >
-        <title>GLM</title>
+        <title>Zhipu AI GLM</title>
         <path fill="#2D2D2D" d={ZHIPU_BG_PATH} />
         <path fill="#FFFFFF" d={ZHIPU_TOP_PATH} />
         <polygon fill="#FFFFFF" points={ZHIPU_DIAGONAL_POINTS} />
@@ -156,6 +172,8 @@ export function ProviderIcon({
       </svg>
     )
   }
+
+  // 9. DeepSeek
   if (p === 'deepseek') {
     return (
       <svg
@@ -170,32 +188,40 @@ export function ProviderIcon({
       </svg>
     )
   }
+
+  // 10. Zona AI / Auto Router
   if (p === 'zona' || p === 'zona-router' || p === 'auto') {
     return (
-      <svg
-        viewBox="0 0 24 24"
+      <img
+        src={
+          inverted ? '/assets/zonaai-logo-white.png' : '/assets/zonaai-logo.png'
+        }
+        alt="Zona.ai"
         width={size}
         height={size}
-        fill="currentColor"
-        aria-hidden="true"
-        className={inverted ? 'text-pure-white' : 'text-notion-blue'}
-      >
-        <title>Zona AI</title>
-        <path d="M12 2L14.5 8.5L21 11L14.5 13.5L12 20L9.5 13.5L3 11L9.5 8.5L12 2Z" />
-      </svg>
+        className="pointer-events-none block object-contain"
+      />
     )
   }
+
+  // Pure neutral Microchip fallback (ZERO slop / ZERO sparkles)
   return (
     <svg
       viewBox="0 0 24 24"
       width={size}
       height={size}
-      fill="currentColor"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
       className={inverted ? 'text-pure-white' : 'text-stone'}
     >
-      <title>AI Model</title>
-      <path d="M12 2L14.5 8.5L21 11L14.5 13.5L12 20L9.5 13.5L3 11L9.5 8.5L12 2Z" />
+      <title>{provider || 'AI Model'}</title>
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4" />
     </svg>
   )
 }

@@ -24,12 +24,14 @@ import {
 } from '../../server/functions/admin-models'
 
 export const Route = createFileRoute('/admin/models')({
+  staleTime: 30_000,
   loader: async () => {
     const settings = await getModelSettingsFn()
     const catalog = modelRegistry.map((m) => ({
       id: m.id,
       name: m.displayName,
-      provider: m.vendor || m.provider,
+      provider: m.provider,
+      vendor: m.vendor,
       cost:
         typeof m.creditCost === 'number'
           ? m.creditCost
@@ -49,6 +51,7 @@ export interface ModelCatalogItem {
   id: string
   name: string
   provider: string
+  vendor?: string
   cost: number
   contextWindow: number | null
 }
@@ -100,7 +103,9 @@ export function AdminModelsView({
     text: string
   } | null>(null)
 
-  const providers = Array.from(new Set(catalog.map((m) => m.provider))).sort()
+  const providers = Array.from(
+    new Set(catalog.map((m) => m.vendor || m.provider)),
+  ).sort()
 
   const isModelActive = (modelId: string): boolean => {
     const setting = settingsMap.get(modelId)
@@ -169,7 +174,9 @@ export function AdminModelsView({
       model.name.toLowerCase().includes(search.toLowerCase()) ||
       model.id.toLowerCase().includes(search.toLowerCase())
     const matchesProvider =
-      providerFilter === 'all' || model.provider === providerFilter
+      providerFilter === 'all' ||
+      model.provider === providerFilter ||
+      model.vendor === providerFilter
     return matchesSearch && matchesProvider
   })
 
@@ -277,7 +284,10 @@ export function AdminModelsView({
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-hairline bg-pure-white text-ink shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-                            <ProviderIcon provider={model.provider} size={18} />
+                            <ProviderIcon
+                              provider={model.provider || model.vendor || ''}
+                              size={18}
+                            />
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-ink">{model.name}</p>
@@ -289,7 +299,7 @@ export function AdminModelsView({
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="rounded bg-paper px-2 py-0.5 text-[11px] font-medium text-stone uppercase">
-                          {model.provider}
+                          {model.vendor || model.provider}
                         </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-ink">
@@ -377,7 +387,11 @@ export function AdminModelsView({
               <div className="flex items-center gap-3 rounded-md border border-hairline bg-paper p-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-hairline bg-pure-white text-ink shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
                   <ProviderIcon
-                    provider={targetModelToDisable.provider}
+                    provider={
+                      targetModelToDisable.provider ||
+                      targetModelToDisable.vendor ||
+                      ''
+                    }
                     size={18}
                   />
                 </div>
