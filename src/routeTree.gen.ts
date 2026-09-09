@@ -18,6 +18,12 @@ import { Route as FaqRouteImport } from './routes/faq'
 import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminAuditLogRouteImport } from './routes/admin/audit-log'
+import { Route as AdminCreditsRouteImport } from './routes/admin/credits'
+import { Route as AdminFeedbackRouteImport } from './routes/admin/feedback'
+import { Route as AdminModelsRouteImport } from './routes/admin/models'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
@@ -27,6 +33,7 @@ import { Route as ApiAttachmentsAttachmentIdRouteImport } from './routes/api/att
 import { Route as ApiAttachmentsReprocessRouteImport } from './routes/api/attachments/reprocess'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
+import { Route as ApiFeedbackAttachmentRouteImport } from './routes/api/feedback/attachment'
 import { Route as ApiFeedbackUploadRouteImport } from './routes/api/feedback/upload'
 import { Route as ApiFilesUploadRouteImport } from './routes/api/files/upload'
 import { Route as ApiArtifactsArtifactIdVersionsVersionIdRouteImport } from './routes/api/artifacts/$artifactId/versions/$versionId'
@@ -76,6 +83,36 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditLogRoute = AdminAuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCreditsRoute = AdminCreditsRouteImport.update({
+  id: '/credits',
+  path: '/credits',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFeedbackRoute = AdminFeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminModelsRoute = AdminModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/auth/sign-in',
   path: '/auth/sign-in',
@@ -122,6 +159,11 @@ const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   path: '/api/auth/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFeedbackAttachmentRoute = ApiFeedbackAttachmentRouteImport.update({
+  id: '/api/feedback/attachment',
+  path: '/api/feedback/attachment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFeedbackUploadRoute = ApiFeedbackUploadRouteImport.update({
   id: '/api/feedback/upload',
   path: '/api/feedback/upload',
@@ -141,7 +183,7 @@ const ApiArtifactsArtifactIdVersionsVersionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/banned': typeof BannedRoute
   '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
@@ -149,14 +191,21 @@ export interface FileRoutesByFullPath {
   '/feedback': typeof FeedbackRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRoute
+  '/admin/audit-log': typeof AdminAuditLogRoute
+  '/admin/credits': typeof AdminCreditsRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
+  '/admin/models': typeof AdminModelsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/api/attachments/$attachmentId': typeof ApiAttachmentsAttachmentIdRoute
   '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/feedback/attachment': typeof ApiFeedbackAttachmentRoute
   '/api/feedback/upload': typeof ApiFeedbackUploadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments/': typeof ApiAttachmentsIndexRoute
@@ -164,7 +213,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/banned': typeof BannedRoute
   '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
@@ -172,14 +220,21 @@ export interface FileRoutesByTo {
   '/feedback': typeof FeedbackRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRoute
+  '/admin/audit-log': typeof AdminAuditLogRoute
+  '/admin/credits': typeof AdminCreditsRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
+  '/admin/models': typeof AdminModelsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
+  '/admin': typeof AdminIndexRoute
   '/chat': typeof ChatIndexRoute
   '/api/attachments/$attachmentId': typeof ApiAttachmentsAttachmentIdRoute
   '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/feedback/attachment': typeof ApiFeedbackAttachmentRoute
   '/api/feedback/upload': typeof ApiFeedbackUploadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments': typeof ApiAttachmentsIndexRoute
@@ -188,7 +243,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/banned': typeof BannedRoute
   '/bantuan': typeof BantuanRoute
   '/error': typeof ErrorRoute
@@ -196,14 +251,21 @@ export interface FileRoutesById {
   '/feedback': typeof FeedbackRoute
   '/pricing': typeof PricingRoute
   '/settings': typeof SettingsRoute
+  '/admin/audit-log': typeof AdminAuditLogRoute
+  '/admin/credits': typeof AdminCreditsRoute
+  '/admin/feedback': typeof AdminFeedbackRoute
+  '/admin/models': typeof AdminModelsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/auth/sign-up': typeof AuthSignUpRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
+  '/admin/': typeof AdminIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/api/attachments/$attachmentId': typeof ApiAttachmentsAttachmentIdRoute
   '/api/attachments/reprocess': typeof ApiAttachmentsReprocessRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
+  '/api/feedback/attachment': typeof ApiFeedbackAttachmentRoute
   '/api/feedback/upload': typeof ApiFeedbackUploadRoute
   '/api/files/upload': typeof ApiFilesUploadRoute
   '/api/attachments/': typeof ApiAttachmentsIndexRoute
@@ -221,14 +283,21 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/pricing'
     | '/settings'
+    | '/admin/audit-log'
+    | '/admin/credits'
+    | '/admin/feedback'
+    | '/admin/models'
+    | '/admin/users'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
+    | '/admin/'
     | '/chat/'
     | '/api/attachments/$attachmentId'
     | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
+    | '/api/feedback/attachment'
     | '/api/feedback/upload'
     | '/api/files/upload'
     | '/api/attachments/'
@@ -236,7 +305,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/banned'
     | '/bantuan'
     | '/error'
@@ -244,14 +312,21 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/pricing'
     | '/settings'
+    | '/admin/audit-log'
+    | '/admin/credits'
+    | '/admin/feedback'
+    | '/admin/models'
+    | '/admin/users'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
+    | '/admin'
     | '/chat'
     | '/api/attachments/$attachmentId'
     | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
+    | '/api/feedback/attachment'
     | '/api/feedback/upload'
     | '/api/files/upload'
     | '/api/attachments'
@@ -267,14 +342,21 @@ export interface FileRouteTypes {
     | '/feedback'
     | '/pricing'
     | '/settings'
+    | '/admin/audit-log'
+    | '/admin/credits'
+    | '/admin/feedback'
+    | '/admin/models'
+    | '/admin/users'
     | '/auth/sign-in'
     | '/auth/sign-up'
     | '/chat/$conversationId'
+    | '/admin/'
     | '/chat/'
     | '/api/attachments/$attachmentId'
     | '/api/attachments/reprocess'
     | '/api/auth/$'
     | '/api/auth/session'
+    | '/api/feedback/attachment'
     | '/api/feedback/upload'
     | '/api/files/upload'
     | '/api/attachments/'
@@ -283,7 +365,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   BannedRoute: typeof BannedRoute
   BantuanRoute: typeof BantuanRoute
   ErrorRoute: typeof ErrorRoute
@@ -299,6 +381,7 @@ export interface RootRouteChildren {
   ApiAttachmentsReprocessRoute: typeof ApiAttachmentsReprocessRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
+  ApiFeedbackAttachmentRoute: typeof ApiFeedbackAttachmentRoute
   ApiFeedbackUploadRoute: typeof ApiFeedbackUploadRoute
   ApiFilesUploadRoute: typeof ApiFilesUploadRoute
   ApiAttachmentsIndexRoute: typeof ApiAttachmentsIndexRoute
@@ -370,6 +453,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit-log': {
+      id: '/admin/audit-log'
+      path: '/audit-log'
+      fullPath: '/admin/audit-log'
+      preLoaderRoute: typeof AdminAuditLogRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/credits': {
+      id: '/admin/credits'
+      path: '/credits'
+      fullPath: '/admin/credits'
+      preLoaderRoute: typeof AdminCreditsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/feedback': {
+      id: '/admin/feedback'
+      path: '/feedback'
+      fullPath: '/admin/feedback'
+      preLoaderRoute: typeof AdminFeedbackRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/models': {
+      id: '/admin/models'
+      path: '/models'
+      fullPath: '/admin/models'
+      preLoaderRoute: typeof AdminModelsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/auth/sign-in': {
       id: '/auth/sign-in'
       path: '/auth/sign-in'
@@ -433,6 +558,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/feedback/attachment': {
+      id: '/api/feedback/attachment'
+      path: '/api/feedback/attachment'
+      fullPath: '/api/feedback/attachment'
+      preLoaderRoute: typeof ApiFeedbackAttachmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/feedback/upload': {
       id: '/api/feedback/upload'
       path: '/api/feedback/upload'
@@ -457,9 +589,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminRouteChildren {
+  AdminAuditLogRoute: typeof AdminAuditLogRoute
+  AdminCreditsRoute: typeof AdminCreditsRoute
+  AdminFeedbackRoute: typeof AdminFeedbackRoute
+  AdminModelsRoute: typeof AdminModelsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditLogRoute: AdminAuditLogRoute,
+  AdminCreditsRoute: AdminCreditsRoute,
+  AdminFeedbackRoute: AdminFeedbackRoute,
+  AdminModelsRoute: AdminModelsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   BannedRoute: BannedRoute,
   BantuanRoute: BantuanRoute,
   ErrorRoute: ErrorRoute,
@@ -475,6 +627,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAttachmentsReprocessRoute: ApiAttachmentsReprocessRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,
+  ApiFeedbackAttachmentRoute: ApiFeedbackAttachmentRoute,
   ApiFeedbackUploadRoute: ApiFeedbackUploadRoute,
   ApiFilesUploadRoute: ApiFilesUploadRoute,
   ApiAttachmentsIndexRoute: ApiAttachmentsIndexRoute,
