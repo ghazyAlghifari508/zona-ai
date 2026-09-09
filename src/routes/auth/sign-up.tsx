@@ -1,6 +1,6 @@
 import { Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useState } from 'react'
 import { BrandLogo } from '@/components/ui/BrandLogo'
 import { authClient } from '@/lib/auth/auth-client'
@@ -37,12 +37,16 @@ function SignUp() {
         className="w-full max-w-[380px] rounded-2xl border border-hairline bg-pure-white p-8 text-center shadow-xs"
       >
         {/* Brand mark */}
-        <div className="flex items-center justify-center gap-2.5">
+        <Link
+          to="/"
+          className="inline-flex items-center justify-center gap-2.5 transition-opacity hover:opacity-85"
+          title="Kembali ke Beranda"
+        >
           <BrandLogo alt="Zona.ai" size={36} className="h-9 w-9" />
           <span className="text-[20px] font-bold tracking-tight text-ink">
             Zona.ai
           </span>
-        </div>
+        </Link>
 
         {/* Heading & Subtitle */}
         <h1 className="mt-6 text-[22px] font-bold tracking-tight text-ink">
