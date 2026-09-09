@@ -1,7 +1,6 @@
 import {
   Alert01Icon,
   CheckmarkCircle02Icon,
-  CpuIcon,
   Loading03Icon,
   Search01Icon,
 } from '@hugeicons/core-free-icons'
@@ -17,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import { ProviderIcon } from '../../components/ui/ProviderIcons'
 import { modelRegistry } from '../../lib/models/registry'
 import {
   getModelSettingsFn,
@@ -276,12 +276,8 @@ export function AdminModelsView({
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-paper text-ink">
-                            <HugeiconsIcon
-                              icon={CpuIcon}
-                              size={16}
-                              strokeWidth={1.75}
-                            />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-hairline bg-pure-white text-ink shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                            <ProviderIcon provider={model.provider} size={18} />
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-ink">{model.name}</p>
@@ -378,13 +374,21 @@ export function AdminModelsView({
 
           {targetModelToDisable && (
             <div className="space-y-4 py-2 text-[13px]">
-              <div className="rounded-md border border-hairline bg-paper p-3">
-                <p className="font-semibold text-ink">
-                  {targetModelToDisable.name}
-                </p>
-                <p className="font-mono text-[11px] text-stone">
-                  {targetModelToDisable.id}
-                </p>
+              <div className="flex items-center gap-3 rounded-md border border-hairline bg-paper p-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-hairline bg-pure-white text-ink shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                  <ProviderIcon
+                    provider={targetModelToDisable.provider}
+                    size={18}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-ink">
+                    {targetModelToDisable.name}
+                  </p>
+                  <p className="font-mono text-[11px] text-stone">
+                    {targetModelToDisable.id}
+                  </p>
+                </div>
               </div>
 
               <div>
