@@ -1,4 +1,4 @@
-﻿import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ErrorView } from '../../src/components/layout/ErrorView'
 import { NotFoundView } from '../../src/components/layout/NotFoundView'
@@ -24,20 +24,22 @@ describe('NotFoundView and ErrorView Components', () => {
   })
 
   describe('NotFoundView', () => {
-    it('renders 404 status code, title, and action links', () => {
+    it('renders big 404, natural copy, and single CTA back to ZonaAI', () => {
       render(<NotFoundView />)
 
       expect(screen.getByTestId('not-found-page')).toBeDefined()
-      expect(screen.getByText(/404/i)).toBeDefined()
-      expect(screen.getByText('Halaman Tidak Ditemukan')).toBeDefined()
+      expect(screen.getByText('404')).toBeDefined()
+      expect(screen.getByText('Halaman ini tidak ditemukan.')).toBeDefined()
+      expect(
+        screen.getByText(
+          'Mungkin link-nya sudah berubah atau alamat yang kamu buka salah.',
+        ),
+      ).toBeDefined()
 
       const homeLink = screen.getByRole('link', {
-        name: /kembali ke workspace/i,
+        name: /kembali ke zonaai/i,
       })
       expect(homeLink.getAttribute('href')).toBe('/')
-
-      const helpLink = screen.getByRole('link', { name: /pusat bantuan/i })
-      expect(helpLink.getAttribute('href')).toBe('/bantuan')
     })
   })
 
