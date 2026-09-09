@@ -49,103 +49,103 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
       testId: 'admin-metric-total-users',
       title: 'Total Pengguna',
       value: formatNumber(data.totalUsers),
-      desc: 'Semua akun terdaftar',
+      desc: 'Terdaftar',
       icon: UserGroupIcon,
-      color: 'text-notion-blue',
-      bg: 'bg-sky-tint',
     },
     {
       id: 'active-users',
       testId: 'admin-metric-active-users',
       title: 'Pengguna Aktif',
       value: formatNumber(data.activeUsers),
-      desc: 'Akun dengan status aktif',
+      desc: 'Aktif',
       icon: UserCheck01Icon,
-      color: 'text-success',
-      bg: 'bg-success/10',
     },
     {
       id: 'banned-users',
       testId: 'admin-metric-banned-users',
       title: 'Pengguna Diblokir',
       value: formatNumber(data.bannedUsers),
-      desc: 'Akun ditangguhkan',
+      desc: data.bannedUsers > 0 ? 'Ditangguhkan' : 'Nihil',
+      isWarning: data.bannedUsers > 0,
       icon: UserRemove01Icon,
-      color: 'text-coral',
-      bg: 'bg-danger-soft',
     },
     {
       id: 'new-feedback',
       testId: 'admin-metric-new-feedback',
       title: 'Feedback Baru',
       value: formatNumber(data.newFeedbackCount),
-      desc: 'Menunggu respon admin',
+      desc: data.newFeedbackCount > 0 ? 'Perlu respon' : 'Nihil',
+      isAttention: data.newFeedbackCount > 0,
       icon: Message01Icon,
-      color: 'text-marigold',
-      bg: 'bg-warning-soft',
     },
     {
       id: 'disabled-models',
       testId: 'admin-metric-disabled-models',
       title: 'Model Nonaktif',
       value: formatNumber(data.disabledModelsCount),
-      desc: 'Model dalam pemeliharaan',
+      desc: 'Pemeliharaan',
       icon: CpuIcon,
-      color: 'text-stone',
-      bg: 'bg-stone/10',
     },
     {
       id: 'total-credits',
       testId: 'admin-metric-total-credits',
-      title: 'Total Kredit Beredar',
+      title: 'Kredit Beredar',
       value: formatNumber(data.totalCreditsInCirculation),
-      desc: 'Akumulasi saldo pengguna',
+      desc: 'Saldo pengguna',
       icon: Coins01Icon,
-      color: 'text-notion-blue',
-      bg: 'bg-sky-tint',
     },
   ]
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-tight text-ink">
-          Ringkasan Administrasi
-        </h1>
-        <p className="mt-1 text-[13px] text-stone">
-          Pantau status ekosistem, aktivitas pengguna, dan metrik sistem secara
-          real-time.
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[20px] font-semibold tracking-tight text-ink">
+            Ringkasan Administrasi
+          </h1>
+          <p className="mt-0.5 text-xs text-stone">
+            Aktivitas pengguna, metrik ekosistem, dan log audit real-time.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {metricCards.map((card) => (
           <div
             key={card.id}
             data-testid={card.testId}
-            className="flex flex-col justify-between rounded-lg border border-hairline bg-pure-white p-5 shadow-xs"
+            className="flex flex-col justify-between rounded-lg border border-hairline bg-pure-white p-3 transition-colors hover:border-hairline-strong"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[12px] font-medium tracking-wider text-stone uppercase">
-                  {card.title}
-                </p>
-                <h3 className="mt-2 text-[28px] font-bold tracking-tight text-ink">
-                  {card.value}
-                </h3>
-              </div>
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${card.bg} ${card.color}`}
-              >
-                <HugeiconsIcon
-                  icon={card.icon}
-                  size={20}
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                />
-              </div>
+            <div className="flex items-center justify-between gap-1 text-stone">
+              <span className="truncate text-[11px] font-medium tracking-wider uppercase text-stone">
+                {card.title}
+              </span>
+              <HugeiconsIcon
+                icon={card.icon}
+                size={13}
+                strokeWidth={1.75}
+                className="shrink-0 text-stone/60"
+                aria-hidden="true"
+              />
             </div>
-            <p className="mt-4 text-[12px] text-stone">{card.desc}</p>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-xl font-bold tracking-tight text-ink">
+                {card.value}
+              </span>
+              {card.desc && (
+                <span
+                  className={`text-[10px] font-medium ${
+                    card.isWarning
+                      ? 'text-coral'
+                      : card.isAttention
+                        ? 'text-marigold'
+                        : 'text-stone/70'
+                  }`}
+                >
+                  {card.desc}
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>

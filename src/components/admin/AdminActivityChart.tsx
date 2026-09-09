@@ -63,11 +63,11 @@ export function AdminActivityChart({ data }: AdminActivityChartProps) {
 
   // SVG dimensions
   const svgWidth = 760
-  const svgHeight = 210
-  const padLeft = 46
-  const padRight = 20
-  const padTop = 20
-  const padBottom = 32
+  const svgHeight = 150
+  const padLeft = 38
+  const padRight = 16
+  const padTop = 14
+  const padBottom = 26
 
   const chartWidth = svgWidth - padLeft - padRight
   const chartHeight = svgHeight - padTop - padBottom
@@ -137,15 +137,15 @@ export function AdminActivityChart({ data }: AdminActivityChartProps) {
       className="rounded-lg border border-hairline bg-pure-white p-5 shadow-xs"
     >
       {/* Header & Filter Controls */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-[15px] font-semibold tracking-tight text-ink">
               Analisis Aktivitas Penggunaan
             </h2>
-            <span className="flex items-center gap-1 rounded bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-notion-blue">
-              <HugeiconsIcon icon={Pulse01Icon} size={13} strokeWidth={1.75} />
-              <span>Real-time</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-hairline bg-paper px-2 py-0.5 text-[10px] font-medium text-stone">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Real-time
             </span>
           </div>
           <p className="mt-0.5 text-[12px] text-stone">
@@ -157,110 +157,85 @@ export function AdminActivityChart({ data }: AdminActivityChartProps) {
         {/* Range & Metric Selectors */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Metric Toggle */}
-          <div className="flex rounded-md border border-hairline bg-paper/60 p-0.5 text-[12px]">
+          <div className="flex rounded-md border border-hairline bg-paper p-0.5 text-[11px]">
             <button
               type="button"
               data-testid="admin-chart-metric-credits"
               onClick={() => setMetric('credits')}
-              className={`flex items-center gap-1.5 rounded px-2.5 py-1 transition-all ${
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-medium transition-all ${
                 metric === 'credits'
-                  ? 'border border-hairline bg-pure-white font-semibold text-ink shadow-xs'
+                  ? 'bg-pure-white font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
                   : 'text-stone hover:text-ink'
               }`}
             >
-              <HugeiconsIcon icon={Coins01Icon} size={13} strokeWidth={1.75} />
+              <HugeiconsIcon icon={Coins01Icon} size={12} strokeWidth={1.75} />
               <span>Kredit</span>
             </button>
             <button
               type="button"
               data-testid="admin-chart-metric-transactions"
               onClick={() => setMetric('transactions')}
-              className={`flex items-center gap-1.5 rounded px-2.5 py-1 transition-all ${
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1 font-medium transition-all ${
                 metric === 'transactions'
-                  ? 'border border-hairline bg-pure-white font-semibold text-ink shadow-xs'
+                  ? 'bg-pure-white font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
                   : 'text-stone hover:text-ink'
               }`}
             >
-              <HugeiconsIcon icon={Pulse01Icon} size={13} strokeWidth={1.75} />
+              <HugeiconsIcon icon={Pulse01Icon} size={12} strokeWidth={1.75} />
               <span>Aktivitas</span>
             </button>
           </div>
 
           {/* Time Range Pills */}
-          <div className="flex rounded-md border border-hairline bg-paper/60 p-0.5 text-[12px]">
-            <button
-              type="button"
-              data-testid="admin-chart-filter-7d"
-              onClick={() => setTimeRange('7d')}
-              className={`rounded px-2.5 py-1 transition-all ${
-                timeRange === '7d'
-                  ? 'border border-hairline bg-pure-white font-semibold text-ink shadow-xs'
-                  : 'text-stone hover:text-ink'
-              }`}
-            >
-              7 Hari
-            </button>
-            <button
-              type="button"
-              data-testid="admin-chart-filter-14d"
-              onClick={() => setTimeRange('14d')}
-              className={`rounded px-2.5 py-1 transition-all ${
-                timeRange === '14d'
-                  ? 'border border-hairline bg-pure-white font-semibold text-ink shadow-xs'
-                  : 'text-stone hover:text-ink'
-              }`}
-            >
-              14 Hari
-            </button>
-            <button
-              type="button"
-              data-testid="admin-chart-filter-30d"
-              onClick={() => setTimeRange('30d')}
-              className={`rounded px-2.5 py-1 transition-all ${
-                timeRange === '30d'
-                  ? 'border border-hairline bg-pure-white font-semibold text-ink shadow-xs'
-                  : 'text-stone hover:text-ink'
-              }`}
-            >
-              30 Hari
-            </button>
+          <div className="flex rounded-md border border-hairline bg-paper p-0.5 text-[11px]">
+            {(['7d', '14d', '30d'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                data-testid={`admin-chart-filter-${r}`}
+                onClick={() => setTimeRange(r)}
+                className={`rounded px-2.5 py-1 font-medium transition-all ${
+                  timeRange === r
+                    ? 'bg-pure-white font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)]'
+                    : 'text-stone hover:text-ink'
+                }`}
+              >
+                {r === '7d' ? '7 Hari' : r === '14d' ? '14 Hari' : '30 Hari'}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Period Summary Badges */}
-      <div className="mt-4 grid grid-cols-2 gap-3 border-y border-hairline py-3 sm:grid-cols-3">
-        <div>
-          <span className="text-[11px] font-medium text-stone">
+      <div className="mt-3.5 flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-hairline py-2.5 text-xs">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[11px] text-stone">
             Total Periode (
             {timeRange === '7d'
               ? '7 Hari'
               : timeRange === '14d'
                 ? '14 Hari'
                 : '30 Hari'}
-            )
+            ):
           </span>
-          <p className="mt-0.5 text-[16px] font-bold tracking-tight text-ink">
+          <span className="font-semibold text-ink">
             {new Intl.NumberFormat('id-ID').format(totalInPeriod)}{' '}
-            <span className="text-[12px] font-normal text-stone">
+            <span className="font-normal text-[11px] text-stone">
               {metric === 'credits' ? 'kredit' : 'transaksi'}
             </span>
-          </p>
-        </div>
-        <div>
-          <span className="text-[11px] font-medium text-stone">
-            Rata-rata Harian
           </span>
-          <p className="mt-0.5 text-[16px] font-bold tracking-tight text-ink">
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[11px] text-stone">Rata-rata Harian:</span>
+          <span className="font-semibold text-ink">
             {new Intl.NumberFormat('id-ID').format(avgPerDay)}{' '}
-            <span className="text-[12px] font-normal text-stone">/ hari</span>
-          </p>
-        </div>
-        <div className="col-span-2 sm:col-span-1">
-          <span className="text-[11px] font-medium text-stone">
-            Puncak Tertinggi
+            <span className="font-normal text-[11px] text-stone">/ hari</span>
           </span>
-          <p className="mt-0.5 text-[16px] font-bold tracking-tight text-ink">
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[11px] text-stone">Puncak Tertinggi:</span>
+          <span className="font-semibold text-ink">
             {peakPoint
               ? `${new Intl.NumberFormat('id-ID').format(
                   metric === 'credits'
@@ -268,7 +243,7 @@ export function AdminActivityChart({ data }: AdminActivityChartProps) {
                     : peakPoint.transactionsCount,
                 )} (${peakPoint.label})`
               : '-'}
-          </p>
+          </span>
         </div>
       </div>
 
