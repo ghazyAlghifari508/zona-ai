@@ -86,8 +86,11 @@ describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
 
   describe('verifyAdminAccessFn (admin-auth.ts)', () => {
     it('should export verifyAdminAccessFn as a function and verifyAdminAccessCore returns user for valid admin session', async () => {
-      const { verifyAdminAccessFn, verifyAdminAccessCore } = await import(
+      const { verifyAdminAccessFn } = await import(
         '../../src/server/functions/admin-auth'
+      )
+      const { verifyAdminAccessCore } = await import(
+        '../../src/server/core/admin-auth'
       )
 
       expect(typeof verifyAdminAccessFn).toBe('function')
@@ -123,7 +126,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
 
     it('should throw redirect to /auth/sign-in when user is unauthenticated', async () => {
       const { verifyAdminAccessCore } = await import(
-        '../../src/server/functions/admin-auth'
+        '../../src/server/core/admin-auth'
       )
 
       vi.mocked(requireAdminSession).mockRejectedValueOnce(
@@ -140,7 +143,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
 
     it('should throw redirect to /auth/sign-in when user is non-admin', async () => {
       const { verifyAdminAccessCore } = await import(
-        '../../src/server/functions/admin-auth'
+        '../../src/server/core/admin-auth'
       )
 
       vi.mocked(requireAdminSession).mockRejectedValueOnce(
@@ -161,7 +164,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 15000 }, () => {
 
     it('should throw redirect to /auth/sign-in when user is banned', async () => {
       const { verifyAdminAccessCore } = await import(
-        '../../src/server/functions/admin-auth'
+        '../../src/server/core/admin-auth'
       )
 
       vi.mocked(requireAdminSession).mockRejectedValueOnce(
