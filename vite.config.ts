@@ -17,17 +17,6 @@ export default defineConfig({
       ],
     },
   },
-  optimizeDeps: {
-    // Pre-bundle the TanStack Start client entry so Vite never needs to
-    // re-optimize it mid-session (which causes "Failed to fetch dynamically
-    // imported module" crashes in the browser).
-    include: [
-      '@tanstack/react-start/client',
-      '@tanstack/react-router',
-      'react',
-      'react-dom',
-    ],
-  },
   resolve: {
     tsconfigPaths: true,
   },
