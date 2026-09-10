@@ -347,3 +347,19 @@ Building an empirical understanding of model superiority requires structured eva
 - **One-Click Best Response Crown**: Select the crown icon on any model column to mark that generation as the superior answer for the turn.
 - **Granular Thumbs Up / Down**: Rate specific aspects such as factual correctness, formatting elegance, or code conciseness.
 - **Private Evaluation Data**: Preference records are linked to comparison runs in PostgreSQL, enabling users to audit their personal model preference trends over time.
+
+---
+
+## Keyboard Shortcuts & Ergonomic Hotkeys
+
+Designed for power users seeking uninterrupted keyboard flow:
+
+| Key Binding | Action | Scope |
+|---|---|---|
+| `Cmd / Ctrl + Enter` | Submit prompt to all selected models | Composer focused |
+| `Cmd / Ctrl + K` | Focus instant thread search modal | Global |
+| `Cmd / Ctrl + Shift + C` | Toggle Compare Mode grid on / off | Global |
+| `Cmd / Ctrl + \` | Expand or dock Artifact Canvas | Global |
+| `@` | Trigger artifact mention autocomplete | Composer |
+| `Esc` | Close active drawer, modal, or popover | Global |
+| `Shift + Tab` | Jump focus between compared columns | Compare Grid |
