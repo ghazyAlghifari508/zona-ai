@@ -31,3 +31,14 @@ Benchmarking AI models in real-world workflows requires strict scientific contro
 1. **Deterministic Input Parity**: Every model in a comparison run receives the exact same system instructions, the exact same prompt wording, and the exact same conversation history. There are no hidden provider-specific prompt boosts or asymmetric penalties.
 2. **Unified External Context**: When Web Search or Document RAG is triggered, external sources are fetched once and shared identically across all active models. No model gets privileged or disparate search results.
 3. **Pure Signal Fidelity**: Zona.ai never simulates fake thinking phases, synthetic token pacing, or fabricated status delays. What you see is the true raw transmission from the inference engine.
+
+---
+
+## Compare Mode: Orchestration & Multi-Model Workflow
+
+Compare Mode is the core innovation of Zona.ai. Rather than sending individual requests sequentially, the engine orchestrates simultaneous multi-model execution:
+
+- **2 to 4 Models in Side-by-Side Grid**: Select any combination of active models directly from the composer header. Compare lightweight models against heavy reasoning models, or test competing frontier LLMs head-to-head.
+- **Synchronized Generation Run**: Submitting a prompt generates a top-level comparison run linked to individual generation child entities in PostgreSQL.
+- **Side-by-Side Responsive Layout**: Responses render in parallel columns with synchronized scroll tracking, allowing instant visual diffing between code blocks, explanations, and architectural proposals.
+- **One-Click Best Response Selection**: Mark any response as the winning output, pinning that model's context as the canonical path for subsequent follow-up turns if desired.
