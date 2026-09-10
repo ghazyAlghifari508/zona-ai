@@ -137,3 +137,13 @@ When a user attaches a document to a conversation:
 2. **Recursive AST Segmentation**: Documents are split into semantic nodes (preserving headers, code blocks, and markdown tables intact) with a configurable token overlap to prevent context boundary clipping.
 3. **Dense Vector Indexing**: High-dimensional embeddings are generated and stored with relational attachment metadata in the PostgreSQL `document_chunks` table.
 4. **HNSW Cosine Ranking**: At query time, vector similarity matches top-k candidate chunks, ranking them by cosine similarity before assembling the prompt context.
+
+---
+
+## Interactive Artifact Canvas
+
+Long-form code implementations, complex SVG diagrams, financial spreadsheets, and structured technical specs should not be trapped inside narrow chat bubbles. Zona.ai introduces a dedicated **Artifact Canvas**:
+
+- **Dual-Pane Interaction**: When a model produces a substantial code block, markdown document, or HTML snippet, it can be extracted into the side-by-side Canvas panel.
+- **Interactive Live Previews**: Web components, HTML/CSS prototypes, and SVG graphics render in an isolated, sandboxed iframe runtime with zero layout bleed.
+- **Syntax-Highlighted Code Inspection**: Full-featured code viewer supporting TypeScript, Python, Go, Rust, SQL, and CSS with instant clipboard copying and line-number referencing.
