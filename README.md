@@ -311,3 +311,12 @@ Zona.ai is calibrated for knowledge workers whose workflows demand rigorous vali
 - **Tone & Voice Nuance**: Compare how different models adapt narrative voice—from terse technical documentation to persuasive marketing copy—without altering prompt constraints.
 - **Multilingual Idiomaticity**: Evaluate translation naturalness across regional idioms (e.g., Bahasa Indonesia formal vs conversational nuances) to identify unnatural literal translations.
 - **Editorial Fact-Checking**: Parallel prompts identify hyperbolic fluff and unverifiable claims across drafts before publication.
+
+---
+
+## Interface Anatomy: The Composer & Control Bar
+
+The Zona.ai Composer is designed for uninterrupted cognitive flow:
+- **Auto-Expanding Input Canvas**: Smooth auto-expanding textarea that accommodates single-line quick queries as comfortably as multi-paragraph architecture specifications.
+- **Unified Tool Pill Bar**: Toggle Web Search, Attach Files, and select Agent Skills with discrete, non-intrusive pill controls positioned along the bottom toolbar.
+- **Dynamic Model Multi-Picker**: Quickly add or remove models from the active comparison set with a popover that displays model provider families, token context sizes, and status indicators.
