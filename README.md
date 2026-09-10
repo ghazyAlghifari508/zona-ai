@@ -11,3 +11,13 @@ Zona.ai is an editorial, high-performance workspace designed for rigorous side-b
 Modern frontier language models diverge substantially in reasoning depth, code generation idiomaticity, creative voice, and factual accuracy. Evaluating these differences through fragmented browser tabs or biased single-model interfaces leads to incomplete conclusions, hidden hallucinations, and inefficient prompt iteration.
 
 Zona.ai bridges this gap with a unified multi-model canvas. Users can query individual models or execute **Compare Mode**, dispatching a single prompt simultaneously across frontier models (such as GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro, DeepSeek V3, and Llama 3) with synchronized context, shared search retrieval, and zero synthetic latency.
+
+---
+
+## The Problem: The Single-Model Blindspot
+
+When developers or knowledge workers rely on a single default assistant:
+- **Blind Faith in Hallucinations**: Subtle logical fallacies and hallucinated package methods pass undetected without immediate counter-verification.
+- **Provider Lock-in & Bias**: Different architectures excel at distinct tasks (e.g., Anthropic models in code refactoring, OpenAI models in instruction following, Google models in massive context retrieval). Relying on one model restricts problem-solving agility.
+- **Fragmented Copy-Paste Overhead**: Testing the same prompt across four separate model subscriptions requires manual copy-pasting, inconsistent context windows, duplicate file uploads, and fragmented conversation histories.
+- **Inflated Subscription Costs**: Maintaining individual Pro/Plus subscriptions across multiple AI platforms quickly escalates monthly SaaS expenses.
