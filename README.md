@@ -174,3 +174,12 @@ Zona.ai bridges pure text reasoning with active tool invocation:
 - **Model-Agnostic Tool Schema**: Tools and Agent Skills are defined as standard JSON Schemas. Zona.ai automatically translates tool definitions into provider-compliant parameter structures for OpenAI, Anthropic, and Gemini models.
 - **Visual Execution Cards**: Tool calls appear directly in the message timeline with input parameters, execution timing, and return payloads cleanly displayed in collapsible inspection cards.
 - **Fail-Safe Client Policy**: Model function invocations never execute unverified or dangerous server actions without explicit user permission and backend Zod validation boundaries.
+
+---
+
+## Transparent Credit Ledger & Token Metering
+
+Zona.ai replaces opaque monthly flat subscriptions with granular, verifiable credit accounting:
+- **Atomic Two-Phase Deduction**: Before dispatching a generation, the server verifies sufficient credit balance. Upon completion, exact prompt and completion token counts are calculated and deducted with sub-millicent precision.
+- **Zero-Markup Token Transparency**: Every generation footer features a usage breakdown showing exact prompt tokens, completion tokens, execution duration in milliseconds, and the exact credit cost incurred.
+- **Immutable Transaction Ledger**: Every credit top-up, usage deduction, and refund is stored as an immutable row in the PostgreSQL `credit_transactions` table, viewable anytime in the user account settings.
