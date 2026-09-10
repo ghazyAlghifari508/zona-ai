@@ -232,3 +232,12 @@ Workspaces in Zona.ai are built around clarity, rapid navigation, and permanence
 - **Sidebar Hierarchy**: Past research conversations are organized chronologically, with pinned essential threads accessible with a single click.
 - **Instant Filter & Search**: Client-side filtering paired with PostgreSQL full-text search indexes enables sub-millisecond thread retrieval across thousands of historical queries.
 - **Thread Ownership & Isolation**: Conversations are strictly partitioned by authenticated user identity. Sessions cannot leak across accounts.
+
+---
+
+## Automated Conversation Titling & Archiving
+
+To prevent cluttered sidebars filled with generic "New Chat" entries, Zona.ai incorporates asynchronous semantic titling:
+- **Background Summary Synthesis**: After the first prompt-response cycle completes, a lightweight utility model synthesizes a concise, descriptive title (3-5 words) reflecting the true core topic.
+- **Zero UI Latency**: Titling runs asynchronously on the server and patches the client cache via TanStack Query without interfering with ongoing generation streams.
+- **Controlled Deletion Cascades**: Deleting a conversation triggers atomic database cascades that remove messages, comparison runs, and vector embeddings while unlinking external R2 storage references.
