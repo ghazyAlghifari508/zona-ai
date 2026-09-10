@@ -104,3 +104,16 @@ When questions depend on recent developments, financial figures, library documen
 - **Tavily Search Orchestration**: Search queries are formulated and dispatched directly to the Tavily AI search infrastructure on the server layer. Raw API keys remain securely guarded behind server boundaries.
 - **Content Extraction & Cleaning**: Incoming web pages are parsed, stripped of advertising clutter, CSS boilerplate, and tracking scripts, yielding clean Markdown context chunks.
 - **Transparent Citations**: Search results are converted into verifiable inline citations `[1]`, `[2]` linked to a dedicated Citation Drawer displaying publisher domain, published date, snippet preview, and direct external URLs.
+
+---
+
+## Single-Fetch Search Caching for Benchmark Integrity
+
+In traditional multi-model tools, searching while running multiple models triggers multiple redundant API requests. This introduces two fatal flaws: quadrupled search costs and subtle search result variance across models.
+
+Zona.ai solves this through **Single-Fetch Cached Distribution**:
+1. When Compare Mode executes with search enabled, the server executes a **single** consolidated search query.
+2. The extracted factual snippets are cached in memory for that comparison run.
+3. The exact identical source payload is injected into the context window of every compared model.
+
+This guarantees that differences in model outputs stem purely from intrinsic model reasoning and synthesis quality—not because Model A received different search snippets than Model B.
