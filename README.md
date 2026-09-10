@@ -372,3 +372,13 @@ Zona.ai adheres to uncompromising software engineering standards:
 - **Zero Type-Bypass Policy**: The entire codebase strictly forbids `as any`, `as never`, and `@ts-ignore`. Contracts between the client, server RPCs, and PostgreSQL are fully typed using Drizzle ORM and Zod schemas.
 - **Deterministic Error Taxonomy**: All backend failures map to explicit error identities (`ERR-001` through `ERR-019`), guaranteeing actionable debugging data for both users and automated monitoring systems.
 - **Fail-Closed Security Posture**: Rate limiting, balance deduction, and model routing operate on fail-closed principles, preventing unauthorized data exfiltration or resource overdrafts.
+
+---
+
+## Product Roadmap & Future Frontiers
+
+Zona.ai continues to evolve as the vanguard multi-model environment:
+- **Multi-Turn Branching & Consensus Synthesis**: Select winning outputs from multiple models to generate an auto-synthesized hybrid response combining the best arguments of each.
+- **Native Sandboxed Code Execution**: Run Python data analysis, JavaScript algorithms, and SQL queries directly inside an isolated browser WebContainer.
+- **Team Workspaces & Collaborative Evaluation**: Share prompt benchmarks, blind comparison datasets, and artifact repositories across engineering teams.
+- **Bring-Your-Own-Key (BYOK) Encryption**: Client-encrypted upstream credential vaults for teams wishing to route through their private enterprise agreements.
