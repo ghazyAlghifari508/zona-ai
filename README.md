@@ -296,3 +296,8 @@ Zona.ai respects user autonomy and data privacy:
 ## User Personas & Practical Evaluation Workflows
 
 Zona.ai is calibrated for knowledge workers whose workflows demand rigorous validation across multiple frontier perspectives. Rather than trusting a single model's assertion, practitioners leverage Compare Mode across distinct operational domains.
+
+### 1. Software Engineering & Architecture Evaluation
+- **Implementation Divergence**: Test complex algorithms across Claude 3.5 Sonnet and GPT-4o side-by-side to compare idiomatic TypeScript usage, algorithmic complexity, and edge-case handling.
+- **Hallucination Interception**: When generating boilerplate for new frameworks, side-by-side output quickly flags non-existent methods invented by one model.
+- **Instant Code Porting to Canvas**: One-click extract the cleaner implementation into the Artifact Canvas for line-by-line inspection and test suite derivation.
