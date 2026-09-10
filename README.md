@@ -42,3 +42,21 @@ Compare Mode is the core innovation of Zona.ai. Rather than sending individual r
 - **Synchronized Generation Run**: Submitting a prompt generates a top-level comparison run linked to individual generation child entities in PostgreSQL.
 - **Side-by-Side Responsive Layout**: Responses render in parallel columns with synchronized scroll tracking, allowing instant visual diffing between code blocks, explanations, and architectural proposals.
 - **One-Click Best Response Selection**: Mark any response as the winning output, pinning that model's context as the canonical path for subsequent follow-up turns if desired.
+
+---
+
+## Parallel Streaming & Multiplexed Event Architecture
+
+To deliver genuine real-time feedback across up to four concurrent models without client network saturation, Zona.ai employs an event multiplexing architecture:
+
+- **Single Multiplexed Stream**: Instead of firing four uncoordinated HTTP requests from the browser, the client maintains a single streaming connection to the Zona.ai server.
+- **Generation-Tagged SSE Frames**: Server-Sent Event (SSE) packets are tagged with discrete `generationId` and `modelId` metadata:
+  ```json
+  {
+    "type": "text-delta",
+    "generationId": "gen_88a91b2c",
+    "modelId": "claude-3-5-sonnet",
+    "delta": "const memoizedValue = useMemo(() => compute(), []);"
+  }
+  ```
+- **Zero Cross-Talk**: The frontend state reducer decodes deltas into isolated message buffers, ensuring that high-throughput models (streaming at >100 tokens/second) do not block or stutter slower, deep-reasoning models.
