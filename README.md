@@ -301,3 +301,8 @@ Zona.ai is calibrated for knowledge workers whose workflows demand rigorous vali
 - **Implementation Divergence**: Test complex algorithms across Claude 3.5 Sonnet and GPT-4o side-by-side to compare idiomatic TypeScript usage, algorithmic complexity, and edge-case handling.
 - **Hallucination Interception**: When generating boilerplate for new frameworks, side-by-side output quickly flags non-existent methods invented by one model.
 - **Instant Code Porting to Canvas**: One-click extract the cleaner implementation into the Artifact Canvas for line-by-line inspection and test suite derivation.
+
+### 2. Academic Research & Literature Synthesis
+- **Multi-Perspective Synthesis**: Supply research papers via Document RAG and observe how different model reasoning engines interpret methodologies, statistical findings, and conflicting data points.
+- **Factual Triangulation**: When researching ambiguous historical or scientific topics, parallel streaming highlights points of consensus versus claims where models diverge, prompting deeper inquiry.
+- **Direct Citation Tracing**: Verify claims instantaneously using the Citation Drawer, cross-referencing extracted excerpts with live web sources.
