@@ -117,3 +117,13 @@ Zona.ai solves this through **Single-Fetch Cached Distribution**:
 3. The exact identical source payload is injected into the context window of every compared model.
 
 This guarantees that differences in model outputs stem purely from intrinsic model reasoning and synthesis quality—not because Model A received different search snippets than Model B.
+
+---
+
+## Document Ingestion & Grounded RAG Pipeline
+
+For deep analytical inquiries on private codebases, technical specifications, or research papers, Zona.ai integrates an enterprise-grade retrieval pipeline:
+
+- **Cloudflare R2 Object Vault**: Uploaded PDFs, Markdown documents, and source files are encrypted and stored in Cloudflare R2 object storage. Original files are never exposed directly to public URLs.
+- **Hierarchical pgvector Storage**: Extracted text is segmented into semantically dense chunks, embedded into vector representations, and indexed using PostgreSQL with `pgvector` HNSW cosine similarity.
+- **Contextual Token Economy**: Rather than flooding prompt windows with raw files and exhausting context budgets, only the most relevant document chunks are dynamically injected into active comparison prompts.
