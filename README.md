@@ -306,3 +306,8 @@ Zona.ai is calibrated for knowledge workers whose workflows demand rigorous vali
 - **Multi-Perspective Synthesis**: Supply research papers via Document RAG and observe how different model reasoning engines interpret methodologies, statistical findings, and conflicting data points.
 - **Factual Triangulation**: When researching ambiguous historical or scientific topics, parallel streaming highlights points of consensus versus claims where models diverge, prompting deeper inquiry.
 - **Direct Citation Tracing**: Verify claims instantaneously using the Citation Drawer, cross-referencing extracted excerpts with live web sources.
+
+### 3. Editorial Strategy & Localization
+- **Tone & Voice Nuance**: Compare how different models adapt narrative voice—from terse technical documentation to persuasive marketing copy—without altering prompt constraints.
+- **Multilingual Idiomaticity**: Evaluate translation naturalness across regional idioms (e.g., Bahasa Indonesia formal vs conversational nuances) to identify unnatural literal translations.
+- **Editorial Fact-Checking**: Parallel prompts identify hyperbolic fluff and unverifiable claims across drafts before publication.
