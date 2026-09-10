@@ -377,7 +377,7 @@ export const modelRegistry: ModelRegistryEntry[] = [
   {
     id: 'ag/gemini-pro-agent',
     routerModelId: 'ag/gemini-pro-agent',
-    displayName: 'Gemini Pro Agent',
+    displayName: 'Gemini 3.1 Pro',
     provider: 'antigravity',
     vendor: 'Google',
     intelligenceLevel: 2,
@@ -385,9 +385,9 @@ export const modelRegistry: ModelRegistryEntry[] = [
     intelligenceBars: 2,
     confidence: 'high',
     evaluationNotes:
-      'Google agentic model optimized for autonomous tool usage, function orchestration, and long-context documents.',
+      'Google model optimized for autonomous tool usage, function orchestration, and long-context documents.',
     lastEvaluated: '2026-09-09',
-    description: 'Agentic Google model optimized for tool use and long context',
+    description: 'Google model optimized for tool use and long context',
     enabled: true,
     creditCost: CREDIT_COST_BY_BARS[2],
     creditTier: 'balanced',

@@ -45,7 +45,9 @@ const MODEL_SEARCH_ALIASES: Record<string, string[]> = {
     'deepmind',
     'antigravity',
     'gemini',
+    'gemini-3.1-pro',
     'gemini-pro-agent',
+    '3.1',
   ],
 
   // Anthropic
