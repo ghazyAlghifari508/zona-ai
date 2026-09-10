@@ -127,3 +127,13 @@ For deep analytical inquiries on private codebases, technical specifications, or
 - **Cloudflare R2 Object Vault**: Uploaded PDFs, Markdown documents, and source files are encrypted and stored in Cloudflare R2 object storage. Original files are never exposed directly to public URLs.
 - **Hierarchical pgvector Storage**: Extracted text is segmented into semantically dense chunks, embedded into vector representations, and indexed using PostgreSQL with `pgvector` HNSW cosine similarity.
 - **Contextual Token Economy**: Rather than flooding prompt windows with raw files and exhausting context budgets, only the most relevant document chunks are dynamically injected into active comparison prompts.
+
+---
+
+## The Four-Stage Document Processing Flow
+
+When a user attaches a document to a conversation:
+1. **Validation & Hashing**: Server-side verification confirms MIME type, file size bounds, and SHA-256 integrity before writing to Cloudflare R2.
+2. **Recursive AST Segmentation**: Documents are split into semantic nodes (preserving headers, code blocks, and markdown tables intact) with a configurable token overlap to prevent context boundary clipping.
+3. **Dense Vector Indexing**: High-dimensional embeddings are generated and stored with relational attachment metadata in the PostgreSQL `document_chunks` table.
+4. **HNSW Cosine Ranking**: At query time, vector similarity matches top-k candidate chunks, ranking them by cosine similarity before assembling the prompt context.
