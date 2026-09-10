@@ -21,3 +21,13 @@ When developers or knowledge workers rely on a single default assistant:
 - **Provider Lock-in & Bias**: Different architectures excel at distinct tasks (e.g., Anthropic models in code refactoring, OpenAI models in instruction following, Google models in massive context retrieval). Relying on one model restricts problem-solving agility.
 - **Fragmented Copy-Paste Overhead**: Testing the same prompt across four separate model subscriptions requires manual copy-pasting, inconsistent context windows, duplicate file uploads, and fragmented conversation histories.
 - **Inflated Subscription Costs**: Maintaining individual Pro/Plus subscriptions across multiple AI platforms quickly escalates monthly SaaS expenses.
+
+---
+
+## Core Philosophy: Radical Fairness & Determinism
+
+Benchmarking AI models in real-world workflows requires strict scientific control. Zona.ai enforces three non-negotiable principles of radical fairness:
+
+1. **Deterministic Input Parity**: Every model in a comparison run receives the exact same system instructions, the exact same prompt wording, and the exact same conversation history. There are no hidden provider-specific prompt boosts or asymmetric penalties.
+2. **Unified External Context**: When Web Search or Document RAG is triggered, external sources are fetched once and shared identically across all active models. No model gets privileged or disparate search results.
+3. **Pure Signal Fidelity**: Zona.ai never simulates fake thinking phases, synthetic token pacing, or fabricated status delays. What you see is the true raw transmission from the inference engine.
