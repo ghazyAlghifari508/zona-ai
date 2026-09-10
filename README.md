@@ -94,3 +94,13 @@ Every model integrated through Zona.ai undergoes automated capability negotiatio
 | `supportsReasoning` | Native chain-of-thought metadata transmission | Honest streaming without simulated thinking markers |
 | `contextWindow` | Maximum input and output token allocation | Dynamic sliding-window context compression |
 | `maxOutputTokens` | Upper threshold for generation length | Safeguards against mid-sentence model cutoffs |
+
+---
+
+## Web Intelligence Engine: Real-Time Grounding
+
+When questions depend on recent developments, financial figures, library documentations, or live breaking news, Zona.ai activates its server-side Web Intelligence Engine:
+
+- **Tavily Search Orchestration**: Search queries are formulated and dispatched directly to the Tavily AI search infrastructure on the server layer. Raw API keys remain securely guarded behind server boundaries.
+- **Content Extraction & Cleaning**: Incoming web pages are parsed, stripped of advertising clutter, CSS boilerplate, and tracking scripts, yielding clean Markdown context chunks.
+- **Transparent Citations**: Search results are converted into verifiable inline citations `[1]`, `[2]` linked to a dedicated Citation Drawer displaying publisher domain, published date, snippet preview, and direct external URLs.
