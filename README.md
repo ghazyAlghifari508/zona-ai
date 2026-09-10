@@ -250,3 +250,12 @@ For engineering teams evaluating model performance in production, Zona.ai incorp
 - **Hierarchical Span Tracing**: Every user prompt generates a root trace in Langfuse, nesting child spans for authentication checks, vector retrieval queries, search operations, and individual model generation streams.
 - **Strict Privacy Masking**: Prompts and sensitive file attachments can be masked or scrubbed from telemetry payloads according to strict enterprise privacy policies.
 - **Error Anomaly Tracking**: Upstream gateway timeouts, context overflow errors, and malformed JSON tool calls are captured with full stack traces for proactive system remediation.
+
+---
+
+## Real-Time Latency & Generation Benchmarking
+
+Every generation column in Compare Mode includes real-time telemetry markers:
+- **Time-to-First-Token (TTFT)**: Measures the exact millisecond delta between prompt submission and the first received text chunk, revealing upstream queue latency.
+- **Tokens Per Second (TPS)**: Live calculation of generation throughput across each active model stream.
+- **Total Duration & Cost**: Clear summary card displaying total inference duration and exact credit consumption for each individual response.
