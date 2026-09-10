@@ -363,3 +363,12 @@ Designed for power users seeking uninterrupted keyboard flow:
 | `@` | Trigger artifact mention autocomplete | Composer |
 | `Esc` | Close active drawer, modal, or popover | Global |
 | `Shift + Tab` | Jump focus between compared columns | Compare Grid |
+
+---
+
+## Architectural Invariants & Mechanical Integrity
+
+Zona.ai adheres to uncompromising software engineering standards:
+- **Zero Type-Bypass Policy**: The entire codebase strictly forbids `as any`, `as never`, and `@ts-ignore`. Contracts between the client, server RPCs, and PostgreSQL are fully typed using Drizzle ORM and Zod schemas.
+- **Deterministic Error Taxonomy**: All backend failures map to explicit error identities (`ERR-001` through `ERR-019`), guaranteeing actionable debugging data for both users and automated monitoring systems.
+- **Fail-Closed Security Posture**: Rate limiting, balance deduction, and model routing operate on fail-closed principles, preventing unauthorized data exfiltration or resource overdrafts.
