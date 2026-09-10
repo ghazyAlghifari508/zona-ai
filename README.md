@@ -147,3 +147,12 @@ Long-form code implementations, complex SVG diagrams, financial spreadsheets, an
 - **Dual-Pane Interaction**: When a model produces a substantial code block, markdown document, or HTML snippet, it can be extracted into the side-by-side Canvas panel.
 - **Interactive Live Previews**: Web components, HTML/CSS prototypes, and SVG graphics render in an isolated, sandboxed iframe runtime with zero layout bleed.
 - **Syntax-Highlighted Code Inspection**: Full-featured code viewer supporting TypeScript, Python, Go, Rust, SQL, and CSS with instant clipboard copying and line-number referencing.
+
+---
+
+## Docked Canvas Ergonomics
+
+The Canvas panel seamlessly integrates alongside chat conversations:
+- **Collapsible Split Ratio**: Effortlessly drag to resize between the chat column and the canvas pane, or expand to full-screen view for focused reading.
+- **Versioned Iteration Tabs**: As users ask models to refine or refactor code, the Canvas automatically stores and displays successive artifact revisions.
+- **Bidirectional Focus**: Clicking an artifact link inside any chat turn jumps directly to that specific artifact in the Canvas, maintaining cognitive continuity.
