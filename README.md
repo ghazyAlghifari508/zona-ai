@@ -338,3 +338,12 @@ Every response card includes a discrete usage summary pill that triggers the Usa
 - **Detailed Token Inventory**: Audit exact input prompt tokens, cached prefix tokens, output completion tokens, and reasoning tokens.
 - **Cost Computation**: View exact rupiah / credit deduction breakdown calculated against upstream provider rates.
 - **Performance Benchmarks**: Compare execution latency across sibling generations in the same comparison run.
+
+---
+
+## Human Feedback Loop & Preference Rating
+
+Building an empirical understanding of model superiority requires structured evaluation capture:
+- **One-Click Best Response Crown**: Select the crown icon on any model column to mark that generation as the superior answer for the turn.
+- **Granular Thumbs Up / Down**: Rate specific aspects such as factual correctness, formatting elegance, or code conciseness.
+- **Private Evaluation Data**: Preference records are linked to comparison runs in PostgreSQL, enabling users to audit their personal model preference trends over time.
