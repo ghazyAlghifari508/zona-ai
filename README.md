@@ -320,3 +320,12 @@ The Zona.ai Composer is designed for uninterrupted cognitive flow:
 - **Auto-Expanding Input Canvas**: Smooth auto-expanding textarea that accommodates single-line quick queries as comfortably as multi-paragraph architecture specifications.
 - **Unified Tool Pill Bar**: Toggle Web Search, Attach Files, and select Agent Skills with discrete, non-intrusive pill controls positioned along the bottom toolbar.
 - **Dynamic Model Multi-Picker**: Quickly add or remove models from the active comparison set with a popover that displays model provider families, token context sizes, and status indicators.
+
+---
+
+## Citation Drawer & Verifiable Fact Checking
+
+Whenever an answer cites external literature or web intelligence:
+- **Interactive Citation Numbers**: Clicking any superscript reference `[1]` smoothly slides open the Citation Drawer.
+- **Contextual Source Snippet**: Review the exact excerpt extracted from the source website alongside relevance ranking scores.
+- **Domain Authenticity**: Clear badge displays showing domain favicon, publish timestamp, and outbound link for independent primary-source verification.
