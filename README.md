@@ -70,3 +70,13 @@ In distributed AI systems, partial failure is an unavoidable reality: upstream p
 - **Isolated Error Boundaries**: If Model A hits an upstream timeout while Model B and Model C are actively generating, Model A renders an actionable error card (`ERR-005: Upstream Timeout`) while Models B and C complete uninterrupted.
 - **Granular Retries**: Users can retry an individual failed generation within a comparison run without re-running the entire set of models or wasting credits.
 - **Independent Cancellation**: Users can cancel an individual generation (or all active generations) at any time. Aborted runs accurately record partial tokens and deduct credits strictly for tokens generated prior to termination.
+
+---
+
+## Dynamic Model Registry: Zero Hardcoded Models
+
+Unlike traditional AI wrappers with static dropdown arrays baked into JavaScript bundles, Zona.ai implements a fully dynamic Model Registry:
+
+- **Runtime Gateway Synchronization**: Available models, parameter boundaries, and capabilities are discovered dynamically from the local 9Router gateway (`/v1/models`). When a new model drops, it becomes instantly accessible without redeploying frontend assets.
+- **Internal Model Abstraction**: The frontend interacts exclusively with internal model identifiers and capability contracts. Provider-specific endpoint strings, API keys, and routing quirks are entirely encapsulated within the server orchestration layer.
+- **Capability-Driven UI Adaptation**: If an active model does not support file attachments or vision inputs, the UI gracefully indicates capability constraints prior to submission, preventing costly upstream contract rejections.
