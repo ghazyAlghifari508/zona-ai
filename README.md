@@ -290,3 +290,9 @@ Zona.ai respects user autonomy and data privacy:
 | **Telemetry & Metrics** | Opaque black box | None | Real-time TTFT, TPS, duration & token accounting |
 | **Design Aesthetic** | High-saturation consumer dark mode | Cluttered dashboard with neon gradients | Restrained MindMarket cream paper & pure white surfaces |
 | **Billing Clarity** | $20/mo per provider subscription | Opaque markup with sudden monthly caps | Exact token ledger with transparent top-up |
+
+---
+
+## User Personas & Practical Evaluation Workflows
+
+Zona.ai is calibrated for knowledge workers whose workflows demand rigorous validation across multiple frontier perspectives. Rather than trusting a single model's assertion, practitioners leverage Compare Mode across distinct operational domains.
