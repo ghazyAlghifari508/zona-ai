@@ -259,3 +259,12 @@ Every generation column in Compare Mode includes real-time telemetry markers:
 - **Time-to-First-Token (TTFT)**: Measures the exact millisecond delta between prompt submission and the first received text chunk, revealing upstream queue latency.
 - **Tokens Per Second (TPS)**: Live calculation of generation throughput across each active model stream.
 - **Total Duration & Cost**: Clear summary card displaying total inference duration and exact credit consumption for each individual response.
+
+---
+
+## Security Architecture & Server-Side Secret Custody
+
+Security is engineered as a foundational boundary in Zona.ai, not an afterthought:
+- **Zero Browser Exposure**: Upstream API keys (`NINE_ROUTER_API_KEY`, `TAVILY_API_KEY`, `DATABASE_URL`, and Cloudflare R2 credentials) never touch the client browser bundle. All third-party interactions are orchestrated strictly server-side.
+- **Better Auth Session Authorization**: Every database mutation and server query validates the caller's cryptographic session token. Direct client tampering of `userId` in payloads is completely rejected.
+- **Strict Content Security Policy (CSP)**: Sandboxed iframe execution for rendered HTML artifacts blocks parent window access, preventing malicious script escalation or credential exfiltration.
