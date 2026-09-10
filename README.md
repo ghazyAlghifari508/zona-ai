@@ -203,3 +203,23 @@ Zona.ai embraces the **MindMarket Design System**—a calm, tactile, editorial a
 - **Warm Paper Surfaces**: The primary background uses cream paper tones (`#f5f1e4`) that minimize optical fatigue during long research sessions.
 - **Pure White Elevation**: Active text cards, input composers, and canvas documents rest on pure white (`#ffffff`), establishing crisp visual hierarchy without heavy dropshadows.
 - **Hairline Sandstone Borders**: Subtle structure is achieved using razor-sharp 1px borders (`#e0dbce` and `#d5d5d4`) rather than blurry, high-spread shadows.
+
+---
+
+## Aesthetic Tokens & Anti-AI Slop Discipline
+
+Zona.ai enforces strict UI design constraints:
+
+| Token Category | Token Value | Semantic Purpose |
+|---|---|---|
+| Background Base | `#f5f1e4` | Cream paper canvas providing warmth and focus |
+| Surface Card | `#ffffff` | Pure white elevated surfaces for readability |
+| Hairline Border | `#e0dbce` | Subtle structural dividers and section contours |
+| Accent Muted | `#2b2b2a` | Deep charcoal for legible headings and icons |
+| Text Primary | `#1c1c1a` | High-contrast typography for sustained reading |
+| Text Secondary | `#6b6863` | Subdued metadata, timestamps, and model badges |
+
+**Anti-AI Slop Mandates**:
+- No animated floating sparkles, gradient button borders, or cosmic backgrounds.
+- No emoji clutter in system cards or navigation bars.
+- High editorial typography using clean geometric sans-serif fonts paired with tabular monospaced numerals.
