@@ -329,3 +329,12 @@ Whenever an answer cites external literature or web intelligence:
 - **Interactive Citation Numbers**: Clicking any superscript reference `[1]` smoothly slides open the Citation Drawer.
 - **Contextual Source Snippet**: Review the exact excerpt extracted from the source website alongside relevance ranking scores.
 - **Domain Authenticity**: Clear badge displays showing domain favicon, publish timestamp, and outbound link for independent primary-source verification.
+
+---
+
+## Usage Statistics & Granular Accounting Modal
+
+Every response card includes a discrete usage summary pill that triggers the Usage Statistics Modal:
+- **Detailed Token Inventory**: Audit exact input prompt tokens, cached prefix tokens, output completion tokens, and reasoning tokens.
+- **Cost Computation**: View exact rupiah / credit deduction breakdown calculated against upstream provider rates.
+- **Performance Benchmarks**: Compare execution latency across sibling generations in the same comparison run.
