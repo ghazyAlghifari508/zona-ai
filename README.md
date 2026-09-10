@@ -192,3 +192,14 @@ Zona.ai offers seamless, localized credit top-ups powered by the Midtrans paymen
 - **Comprehensive Payment Methods**: Users can purchase credit bundles using GoPay, QRIS, BCA/Mandiri/BNI Virtual Accounts, and major credit cards.
 - **Cryptographically Signed Webhooks**: Payment confirmations are validated using SHA-512 order signature hashes to prevent replay attacks or fraudulent balance alterations.
 - **Instant Balance Activation**: Once Midtrans signals payment settlement, credits are immediately deposited to the user's ledger, allowing uninterrupted generation workflows.
+
+---
+
+## Design Philosophy: Restrained MindMarket Aesthetic
+
+Most contemporary AI interfaces suffer from sensory overload: dark purples, aggressive neon gradients, noisy glassmorphism, and gratuitous particle animations.
+
+Zona.ai embraces the **MindMarket Design System**—a calm, tactile, editorial aesthetic inspired by fine Swiss typography and Japanese stationery:
+- **Warm Paper Surfaces**: The primary background uses cream paper tones (`#f5f1e4`) that minimize optical fatigue during long research sessions.
+- **Pure White Elevation**: Active text cards, input composers, and canvas documents rest on pure white (`#ffffff`), establishing crisp visual hierarchy without heavy dropshadows.
+- **Hairline Sandstone Borders**: Subtle structure is achieved using razor-sharp 1px borders (`#e0dbce` and `#d5d5d4`) rather than blurry, high-spread shadows.
