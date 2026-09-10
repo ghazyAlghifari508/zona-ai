@@ -268,3 +268,11 @@ Security is engineered as a foundational boundary in Zona.ai, not an afterthough
 - **Zero Browser Exposure**: Upstream API keys (`NINE_ROUTER_API_KEY`, `TAVILY_API_KEY`, `DATABASE_URL`, and Cloudflare R2 credentials) never touch the client browser bundle. All third-party interactions are orchestrated strictly server-side.
 - **Better Auth Session Authorization**: Every database mutation and server query validates the caller's cryptographic session token. Direct client tampering of `userId` in payloads is completely rejected.
 - **Strict Content Security Policy (CSP)**: Sandboxed iframe execution for rendered HTML artifacts blocks parent window access, preventing malicious script escalation or credential exfiltration.
+
+---
+
+## Data Privacy Discipline & Honest Status Transparency
+
+Zona.ai respects user autonomy and data privacy:
+- **No Training On Prompts**: User prompts and uploaded attachments are processed strictly for live inference and vector retrieval; they are never sold, harvested, or used to train third-party foundational models.
+- **Honest System Status**: The interface never displays synthetic "thinking" animations unless a real reasoning delta is emitted by the model. Connection status, upstream outages, and rate limits are communicated transparently with precise error codes (`ERR-001` through `ERR-019`).
