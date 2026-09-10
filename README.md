@@ -276,3 +276,17 @@ Security is engineered as a foundational boundary in Zona.ai, not an afterthough
 Zona.ai respects user autonomy and data privacy:
 - **No Training On Prompts**: User prompts and uploaded attachments are processed strictly for live inference and vector retrieval; they are never sold, harvested, or used to train third-party foundational models.
 - **Honest System Status**: The interface never displays synthetic "thinking" animations unless a real reasoning delta is emitted by the model. Connection status, upstream outages, and rate limits are communicated transparently with precise error codes (`ERR-001` through `ERR-019`).
+
+---
+
+## Comparative Matrix: Zona.ai vs Alternatives
+
+| Dimension | Standard Chatbot (ChatGPT / Claude) | Generic Multi-Model Wrapper | Zona.ai |
+|---|---|---|---|
+| **Frontier Comparison** | Single model silo; manual copy-pasting | Basic tab switching or sequential API calls | True simultaneous parallel streaming (2-4 models) |
+| **Search Fairness** | Uncontrolled internal search logic | Duplicate multi-fetch search overhead | Single-fetch cached distribution across all models |
+| **Model Registry** | Hardcoded to single vendor ecosystem | Hardcoded static frontend arrays | Dynamic discovery via local 9Router gateway |
+| **Artifact Canvas** | Basic preview or modal popup | None or plain raw code blocks | Docked responsive canvas with versioning & `@` mentions |
+| **Telemetry & Metrics** | Opaque black box | None | Real-time TTFT, TPS, duration & token accounting |
+| **Design Aesthetic** | High-saturation consumer dark mode | Cluttered dashboard with neon gradients | Restrained MindMarket cream paper & pure white surfaces |
+| **Billing Clarity** | $20/mo per provider subscription | Opaque markup with sudden monthly caps | Exact token ledger with transparent top-up |
