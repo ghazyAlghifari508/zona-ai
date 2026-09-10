@@ -183,3 +183,12 @@ Zona.ai replaces opaque monthly flat subscriptions with granular, verifiable cre
 - **Atomic Two-Phase Deduction**: Before dispatching a generation, the server verifies sufficient credit balance. Upon completion, exact prompt and completion token counts are calculated and deducted with sub-millicent precision.
 - **Zero-Markup Token Transparency**: Every generation footer features a usage breakdown showing exact prompt tokens, completion tokens, execution duration in milliseconds, and the exact credit cost incurred.
 - **Immutable Transaction Ledger**: Every credit top-up, usage deduction, and refund is stored as an immutable row in the PostgreSQL `credit_transactions` table, viewable anytime in the user account settings.
+
+---
+
+## Midtrans Payment Gateway Integration
+
+Zona.ai offers seamless, localized credit top-ups powered by the Midtrans payment gateway:
+- **Comprehensive Payment Methods**: Users can purchase credit bundles using GoPay, QRIS, BCA/Mandiri/BNI Virtual Accounts, and major credit cards.
+- **Cryptographically Signed Webhooks**: Payment confirmations are validated using SHA-512 order signature hashes to prevent replay attacks or fraudulent balance alterations.
+- **Instant Balance Activation**: Once Midtrans signals payment settlement, credits are immediately deposited to the user's ledger, allowing uninterrupted generation workflows.
