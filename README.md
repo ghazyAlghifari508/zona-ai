@@ -80,3 +80,17 @@ Unlike traditional AI wrappers with static dropdown arrays baked into JavaScript
 - **Runtime Gateway Synchronization**: Available models, parameter boundaries, and capabilities are discovered dynamically from the local 9Router gateway (`/v1/models`). When a new model drops, it becomes instantly accessible without redeploying frontend assets.
 - **Internal Model Abstraction**: The frontend interacts exclusively with internal model identifiers and capability contracts. Provider-specific endpoint strings, API keys, and routing quirks are entirely encapsulated within the server orchestration layer.
 - **Capability-Driven UI Adaptation**: If an active model does not support file attachments or vision inputs, the UI gracefully indicates capability constraints prior to submission, preventing costly upstream contract rejections.
+
+---
+
+## Dynamic Capability Negotiation
+
+Every model integrated through Zona.ai undergoes automated capability negotiation across five fundamental axes:
+
+| Capability Flag | Description | Graceful Degradation Behavior |
+|---|---|---|
+| `supportsVision` | Multimodal image and diagram understanding | Converted to textual description or flagged before submit |
+| `supportsTools` | Structured JSON function calling & Agent Skills | Tools automatically omitted for pure text models |
+| `supportsReasoning` | Native chain-of-thought metadata transmission | Honest streaming without simulated thinking markers |
+| `contextWindow` | Maximum input and output token allocation | Dynamic sliding-window context compression |
+| `maxOutputTokens` | Upper threshold for generation length | Safeguards against mid-sentence model cutoffs |
