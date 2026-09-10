@@ -223,3 +223,12 @@ Zona.ai enforces strict UI design constraints:
 - No animated floating sparkles, gradient button borders, or cosmic backgrounds.
 - No emoji clutter in system cards or navigation bars.
 - High editorial typography using clean geometric sans-serif fonts paired with tabular monospaced numerals.
+
+---
+
+## Workspace Architecture & Thread Management
+
+Workspaces in Zona.ai are built around clarity, rapid navigation, and permanence:
+- **Sidebar Hierarchy**: Past research conversations are organized chronologically, with pinned essential threads accessible with a single click.
+- **Instant Filter & Search**: Client-side filtering paired with PostgreSQL full-text search indexes enables sub-millisecond thread retrieval across thousands of historical queries.
+- **Thread Ownership & Isolation**: Conversations are strictly partitioned by authenticated user identity. Sessions cannot leak across accounts.
