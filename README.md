@@ -382,3 +382,9 @@ Zona.ai continues to evolve as the vanguard multi-model environment:
 - **Native Sandboxed Code Execution**: Run Python data analysis, JavaScript algorithms, and SQL queries directly inside an isolated browser WebContainer.
 - **Team Workspaces & Collaborative Evaluation**: Share prompt benchmarks, blind comparison datasets, and artifact repositories across engineering teams.
 - **Bring-Your-Own-Key (BYOK) Encryption**: Client-encrypted upstream credential vaults for teams wishing to route through their private enterprise agreements.
+
+---
+
+## The Vision: Calm Intelligence
+
+In an era dominated by noise, sensational claims, and artificial intelligence lock-in, Zona.ai stands for clarity, restraint, and sovereignty. We believe that true productivity emerges not from blinding speeds or louder cheerleading, but from quiet, disciplined tools that present honest information cleanly and let the user decide.
