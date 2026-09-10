@@ -60,3 +60,13 @@ To deliver genuine real-time feedback across up to four concurrent models withou
   }
   ```
 - **Zero Cross-Talk**: The frontend state reducer decodes deltas into isolated message buffers, ensuring that high-throughput models (streaming at >100 tokens/second) do not block or stutter slower, deep-reasoning models.
+
+---
+
+## Independent Lifecycle & Fault-Tolerant Isolation
+
+In distributed AI systems, partial failure is an unavoidable reality: upstream providers experience momentary rate limits, timeout spikes, or content moderation blocks. Zona.ai treats partial failure as a first-class state:
+
+- **Isolated Error Boundaries**: If Model A hits an upstream timeout while Model B and Model C are actively generating, Model A renders an actionable error card (`ERR-005: Upstream Timeout`) while Models B and C complete uninterrupted.
+- **Granular Retries**: Users can retry an individual failed generation within a comparison run without re-running the entire set of models or wasting credits.
+- **Independent Cancellation**: Users can cancel an individual generation (or all active generations) at any time. Aborted runs accurately record partial tokens and deduct credits strictly for tokens generated prior to termination.
