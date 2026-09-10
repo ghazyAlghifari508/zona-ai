@@ -241,3 +241,12 @@ To prevent cluttered sidebars filled with generic "New Chat" entries, Zona.ai in
 - **Background Summary Synthesis**: After the first prompt-response cycle completes, a lightweight utility model synthesizes a concise, descriptive title (3-5 words) reflecting the true core topic.
 - **Zero UI Latency**: Titling runs asynchronously on the server and patches the client cache via TanStack Query without interfering with ongoing generation streams.
 - **Controlled Deletion Cascades**: Deleting a conversation triggers atomic database cascades that remove messages, comparison runs, and vector embeddings while unlinking external R2 storage references.
+
+---
+
+## Observability, Telemetry & Langfuse Tracing
+
+For engineering teams evaluating model performance in production, Zona.ai incorporates deep server-side observability:
+- **Hierarchical Span Tracing**: Every user prompt generates a root trace in Langfuse, nesting child spans for authentication checks, vector retrieval queries, search operations, and individual model generation streams.
+- **Strict Privacy Masking**: Prompts and sensitive file attachments can be masked or scrubbed from telemetry payloads according to strict enterprise privacy policies.
+- **Error Anomaly Tracking**: Upstream gateway timeouts, context overflow errors, and malformed JSON tool calls are captured with full stack traces for proactive system remediation.
