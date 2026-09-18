@@ -13,6 +13,10 @@ describe('ArtifactProgress', () => {
     ['prd', 'generating'],
     ['prd', 'validating'],
     ['prd', 'saving'],
+    ['checklist', 'preparing'],
+    ['checklist', 'generating'],
+    ['checklist', 'validating'],
+    ['checklist', 'saving'],
     ['agent-skill', 'preparing'],
     ['agent-skill', 'generating'],
     ['agent-skill', 'validating'],
@@ -28,6 +32,14 @@ describe('ArtifactProgress', () => {
       ).toBeGreaterThan(0)
     },
   )
+
+  it('uses checklist copy instead of PRD copy for checklist generation', () => {
+    render(<ArtifactProgress kind="checklist" phase="preparing" />)
+
+    const text = screen.getByTestId('artifact-progress-text').textContent
+    expect(text).toContain('checklist')
+    expect(text).not.toContain('PRD')
+  })
 
   it('renders completed and failed states', () => {
     const { unmount } = render(

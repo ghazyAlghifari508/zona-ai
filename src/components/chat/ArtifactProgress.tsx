@@ -34,6 +34,24 @@ export function getArtifactStatusText(
         return 'Pembuatan skill dibatalkan.'
     }
   }
+  if (kind === 'checklist') {
+    switch (phase) {
+      case 'preparing':
+        return 'Menyiapkan checklist...'
+      case 'generating':
+        return 'Menyusun checklist...'
+      case 'validating':
+        return 'Memvalidasi checklist...'
+      case 'saving':
+        return 'Menyiapkan file checklist...'
+      case 'completed':
+        return 'Checklist selesai dibuat.'
+      case 'failed':
+        return 'Pembuatan checklist gagal.'
+      case 'cancelled':
+        return 'Pembuatan checklist dibatalkan.'
+    }
+  }
   switch (phase) {
     case 'preparing':
       return 'Menyiapkan PRD...'
