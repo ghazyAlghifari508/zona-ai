@@ -527,7 +527,10 @@ describe.sequential('generateCompareArtifactsCore', () => {
     const USER = COMPARE_USERS[0]
     await db.update(users).set({ credits: 5 }).where(eq(users.id, USER))
     const r2 = await import('../../src/lib/r2/client')
-    const convsBefore = await db.select({ id: conversations.id }).from(conversations)
+    const convsBefore = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.userId, USER))
     const { generateCompareArtifactsCore } = await import(
       '../../src/server/core/artifact-generation'
     )
@@ -541,7 +544,10 @@ describe.sequential('generateCompareArtifactsCore', () => {
         request: userRequest(USER),
       }),
     ).rejects.toMatchObject({ status: 402 })
-    const convsAfter = await db.select({ id: conversations.id }).from(conversations)
+    const convsAfter = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.userId, USER))
     expect(convsAfter.length).toBe(convsBefore.length)
     expect(vi.mocked(r2.putObject).mock.calls.length).toBe(0)
     const txs = await db

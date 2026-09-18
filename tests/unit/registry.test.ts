@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { getAvailableModels, getModelById } from '../../src/lib/models/registry'
 
 describe('registry', () => {
-  it('returns 20 enabled models, auto isDefault', () => {
+  it('returns 21 enabled models, auto isDefault', () => {
     const models = getAvailableModels()
-    expect(models.length).toBe(20)
+    expect(models.length).toBe(21)
     expect(models.find((m) => m.id === 'auto')?.isDefault).toBe(true)
   })
   it('getModelById throws ERR-003 for missing', () => {

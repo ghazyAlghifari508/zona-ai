@@ -22,6 +22,13 @@ import {
   resetDevCreditsFn,
 } from '../../src/server/functions/credits'
 
+function mockSelectQuery(rows: unknown[]) {
+  const promise = Promise.resolve(rows)
+  return Object.assign(promise, {
+    for: vi.fn().mockReturnValue(promise),
+  })
+}
+
 describe('Admin Credit Management & Guards', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -162,6 +169,41 @@ describe('Admin Credit Management & Guards', () => {
 
       let insertedTx: unknown
       let insertedAudit: unknown
+      vi.spyOn(db, 'transaction').mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => {
+          const mockTx = {
+            execute: vi
+              .fn()
+              .mockResolvedValueOnce({ rows: [{ credits: 0 }] })
+              .mockResolvedValueOnce({ rows: [{ credits: 100 }] }),
+            select: vi.fn().mockReturnValue({
+              from: vi.fn().mockReturnValue({
+                where: vi
+                  .fn()
+                  .mockReturnValue(mockSelectQuery([{ credits: 0 }])),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              set: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+            insert: vi.fn().mockImplementation((table) => {
+              return {
+                values: vi.fn().mockImplementation((val) => {
+                  if (table === creditTransactions) {
+                    insertedTx = val
+                  } else if (table === auditLogs) {
+                    insertedAudit = val
+                  }
+                  return Promise.resolve()
+                }),
+              }
+            }),
+          }
+          return cb(mockTx)
+        },
+      )
       vi.spyOn(db, 'insert').mockImplementation((table) => {
         return {
           values: vi.fn().mockImplementation((val) => {
@@ -219,6 +261,34 @@ describe('Admin Credit Management & Guards', () => {
       } as unknown as ReturnType<typeof db.execute>)
 
       let insertedAudit: unknown
+      vi.spyOn(db, 'transaction').mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => {
+          const mockTx = {
+            execute: vi
+              .fn()
+              .mockResolvedValueOnce({ rows: [{ credits: 0 }] })
+              .mockResolvedValueOnce({ rows: [{ credits: 100 }] }),
+            select: vi.fn().mockReturnValue({
+              from: vi.fn().mockReturnValue({
+                where: vi
+                  .fn()
+                  .mockReturnValue(mockSelectQuery([{ credits: 0 }])),
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              set: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+            insert: vi.fn().mockImplementation(() => {
+              return {
+                values: vi.fn().mockResolvedValue([]),
+              }
+            }),
+          }
+          return cb(mockTx)
+        },
+      )
       vi.spyOn(db, 'insert').mockImplementation((table) => {
         return {
           values: vi.fn().mockImplementation((val) => {
@@ -321,7 +391,7 @@ describe('Admin Credit Management & Guards', () => {
         const mockTx = {
           select: vi.fn().mockReturnValue({
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([]),
+              where: vi.fn().mockReturnValue(mockSelectQuery([])),
             }),
           }),
         }
@@ -379,9 +449,9 @@ describe('Admin Credit Management & Guards', () => {
         const mockTx = {
           select: vi.fn().mockReturnValue({
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([
-                { id: 'target-user', credits: 40 },
-              ]),
+              where: vi.fn().mockReturnValue(
+                mockSelectQuery([{ id: 'target-user', credits: 40 }]),
+              ),
             }),
           }),
           update: vi.fn().mockReturnValue({
@@ -483,9 +553,9 @@ describe('Admin Credit Management & Guards', () => {
         const mockTx = {
           select: vi.fn().mockReturnValue({
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([
-                { id: 'target-user', credits: 15 },
-              ]),
+              where: vi.fn().mockReturnValue(
+                mockSelectQuery([{ id: 'target-user', credits: 15 }]),
+              ),
             }),
           }),
           update: vi.fn().mockReturnValue({
@@ -568,9 +638,9 @@ describe('Admin Credit Management & Guards', () => {
         const mockTx = {
           select: vi.fn().mockReturnValue({
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([
-                { id: 'target-user', credits: 20 },
-              ]),
+              where: vi.fn().mockReturnValue(
+                mockSelectQuery([{ id: 'target-user', credits: 20 }]),
+              ),
             }),
           }),
           update: vi.fn().mockReturnValue({
