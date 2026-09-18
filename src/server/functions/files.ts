@@ -319,13 +319,15 @@ export async function getAttachmentCore({
   })
   const buffer = body
   const disposition = parsed.data.download ? 'attachment' : 'inline'
+  const safeAsciiName = att.fileName.replace(/["\r\n\\]/g, '_')
+  const encodedName = encodeURIComponent(att.fileName)
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type':
         att.mimeType === 'text/markdown'
           ? 'text/markdown; charset=utf-8'
           : contentType || att.mimeType,
-      'Content-Disposition': `${disposition}; filename="${att.fileName}"`,
+      'Content-Disposition': `${disposition}; filename="${safeAsciiName}"; filename*=UTF-8''${encodedName}`,
       'Content-Length': String(buffer.length),
       'Cache-Control': 'private, max-age=3600',
       'X-Content-Type-Options': 'nosniff',
@@ -366,9 +368,19 @@ export async function deleteAttachmentCore({
     .limit(1)
   if (artifactVersion) throw httpError(409, 'This file cannot be deleted.')
 
+  await db
+    .update(attachments)
+    .set({ processingStatus: 'compensating' })
+    .where(and(eq(attachments.id, data.id), eq(attachments.userId, userId)))
+
   try {
     await deleteObject({ bucket: att.r2Bucket, key: att.r2Key })
-  } catch {
+  } catch (err) {
+    console.error('deleteObject failed during attachment deletion', err)
+    await db
+      .update(attachments)
+      .set({ processingStatus: att.processingStatus })
+      .where(and(eq(attachments.id, data.id), eq(attachments.userId, userId)))
     throw httpError(500, 'File deletion failed. Please try again.')
   }
   await db

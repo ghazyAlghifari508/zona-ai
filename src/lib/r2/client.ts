@@ -29,12 +29,22 @@ const s3 = new S3Client({
   },
 })
 
+function assertSafeKey(key: string): void {
+  if (!key || typeof key !== 'string' || key.trim() === '') {
+    throw new Error('Invalid storage key: empty')
+  }
+  if (key.includes('..') || key.startsWith('/') || key.startsWith('\\')) {
+    throw new Error('Invalid storage key: path traversal detected')
+  }
+}
+
 export async function putObject({
   bucket,
   key,
   body,
   contentType,
 }: PutStoredObjectInput): Promise<void> {
+  assertSafeKey(key)
   await s3.send(
     new PutObjectCommand({
       Bucket: bucket,
@@ -49,6 +59,7 @@ export async function getObject({
   bucket,
   key,
 }: StoredObjectLocator): Promise<{ body: Buffer; contentType: string }> {
+  assertSafeKey(key)
   const response = await s3.send(
     new GetObjectCommand({
       Bucket: bucket,
@@ -69,6 +80,7 @@ export async function deleteObject({
   bucket,
   key,
 }: StoredObjectLocator): Promise<void> {
+  assertSafeKey(key)
   await s3.send(
     new DeleteObjectCommand({
       Bucket: bucket,

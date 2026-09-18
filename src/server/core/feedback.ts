@@ -8,6 +8,11 @@ import { db } from '../../lib/db/index'
 import { auditLogs, feedback, users } from '../../lib/db/schema'
 import { env } from '../../lib/env.server'
 import { putObject } from '../../lib/r2/client'
+import { enforceRateLimit } from '../../lib/security/rate-limit'
+import {
+  RATE_LIMIT_UPLOAD_PER_MINUTE,
+  RATE_LIMIT_WINDOW_MS,
+} from '../../lib/utils/constants'
 import { AppError } from '../../lib/utils/errors'
 import {
   sanitizeFilename,
@@ -272,6 +277,12 @@ export async function uploadFeedbackAttachmentCore(params: {
 }) {
   const session = await getAuthSession(params.request)
   checkUserNotBanned(session.user)
+
+  enforceRateLimit({
+    key: `feedback_upload:${session.user.id}`,
+    limit: RATE_LIMIT_UPLOAD_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
 
   let formData: FormData
   try {
