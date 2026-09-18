@@ -105,6 +105,7 @@ function prefersReducedMotion(): boolean {
 }
 
 function isNearBottom(container: HTMLDivElement, threshold = 120) {
+  if (container.clientHeight === 0) return true
   return (
     container.scrollHeight - container.scrollTop - container.clientHeight <=
     threshold
