@@ -1,5 +1,3 @@
-import { ZapIcon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
@@ -72,10 +70,7 @@ import {
   setConversationMode,
   setConversationModel,
 } from '@/server/functions/conversations'
-import {
-  getCreditBalanceFn,
-  resetDevCreditsFn,
-} from '@/server/functions/credits'
+import { getCreditBalanceFn } from '@/server/functions/credits'
 import { getMessages } from '@/server/functions/messages'
 import { getCurrentSession } from '@/server/functions/session'
 
@@ -193,7 +188,6 @@ function ChatThread() {
   const [generationId, setGenerationId] = useState<string | null>(null)
   const [webSearchToast, setWebSearchToast] = useState(false)
   const [credits, setCredits] = useState(creditBalance)
-  const [resettingCredits, setResettingCredits] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [composerMentions, setComposerMentions] = useState<
     ArtifactMentionDraft[]
@@ -354,21 +348,6 @@ function ChatThread() {
             ? { message: 'Artifact generation failed.', code: 'ERR-016' }
             : generation.error,
       }))
-    }
-  }
-
-  const handleResetCredits = async () => {
-    if (resettingCredits) return
-    setResettingCredits(true)
-    try {
-      const res = await resetDevCreditsFn()
-      if (res && typeof res.newBalance === 'number') {
-        setCredits(res.newBalance)
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setResettingCredits(false)
     }
   }
 
@@ -2189,33 +2168,6 @@ function ChatThread() {
                     authState="authenticated"
                     mode="app"
                     className="flex items-center gap-2.5 sm:gap-3"
-                    leading={
-                      process.env.NODE_ENV !== 'production' ? (
-                        <button
-                          type="button"
-                          data-testid="reset-credits-btn"
-                          onClick={handleResetCredits}
-                          disabled={resettingCredits}
-                          className="flex min-h-8 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 sm:px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
-                          title="Reset ke 100 kredit (mode dev)"
-                        >
-                          <HugeiconsIcon
-                            icon={ZapIcon}
-                            size={14}
-                            strokeWidth={1.75}
-                            className="text-amber-500 shrink-0"
-                          />
-                          <span className="hidden sm:inline">
-                            {resettingCredits
-                              ? 'Mereset...'
-                              : 'Reset 100 Kredit'}
-                          </span>
-                          <span className="sm:hidden">
-                            {resettingCredits ? '...' : 'Reset'}
-                          </span>
-                        </button>
-                      ) : undefined
-                    }
                   />
                 </header>
 

@@ -3,7 +3,6 @@ import {
   Compass01Icon,
   Idea01Icon,
   SourceCodeIcon,
-  ZapIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -21,10 +20,7 @@ import {
 import { getDefaultSkillPreference } from '@/lib/chat/skill-preference'
 import { getDefaultModelPreference } from '@/lib/models/preference'
 import { createConversation } from '@/server/functions/conversations'
-import {
-  getCreditBalanceFn,
-  resetDevCreditsFn,
-} from '@/server/functions/credits'
+import { getCreditBalanceFn } from '@/server/functions/credits'
 import { getOptionalSession } from '@/server/functions/session'
 
 const STARTERS = [
@@ -140,21 +136,7 @@ function ChatHome() {
   )
   const [compareEnabled, setCompareEnabled] = useState(false)
   const [compareModelIds, setCompareModelIds] = useState<string[]>([])
-  const [credits, setCredits] = useState(serverCredits)
-  const [resettingCredits, setResettingCredits] = useState(false)
-
-  const handleResetCredits = async () => {
-    if (resettingCredits) return
-    setResettingCredits(true)
-    try {
-      const res = await resetDevCreditsFn()
-      setCredits(res.newBalance)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setResettingCredits(false)
-    }
-  }
+  const [credits] = useState(serverCredits)
 
   useEffect(() => setDraft(takeGuestDraft()), [])
 
@@ -284,32 +266,6 @@ function ChatHome() {
             onSignIn={() => void signIn()}
             signingIn={signingIn}
             mode="app"
-            leading={
-              authStatus === 'authenticated' &&
-              process.env.NODE_ENV !== 'production' ? (
-                <button
-                  type="button"
-                  data-testid="reset-credits-btn"
-                  onClick={handleResetCredits}
-                  disabled={resettingCredits}
-                  className="flex min-h-8 shrink-0 whitespace-nowrap items-center gap-1.5 rounded-full border border-hairline bg-pure-white px-2.5 sm:px-3 text-[13px] font-medium text-ink transition-all duration-200 hover:border-hairline-strong hover:bg-ink/5 active:scale-95 disabled:opacity-50"
-                  title="Reset ke 100 kredit (mode dev)"
-                >
-                  <HugeiconsIcon
-                    icon={ZapIcon}
-                    size={14}
-                    strokeWidth={1.75}
-                    className="text-amber-500 shrink-0"
-                  />
-                  <span className="hidden sm:inline">
-                    {resettingCredits ? 'Mereset...' : 'Reset 100 Kredit'}
-                  </span>
-                  <span className="sm:hidden">
-                    {resettingCredits ? '...' : 'Reset'}
-                  </span>
-                </button>
-              ) : undefined
-            }
           />
           <div className="flex flex-1 items-center justify-center py-2 sm:px-4">
             <div className="w-full max-w-[820px] px-1 sm:px-4">
