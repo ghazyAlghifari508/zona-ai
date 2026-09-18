@@ -12,8 +12,8 @@ import {
 } from '../core/payments'
 
 const createPaymentData = z.object({
-  planId: z.string(),
-  billingPeriod: z.string(),
+  planId: z.enum(['starter', 'pro', 'power']),
+  billingPeriod: z.enum(['monthly', 'yearly']),
 })
 
 const paymentStatusData = z.object({ orderId: z.string().min(1) })

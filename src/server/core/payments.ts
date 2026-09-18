@@ -69,7 +69,7 @@ export async function settlePaymentIfPending(params: {
       amount: settled.creditsGranted,
       type: 'purchase',
       balanceAfter,
-      description: `Purchase ${settled.planId} ${settled.billingPeriod}`,
+      description: `Purchase ${settled.planId} ${settled.billingPeriod} (${settled.orderId})`,
     })
     return { creditsGranted: settled.creditsGranted, balanceAfter }
   })
