@@ -322,7 +322,9 @@ export async function sendMessageCore({
       }
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
-    if (hasImage && !isVisionCapable(input.modelId)) {
+    const targetModelForVision =
+      input.modelId === 'auto' ? routerModelId : input.modelId
+    if (hasImage && !isVisionCapable(targetModelForVision)) {
       throw new AppError(
         'Model tidak mendukung vision. Pilih model vision-capable.',
         400,
@@ -557,16 +559,24 @@ export async function sendMessageCore({
       },
       onError: async ({ error }) => {
         try {
-          await db
-            .update(generationRuns)
-            .set({
-              status: 'failed',
-              error: { message: (error as Error).message },
-              completedAt: new Date(),
+          const won = await finalizeTerminalRun({
+            genId,
+            status: 'failed',
+            error: { message: (error as Error).message },
+          })
+          if (won) {
+            await refundCredits({
+              userId,
+              generationRunId: genId,
+              modelId: input.modelId,
+              amount: cost,
             })
-            .where(eq(generationRuns.id, genId))
-        } catch {}
-        controllers.delete(genId)
+          }
+        } catch (e) {
+          console.error('onError single chat failed', e)
+        } finally {
+          controllers.delete(genId)
+        }
       },
     })
 
@@ -783,7 +793,9 @@ export async function sendCompareMessageCore({
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
     if (hasImage) {
-      for (const mid of data.modelIds) {
+      for (let i = 0; i < data.modelIds.length; i++) {
+        const mid =
+          data.modelIds[i] === 'auto' ? routerModelIds[i] : data.modelIds[i]
         if (!isVisionCapable(mid)) {
           throw new AppError(
             'Model tidak mendukung vision. Pilih model vision-capable.',
@@ -1408,6 +1420,11 @@ export async function retryGenerationCore({
 }) {
   const session = await getAuthSession(request)
   checkUserNotBanned(session.user)
+  enforceRateLimit({
+    key: `chat:${session.user.id}`,
+    limit: RATE_LIMIT_CHAT_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
   const [gen] = await db
     .select()
     .from(generationRuns)
@@ -1451,6 +1468,38 @@ export async function retryGenerationCore({
   if (!msg) throw Object.assign(new Error('Message not found'), { status: 404 })
 
   const newGenId = crypto.randomUUID()
+  let retryMentionSources: ArtifactMentionSource[] = []
+  if (gen.requestMessageId) {
+    const mentionRows = await db
+      .select({
+        artifactId: messageArtifactMentions.artifactId,
+        versionId: messageArtifactMentions.versionId,
+        mode: messageArtifactMentions.mode,
+      })
+      .from(messageArtifactMentions)
+      .where(eq(messageArtifactMentions.messageId, gen.requestMessageId))
+      .orderBy(asc(messageArtifactMentions.position))
+
+    if (mentionRows.length > 0) {
+      const resolved = await resolveArtifactMentions({
+        userId: session.user.id,
+        conversationId: gen.conversationId,
+        mentions: mentionRows,
+      })
+      retryMentionSources = await loadArtifactMentionSources(resolved)
+    }
+  }
+
+  const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
+  if (retryMentionSources.length > 0) {
+    const mentionContextMsg = buildMentionContext(retryMentionSources)
+    if (aiMessages.length > 0) {
+      aiMessages.splice(aiMessages.length - 1, 0, mentionContextMsg)
+    } else {
+      aiMessages.push(mentionContextMsg)
+    }
+  }
+
   const [newMsg] = await db
     .insert(messages)
     .values({
@@ -1477,39 +1526,6 @@ export async function retryGenerationCore({
     modelId: gen.modelId,
     amount: cost,
   })
-
-  let retryMentionSources: ArtifactMentionSource[] = []
-  if (gen.requestMessageId) {
-    const mentionRows = await db
-      .select({
-        artifactId: messageArtifactMentions.artifactId,
-        versionId: messageArtifactMentions.versionId,
-        mode: messageArtifactMentions.mode,
-      })
-      .from(messageArtifactMentions)
-      .where(eq(messageArtifactMentions.messageId, gen.requestMessageId))
-      .orderBy(asc(messageArtifactMentions.position))
-
-    if (mentionRows.length > 0) {
-      const resolved = await resolveArtifactMentions({
-        userId: session.user.id,
-        conversationId: gen.conversationId,
-        mentions: mentionRows,
-      })
-      retryMentionSources = await loadArtifactMentionSources(resolved)
-    }
-  }
-
-  // For simplicity, reuse sendCompare single logic with streamText
-  const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
-  if (retryMentionSources.length > 0) {
-    const mentionContextMsg = buildMentionContext(retryMentionSources)
-    if (aiMessages.length > 0) {
-      aiMessages.splice(aiMessages.length - 1, 0, mentionContextMsg)
-    } else {
-      aiMessages.push(mentionContextMsg)
-    }
-  }
   const abortController = new AbortController()
   controllers.set(newGenId, abortController)
   const startTime = Date.now()
@@ -1656,10 +1672,17 @@ export async function stopGenerationCore({
     .select()
     .from(creditTransactions)
     .where(eq(creditTransactions.generationRunId, generationId))
-  const usageRow = usageRows.find((row) => row.type === 'usage')
+  const alreadyRefunded = usageRows.some((row) => row.type === 'refund')
+  if (alreadyRefunded) {
+    controllers.delete(generationId)
+    return { ok: true as const }
+  }
+  const totalUsage = usageRows
+    .filter((row) => row.type === 'usage')
+    .reduce((sum, row) => sum + Math.abs(row.amount), 0)
   let cancelRefund: number
-  if (usageRow) {
-    cancelRefund = Math.abs(usageRow.amount)
+  if (totalUsage > 0) {
+    cancelRefund = totalUsage
   } else {
     const modelEntry = getModelById(gen.modelId)
     cancelRefund =
