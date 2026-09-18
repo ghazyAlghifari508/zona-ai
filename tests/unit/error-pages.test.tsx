@@ -69,8 +69,11 @@ describe('NotFoundView and ErrorView Components', () => {
       render(<ErrorView error={forbiddenError} />)
 
       expect(screen.getByTestId('error-boundary-page')).toBeDefined()
-      expect(screen.getByText(/403/i)).toBeDefined()
+      expect(screen.getByText('403')).toBeDefined()
       expect(screen.getByText('Akses Dibatasi')).toBeDefined()
+      expect(
+        screen.getByText('Akun ini tidak memiliki akses ke area admin.'),
+      ).toBeDefined()
 
       expect(screen.queryByRole('button', { name: /coba lagi/i })).toBeNull()
 
@@ -79,10 +82,8 @@ describe('NotFoundView and ErrorView Components', () => {
       })
       expect(homeLink.getAttribute('href')).toBe('/')
 
-      const switchAccountLink = screen.getByRole('link', {
-        name: /ganti akun/i,
-      })
-      expect(switchAccountLink.getAttribute('href')).toBe('/auth/sign-in')
+      // No 'ganti akun' prompt
+      expect(screen.queryByText(/ganti akun/i)).toBeNull()
     })
   })
 })
