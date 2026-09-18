@@ -357,11 +357,6 @@ describe('CompareGrid disabled model integration', () => {
 
     render(<CompareGrid generations={generations} />)
 
-    expect(screen.getByTestId('compare-disabled-warning')).toBeTruthy()
-    expect(
-      screen.getByTestId('compare-disabled-warning').textContent,
-    ).toContain('Sedang tidak tersedia')
-
     const disabledColIndicator = screen.getByTestId(
       'column-disabled-indicator-cx/gpt-5.6-sol',
     )

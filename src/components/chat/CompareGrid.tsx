@@ -68,39 +68,12 @@ export function CompareGrid({
       : [],
   )
 
-  const disabledGenerations = generations.filter((g) => {
-    const entry = findCatalogEntry(catalog, g.modelId)
-    return entry?.isActive === false
-  })
-
   return (
     <div className={`space-y-4 ${containerClass}`}>
       {prompt && (
         <div className="flex w-full justify-end py-3">
           <div className="max-w-[min(78%,680px)] rounded-[20px] rounded-br-[4px] bg-accent px-4 py-2.5 text-[15px] font-normal leading-[1.5] text-white shadow-sm shadow-black/10 whitespace-pre-wrap [overflow-wrap:anywhere]">
             {prompt}
-          </div>
-        </div>
-      )}
-      {disabledGenerations.length > 0 && (
-        <div
-          data-testid="compare-disabled-warning"
-          className="flex items-center gap-2.5 rounded-lg border border-warning-strong/25 bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-strong dark:border-amber-700/30 dark:bg-amber-950/30 dark:text-amber-200"
-        >
-          <HugeiconsIcon
-            icon={Alert02Icon}
-            size={16}
-            strokeWidth={2}
-            className="shrink-0 text-warning-strong dark:text-amber-400"
-            aria-hidden="true"
-          />
-          <div className="flex flex-wrap items-center gap-1.5 text-[13px] leading-snug">
-            <span className="font-semibold">Sedang tidak tersedia:</span>
-            <span>
-              {disabledGenerations.length === 1
-                ? `Model ${findCatalogEntry(catalog, disabledGenerations[0].modelId)?.displayName ?? disabledGenerations[0].modelId} dinonaktifkan sementara oleh administrator.`
-                : 'Beberapa model dalam perbandingan ini dinonaktifkan sementara oleh administrator.'}
-            </span>
           </div>
         </div>
       )}
