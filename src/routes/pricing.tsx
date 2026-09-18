@@ -40,15 +40,7 @@ function PricingPage() {
     <MarketingLayout
       user={activeSession?.user}
       authState={authState}
-      title={
-        <>
-          Pilih paket yang paling{' '}
-          <span className="inline-block rounded-xl border border-dashed border-notion-blue bg-sky-tint px-2 py-0.5 capitalize">
-            tepat
-          </span>{' '}
-          untukmu
-        </>
-      }
+      title="Pilih paket yang paling tepat untukmu"
       subtitle="Mulai gratis, lalu naikkan kapasitas kredit dan fitur saat kamu butuh lebih banyak."
       maxWidth="wide"
     >
