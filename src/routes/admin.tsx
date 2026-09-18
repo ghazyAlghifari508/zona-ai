@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { AdminShell } from '../components/admin/AdminShell'
+import { authClient } from '../lib/auth/auth-client'
 import { verifyAdminAccessFn } from '../server/functions/admin-auth'
 
 let cachedAdminAccess: Awaited<ReturnType<typeof verifyAdminAccessFn>> | null =
@@ -21,9 +22,13 @@ export function getCachedAdminUser():
 export const Route = createFileRoute('/admin')({
   beforeLoad: async () => {
     const now = Date.now()
+    const currentSession = await authClient.getSession().catch(() => null)
+    const currentUserId = currentSession?.data?.user?.id
     if (
       typeof window !== 'undefined' &&
       cachedAdminAccess &&
+      currentUserId &&
+      cachedAdminAccess.user.id === currentUserId &&
       now - lastVerifiedTime < CACHE_TTL_MS
     ) {
       return cachedAdminAccess

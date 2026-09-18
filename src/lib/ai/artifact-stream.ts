@@ -115,7 +115,7 @@ export function createArtifactSseParser(handlers: {
   }
   return {
     push(chunk: string) {
-      buffer += chunk
+      buffer += chunk.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
       const parts = buffer.split('\n\n')
       buffer = parts.pop() ?? ''
       for (const part of parts) handleFrame(part)

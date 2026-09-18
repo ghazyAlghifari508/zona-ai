@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { MarketingLayout } from '@/components/layout/MarketingLayout'
 import { PricingSection } from '@/components/pricing/PricingSection'
 import { authClient } from '@/lib/auth/auth-client'
@@ -22,9 +23,11 @@ function PricingPage() {
   const summary = loaderData?.summary ?? null
   const { data: clientSession, isPending } = authClient.useSession()
 
-  if (typeof window !== 'undefined' && serverSession && !clientSession) {
-    authClient.hydrateSession(serverSession)
-  }
+  useEffect(() => {
+    if (serverSession && !clientSession) {
+      authClient.hydrateSession(serverSession)
+    }
+  }, [serverSession, clientSession])
 
   const activeSession = clientSession ?? serverSession ?? null
   const authState = activeSession?.user

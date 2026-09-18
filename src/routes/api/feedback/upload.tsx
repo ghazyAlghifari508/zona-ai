@@ -27,14 +27,11 @@ export const Route = createFileRoute('/api/feedback/upload')({
             )
           }
 
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Terjadi kesalahan saat mengunggah lampiran.'
+          console.error('Feedback upload internal error:', error)
           return new Response(
             JSON.stringify({
-              message,
-              code: 'ERR-500',
+              message: 'Terjadi kesalahan saat mengunggah lampiran.',
+              code: 'ERR-000',
               status: 500,
             }),
             {

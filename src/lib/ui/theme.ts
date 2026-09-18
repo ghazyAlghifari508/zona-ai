@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 
 export const THEME_STORAGE_KEY = 'zona-ai:theme'
 export const THEMES = ['light', 'dark'] as const
@@ -74,5 +74,8 @@ export function useTheme(): [Theme, () => void] {
     getTheme,
     () => DEFAULT_THEME,
   )
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
   return [theme, toggleTheme]
 }

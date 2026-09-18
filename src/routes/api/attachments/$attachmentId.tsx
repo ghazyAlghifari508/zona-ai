@@ -82,12 +82,25 @@ export const Route = createFileRoute('/api/attachments/$attachmentId')({
         request: Request
         params: { attachmentId: string }
       }) => {
-        // fallback for delete via POST with body {id}
+        // fallback for delete via POST with route param
         try {
           const body = await request.json().catch(() => ({}))
-          const id = (body as { id?: string }).id ?? params.attachmentId
+          const bodyId = (body as { id?: string }).id
+          if (bodyId && bodyId !== params.attachmentId) {
+            return new Response(
+              JSON.stringify({
+                message: 'ID lampiran tidak cocok dengan URL.',
+                code: 'ERR-001',
+                status: 400,
+              }),
+              {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            )
+          }
           const result = await deleteAttachmentCore({
-            data: { id },
+            data: { id: params.attachmentId },
             request,
           })
           return new Response(JSON.stringify(result), {

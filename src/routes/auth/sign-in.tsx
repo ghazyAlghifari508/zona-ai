@@ -17,14 +17,21 @@ export const Route = createFileRoute('/auth/sign-in')({
 
 function SignIn() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleGoogle = async () => {
     setLoading(true)
+    setError(null)
     try {
-      await authClient.signIn.social({
+      const result = await authClient.signIn.social({
         provider: 'google',
         callbackURL: '/',
       })
+      if (result?.error) {
+        setError(result.error.message ?? 'Gagal memulai login dengan Google.')
+      }
+    } catch {
+      setError('Terjadi kesalahan saat memulai login. Silakan coba lagi.')
     } finally {
       setLoading(false)
     }
@@ -55,6 +62,15 @@ function SignIn() {
         <p className="mt-2 text-[14px] leading-relaxed text-stone">
           Lanjutkan dengan akun Google Anda untuk mulai menggunakan Zona.ai.
         </p>
+
+        {error && (
+          <div
+            role="alert"
+            className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-left text-[13px] text-red-700"
+          >
+            {error}
+          </div>
+        )}
 
         {/* Google CTA */}
         <button

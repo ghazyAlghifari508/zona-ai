@@ -104,6 +104,13 @@ function prefersReducedMotion(): boolean {
   )
 }
 
+function isNearBottom(container: HTMLDivElement, threshold = 120) {
+  return (
+    container.scrollHeight - container.scrollTop - container.clientHeight <=
+    threshold
+  )
+}
+
 function scrollToBottom(container: HTMLDivElement) {
   const top = container.scrollHeight
   let smooth = false
@@ -166,11 +173,21 @@ export function MessageList({
     scrollMargin,
   })
 
+  const messageCount = messages.length
+  useEffect(() => {
+    void messageCount
+    const container = scrollRef?.current ?? parentRef.current
+    if (!container) return
+    scrollToBottom(container)
+  }, [messageCount, scrollRef])
+
   useEffect(() => {
     void lastMessage?.content
     const container = scrollRef?.current ?? parentRef.current
     if (!container) return
-    scrollToBottom(container)
+    if (isNearBottom(container)) {
+      scrollToBottom(container)
+    }
   }, [lastMessage?.content, scrollRef])
 
   return (

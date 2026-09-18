@@ -125,7 +125,14 @@ export function Sidebar({
     id: string
     title: string
   } | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const editingInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!actionError) return
+    const timer = window.setTimeout(() => setActionError(null), 4000)
+    return () => window.clearTimeout(timer)
+  }, [actionError])
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -179,6 +186,7 @@ export function Sidebar({
     onError: (_error, _variables, context) => {
       for (const [key, cache] of context?.snapshots ?? [])
         queryClient.setQueryData(key, cache)
+      setActionError('Gagal mengubah nama percakapan. Coba lagi.')
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ['conversations'] }),
@@ -203,6 +211,7 @@ export function Sidebar({
     onError: (_error, _variables, context) => {
       for (const [key, cache] of context?.snapshots ?? [])
         queryClient.setQueryData(key, cache)
+      setActionError('Gagal menghapus percakapan. Coba lagi.')
     },
     onSuccess: (_data, deletedId) => {
       if (deletedId === activeConversationId) void navigate({ to: '/' })
@@ -361,6 +370,22 @@ export function Sidebar({
       </div>
 
       <div className="zona-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        {actionError && !collapsed && (
+          <div
+            role="alert"
+            className="mb-2 flex items-center justify-between rounded-md border border-red-200 bg-red-50 p-2 text-[12px] text-red-600"
+          >
+            <span>{actionError}</span>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              className="ml-2 text-red-400 hover:text-red-700"
+              aria-label="Tutup pesan error"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {!collapsed && (
           <>
             <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">

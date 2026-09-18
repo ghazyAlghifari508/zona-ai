@@ -304,14 +304,15 @@ export async function getAttachmentCore({
       download: z.boolean().optional().default(false),
     })
     .safeParse(data)
-  if (!parsed.success) throw httpError(400, 'Invalid id')
+  if (!parsed.success)
+    throw httpError(400, 'ID lampiran tidak valid.', 'ERR-001')
 
   const [att] = await db
     .select()
     .from(attachments)
-    .where(eq(attachments.id, data.id))
-  if (!att) throw httpError(404, 'Not found')
-  if (att.userId !== userId) throw httpError(403, 'Forbidden')
+    .where(eq(attachments.id, parsed.data.id))
+  if (!att) throw httpError(404, 'Lampiran tidak ditemukan.', 'ERR-003')
+  if (att.userId !== userId) throw httpError(403, 'Akses ditolak.', 'ERR-004')
 
   const { body, contentType } = await getObject({
     bucket: att.r2Bucket,

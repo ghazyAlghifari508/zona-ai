@@ -33,7 +33,8 @@ export function CreditWidget({ credits, onReset, user }: Props) {
     }
   }
 
-  const percentage = Math.min(100, Math.max(0, (balance / 100) * 100))
+  const maxCredits = Math.max(100, balance)
+  const percentage = Math.min(100, Math.max(0, (balance / maxCredits) * 100))
   const isLow = balance < 20
 
   return (
@@ -53,9 +54,11 @@ export function CreditWidget({ credits, onReset, user }: Props) {
             className="font-mono text-[13px] font-bold text-ink"
           >
             {balance}
-            <span className="font-sans text-[11px] font-normal text-stone">
-              /100
-            </span>
+            {balance <= 100 && (
+              <span className="font-sans text-[11px] font-normal text-stone">
+                /100
+              </span>
+            )}
           </span>
         </div>
         <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-paper">
@@ -67,8 +70,18 @@ export function CreditWidget({ credits, onReset, user }: Props) {
           />
         </div>
         <div className="mt-2 flex items-center justify-between text-[11px] text-stone">
-          <span>{isLow ? 'Kredit menipis' : 'Paket Standar'}</span>
-          <span>{Math.round(percentage)}% tersisa</span>
+          <span>
+            {isLow
+              ? 'Kredit menipis'
+              : balance > 100
+                ? 'Paket Tambahan'
+                : 'Paket Standar'}
+          </span>
+          <span>
+            {balance > 100
+              ? `${balance} kredit`
+              : `${Math.round(percentage)}% tersisa`}
+          </span>
         </div>
 
         {user?.role === 'admin' && (

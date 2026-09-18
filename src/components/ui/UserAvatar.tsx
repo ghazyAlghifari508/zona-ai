@@ -40,7 +40,6 @@ export function UserAvatar({
           src={imageUrl}
           alt={user?.name ?? 'Avatar'}
           referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
           className="h-full w-full object-cover"
           onError={() => setImageError(true)}
         />

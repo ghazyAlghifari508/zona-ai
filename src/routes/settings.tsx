@@ -6,7 +6,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useModelCatalog } from '@/components/chat/useModelCatalog'
 import { MarketingLayout } from '@/components/layout/MarketingLayout'
 import {
@@ -58,9 +58,11 @@ function SettingsPage() {
   const queryClient = useQueryClient()
 
   const { data: clientSession } = authClient.useSession()
-  if (typeof window !== 'undefined' && loaderData?.session && !clientSession) {
-    authClient.hydrateSession(loaderData.session)
-  }
+  useEffect(() => {
+    if (loaderData?.session && !clientSession) {
+      authClient.hydrateSession(loaderData.session)
+    }
+  }, [loaderData?.session, clientSession])
 
   const activeSession = clientSession ?? loaderData?.session ?? null
   const user = activeSession?.user
