@@ -277,7 +277,9 @@ export function Composer({
   }, 0)
   const compareInsufficient = credits < compareTotal
   const attachmentsReady = attachments.every(
-    (attachment) => attachment.processingStatus === 'completed',
+    (attachment) =>
+      !attachment.processingStatus ||
+      attachment.processingStatus === 'completed',
   )
   const hasContent = content.trim().length > 0 || attachmentIds.length > 0
   const canSendCompare = canSendCompareWith(compareModelIds, {

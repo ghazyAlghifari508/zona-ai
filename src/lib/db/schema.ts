@@ -94,7 +94,13 @@ export const accounts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
-  (table) => [index('accounts_user_id_idx').on(table.userId)],
+  (table) => [
+    index('accounts_user_id_idx').on(table.userId),
+    unique('accounts_provider_account_unique').on(
+      table.providerId,
+      table.accountId,
+    ),
+  ],
 )
 
 export const verifications = pgTable('verifications', {

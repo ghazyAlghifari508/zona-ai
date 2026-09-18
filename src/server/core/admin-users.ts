@@ -130,34 +130,33 @@ export async function banUserCore(params: {
   const banReason = params.data.reason?.trim() || null
   const now = new Date()
 
-  const [updatedUser] = await db
-    .update(users)
-    .set({
-      banned: true,
-      banReason,
-      banExpires,
-      updatedAt: now,
+  const updatedUser = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(users)
+      .set({ banned: true, banReason, banExpires, updatedAt: now })
+      .where(eq(users.id, params.data.userId))
+      .returning()
+    if (!updated)
+      throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'user.ban',
+      targetId: params.data.userId,
+      targetType: 'user',
+      metadata: {
+        reason: banReason,
+        expiresAt: banExpires ? banExpires.toISOString() : null,
+      },
+      createdAt: now,
     })
-    .where(eq(users.id, params.data.userId))
-    .returning()
-
-  await db.insert(auditLogs).values({
-    adminId: session.user.id,
-    adminEmail: session.user.email,
-    action: 'user.ban',
-    targetId: params.data.userId,
-    targetType: 'user',
-    metadata: {
-      reason: banReason,
-      expiresAt: banExpires ? banExpires.toISOString() : null,
-    },
-    createdAt: now,
+    return updated
   })
 
   return {
     success: true,
     user: {
-      id: updatedUser?.id ?? targetUser.id,
+      id: updatedUser.id,
       banned: true,
       banReason,
       banExpires,
@@ -190,31 +189,30 @@ export async function unbanUserCore(params: {
 
   const now = new Date()
 
-  const [updatedUser] = await db
-    .update(users)
-    .set({
-      banned: false,
-      banReason: null,
-      banExpires: null,
-      updatedAt: now,
+  const updatedUser = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(users)
+      .set({ banned: false, banReason: null, banExpires: null, updatedAt: now })
+      .where(eq(users.id, params.data.userId))
+      .returning()
+    if (!updated)
+      throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'user.unban',
+      targetId: params.data.userId,
+      targetType: 'user',
+      metadata: null,
+      createdAt: now,
     })
-    .where(eq(users.id, params.data.userId))
-    .returning()
-
-  await db.insert(auditLogs).values({
-    adminId: session.user.id,
-    adminEmail: session.user.email,
-    action: 'user.unban',
-    targetId: params.data.userId,
-    targetType: 'user',
-    metadata: null,
-    createdAt: now,
+    return updated
   })
 
   return {
     success: true,
     user: {
-      id: updatedUser?.id ?? targetUser.id,
+      id: updatedUser.id,
       banned: false,
       banReason: null,
       banExpires: null,
@@ -242,21 +240,28 @@ export async function deleteUserCore(params: {
 
   preventAdminSelfBan(session.user.id, targetUser.id, targetUser.role)
 
-  await db.delete(users).where(eq(users.id, params.data.userId))
-
   const now = new Date()
-  await db.insert(auditLogs).values({
-    adminId: session.user.id,
-    adminEmail: session.user.email,
-    action: 'user.delete',
-    targetId: params.data.userId,
-    targetType: 'user',
-    metadata: {
-      deletedEmail: targetUser.email,
-      deletedName: targetUser.name,
-      deletedRole: targetUser.role,
-    },
-    createdAt: now,
+  await db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(users)
+      .where(eq(users.id, params.data.userId))
+      .returning({ id: users.id })
+    if (deleted.length === 0) {
+      throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
+    }
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'user.delete',
+      targetId: params.data.userId,
+      targetType: 'user',
+      metadata: {
+        deletedEmail: targetUser.email,
+        deletedName: targetUser.name,
+        deletedRole: targetUser.role,
+      },
+      createdAt: now,
+    })
   })
 
   return {

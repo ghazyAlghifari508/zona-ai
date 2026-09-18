@@ -2,7 +2,7 @@ if (typeof window !== 'undefined') {
   throw new Error('src/lib/rag/process.ts is server-only')
 }
 
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index'
 import { attachments, documentChunks } from '../db/schema'
 import { chunkText } from './chunk'
@@ -17,10 +17,17 @@ export async function processDocument(attachmentId: string): Promise<void> {
     .where(eq(attachments.id, attachmentId))
   if (!att) return
 
-  await db
+  const claimed = await db
     .update(attachments)
     .set({ processingStatus: 'processing' })
-    .where(eq(attachments.id, attachmentId))
+    .where(
+      and(
+        eq(attachments.id, attachmentId),
+        eq(attachments.processingStatus, 'pending'),
+      ),
+    )
+    .returning({ id: attachments.id })
+  if (claimed.length === 0) return
 
   try {
     const text = await extractText({
@@ -54,7 +61,10 @@ export async function processDocument(attachmentId: string): Promise<void> {
 
     const vectors = await embedTexts(chunks.map((c) => c.content))
 
-    // Insert chunks
+    await db
+      .delete(documentChunks)
+      .where(eq(documentChunks.attachmentId, attachmentId))
+
     await db.insert(documentChunks).values(
       chunks.map((c, i) => ({
         attachmentId,

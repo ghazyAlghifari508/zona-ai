@@ -68,6 +68,18 @@ function isAllowedFeedbackMime(
 
 const MAX_FEEDBACK_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
+function validateFeedbackAttachmentKey(
+  key: string | null | undefined,
+  userId: string,
+): string | null {
+  if (!key) return null
+  const prefix = `feedback/${userId}/`
+  if (!key.startsWith(prefix) || key.includes('..')) {
+    throw new AppError('Lampiran feedback tidak valid.', 400, 'ERR-011')
+  }
+  return key
+}
+
 export async function submitFeedbackCore(params: {
   request: Request
   data: SubmitFeedbackData
@@ -85,7 +97,10 @@ export async function submitFeedbackCore(params: {
       stepsToReproduce: params.data.stepsToReproduce?.trim() || null,
       expectedBehavior: params.data.expectedBehavior?.trim() || null,
       actualBehavior: params.data.actualBehavior?.trim() || null,
-      attachmentR2Key: params.data.attachmentR2Key || null,
+      attachmentR2Key: validateFeedbackAttachmentKey(
+        params.data.attachmentR2Key,
+        session.user.id,
+      ),
       attachmentFileName: params.data.attachmentFileName || null,
       attachmentMimeType: params.data.attachmentMimeType || null,
       attachmentFileSize: params.data.attachmentFileSize || null,

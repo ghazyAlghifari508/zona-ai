@@ -150,18 +150,11 @@ export async function reserveGenerationBatchCredits(
     }>
   },
 ): Promise<number> {
-  if (
-    args.reservations.length === 0 ||
-    args.reservations.some((reservation) => {
-      try {
-        assertCreditAmount(reservation.amount)
-        return false
-      } catch {
-        return true
-      }
-    })
-  ) {
+  if (args.reservations.length === 0) {
     throw new AppError('Invalid credit reservation', 400, 'ERR-018')
+  }
+  for (const reservation of args.reservations) {
+    assertCreditAmount(reservation.amount)
   }
   const total = args.reservations.reduce((sum, r) => sum + r.amount, 0)
   const res = await tx.execute(
