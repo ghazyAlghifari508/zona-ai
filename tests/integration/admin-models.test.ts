@@ -208,16 +208,22 @@ describe('Admin Model Availability Enforcement', () => {
     })
 
     const inserts: Array<{ table: unknown; value: unknown }> = []
-    vi.spyOn(db, 'insert').mockImplementation((table: unknown) => {
-      return {
-        values: (val: unknown) => {
-          inserts.push({ table, value: val })
-          return {
-            onConflictDoUpdate: vi.fn().mockResolvedValue({}),
-          }
-        },
-      } as unknown as ReturnType<typeof db.insert>
+    const mockInsert = (table: unknown) => ({
+      values: (val: unknown) => {
+        inserts.push({ table, value: val })
+        return {
+          onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+        }
+      },
     })
+    vi.spyOn(db, 'transaction').mockImplementation(async (cb: unknown) => {
+      return (cb as (tx: unknown) => Promise<unknown>)({
+        insert: mockInsert,
+      })
+    })
+    vi.spyOn(db, 'insert').mockImplementation(
+      mockInsert as unknown as typeof db.insert,
+    )
 
     const result = await updateModelAvailabilityCore({
       modelId: 'cx/gpt-5.6-terra',

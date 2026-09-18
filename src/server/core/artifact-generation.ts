@@ -39,8 +39,11 @@ import type {
   ArtifactOperation,
   CompareArtifactInput,
 } from '../../lib/utils/validation'
+import { isModelAvailable } from './admin-models'
 import { finalizeArtifactVersion } from './artifact-finalization'
 import {
+  buildMentionContext,
+  loadArtifactMentionSources,
   persistArtifactMentions,
   type ResolvedArtifactMention,
   resolveArtifactMentions,
@@ -396,6 +399,10 @@ export async function executeArtifactGeneration(
                 fullText += chunk
                 if (Buffer.byteLength(fullText, 'utf8') > profile.maxBytes) {
                   oversize = true
+                  try {
+                    abortController.abort()
+                    await reader.cancel()
+                  } catch {}
                   break
                 }
                 const detected = profile.detectSection(fullText)
@@ -864,11 +871,13 @@ export async function multiplexArtifactResponses(
   fallbackConvId: string,
 ): Promise<Response> {
   const encoder = new TextEncoder()
+  const activeReaders = new Set<ReadableStreamDefaultReader<Uint8Array>>()
   const merged = new ReadableStream({
     async start(controller) {
       const forward = async (res: Response) => {
         const reader = res.body?.getReader()
         if (!reader) return
+        activeReaders.add(reader)
         const decoder = new TextDecoder()
         let buffer = ''
         const flushFrame = (frame: string) => {
@@ -893,13 +902,26 @@ export async function multiplexArtifactResponses(
           buffer += decoder.decode()
           if (buffer.trim()) flushFrame(buffer)
         } finally {
+          activeReaders.delete(reader)
           try {
             reader.releaseLock()
           } catch {}
         }
       }
-      await Promise.all(responses.map(forward))
-      controller.close()
+      try {
+        await Promise.all(responses.map(forward))
+        controller.close()
+      } catch (err) {
+        controller.error(err)
+      }
+    },
+    async cancel(reason) {
+      for (const r of activeReaders) {
+        try {
+          await r.cancel(reason)
+        } catch {}
+      }
+      activeReaders.clear()
     },
   })
   const firstGenId =
@@ -977,15 +999,33 @@ export async function generateArtifactsCore({
   let cost: number
   let routingReason: string | undefined
   if (data.modelId === 'auto') {
-    const resolved = resolveAutoModel(data.content, { credits: currentCredits })
+    const resolved = resolveAutoModel(data.content, {
+      credits: currentCredits,
+      isAvailable: isModelAvailable,
+    })
     routerModelId = resolved.routerModelId
     cost = resolved.cost
     routingReason = resolved.reason
   } else {
+    if (!isModelAvailable(data.modelId)) {
+      throw new AppError(
+        'Model ini sedang dinonaktifkan oleh administrator.',
+        400,
+        'ERR-MODEL-DISABLED',
+      )
+    }
     cost =
       typeof modelEntry.creditCost === 'number'
         ? modelEntry.creditCost
         : modelEntry.creditCost.max
+  }
+
+  if (!isModelAvailable(routerModelId)) {
+    throw new AppError(
+      'Model ini sedang dinonaktifkan oleh administrator.',
+      400,
+      'ERR-MODEL-DISABLED',
+    )
   }
 
   const revisionCount = planned.filter((p) => p.type === 'revise').length
@@ -1257,81 +1297,116 @@ export async function generateArtifactsCore({
     }
   }
 
-  const workerInputs: ArtifactWorkerInput[] = []
-  for (const row of preflight.rows) {
-    const target = planned[row.targetIndex]
-    const aiMessages: ModelMessage[] = await buildModelHistory(preflight.convId)
-    let systemPrompt: string
-    let sourceIds: Pick<
-      ArtifactWorkerInput,
-      | 'artifactId'
-      | 'sourceArtifactId'
-      | 'sourceVersionId'
-      | 'expectedCurrentVersionId'
-    > = {}
-    if (target.type === 'revise') {
-      const source = loadedSources.find(
-        (s) => s.artifactId === target.artifactId,
+  try {
+    const mentionSources =
+      resolvedMentions.length > 0
+        ? await loadArtifactMentionSources(resolvedMentions)
+        : []
+    const workerInputs: ArtifactWorkerInput[] = []
+    for (const row of preflight.rows) {
+      const target = planned[row.targetIndex]
+      const aiMessages: ModelMessage[] = await buildModelHistory(
+        preflight.convId,
       )
-      if (!source) throw new AppError('Source not loaded', 500, 'ERR-013')
-      systemPrompt = target.profile.buildRevisionSystemPrompt({
-        instruction: data.content,
-        sourceMarkdown: source.sourceMarkdown,
-        ragSuffix: '',
-      })
-      sourceIds = {
-        artifactId: source.artifactId,
-        sourceArtifactId: source.artifactId,
-        sourceVersionId: source.versionId,
-        expectedCurrentVersionId: source.expectedCurrentVersionId,
+      if (mentionSources.length > 0) {
+        const mentionContextMsg = buildMentionContext(mentionSources)
+        const lastUserIdx = aiMessages.findLastIndex((m) => m.role === 'user')
+        if (lastUserIdx >= 0) {
+          aiMessages.splice(lastUserIdx, 0, mentionContextMsg)
+        } else {
+          aiMessages.push(mentionContextMsg)
+        }
       }
-    } else {
-      systemPrompt = target.profile.buildSystemPrompt({
-        userContent: data.content,
-        ragSuffix: createRagSuffix,
-      })
-      if (createFileParts.length) {
-        for (let i = aiMessages.length - 1; i >= 0; i--) {
-          if (aiMessages[i].role === 'user') {
-            const current = aiMessages[i]
-            if (typeof current.content === 'string') {
-              current.content = [
-                { type: 'text', text: data.content },
-                ...createFileParts,
-              ] as ModelMessage['content']
+      let systemPrompt: string
+      let sourceIds: Pick<
+        ArtifactWorkerInput,
+        | 'artifactId'
+        | 'sourceArtifactId'
+        | 'sourceVersionId'
+        | 'expectedCurrentVersionId'
+      > = {}
+      if (target.type === 'revise') {
+        const source = loadedSources.find(
+          (s) => s.artifactId === target.artifactId,
+        )
+        if (!source) throw new AppError('Source not loaded', 500, 'ERR-013')
+        systemPrompt = target.profile.buildRevisionSystemPrompt({
+          instruction: data.content,
+          sourceMarkdown: source.sourceMarkdown,
+          ragSuffix: '',
+        })
+        sourceIds = {
+          artifactId: source.artifactId,
+          sourceArtifactId: source.artifactId,
+          sourceVersionId: source.versionId,
+          expectedCurrentVersionId: source.expectedCurrentVersionId,
+        }
+      } else {
+        systemPrompt = target.profile.buildSystemPrompt({
+          userContent: data.content,
+          ragSuffix: createRagSuffix,
+        })
+        if (createFileParts.length) {
+          for (let i = aiMessages.length - 1; i >= 0; i--) {
+            if (aiMessages[i].role === 'user') {
+              const current = aiMessages[i]
+              if (typeof current.content === 'string') {
+                current.content = [
+                  { type: 'text', text: data.content },
+                  ...createFileParts,
+                ] as ModelMessage['content']
+              }
+              break
             }
-            break
           }
         }
       }
+      workerInputs.push({
+        profile: target.profile,
+        operation: target.type,
+        userId,
+        convId: preflight.convId,
+        assistantMsgId: row.assistantMsgId,
+        genId: row.genId,
+        modelId: data.modelId,
+        routerModelId,
+        routingReason,
+        cost,
+        userContent: data.content,
+        aiMessages,
+        systemPrompt,
+        startTime: Date.now(),
+        fanOut,
+        revisionCount,
+        contextCount: 0,
+        mentionCount: 0,
+        ...sourceIds,
+      })
     }
-    workerInputs.push({
-      profile: target.profile,
-      operation: target.type,
-      userId,
-      convId: preflight.convId,
-      assistantMsgId: row.assistantMsgId,
-      genId: row.genId,
-      modelId: data.modelId,
-      routerModelId,
-      routingReason,
-      cost,
-      userContent: data.content,
-      aiMessages,
-      systemPrompt,
-      startTime: Date.now(),
-      fanOut,
-      revisionCount,
-      contextCount: 0,
-      mentionCount: 0,
-      ...sourceIds,
-    })
-  }
 
-  const responses = await Promise.all(
-    workerInputs.map((worker) => executeArtifactGeneration(worker)),
-  )
-  return multiplexArtifactResponses(responses, preflight.convId)
+    const responses = await Promise.all(
+      workerInputs.map((worker) => executeArtifactGeneration(worker)),
+    )
+    return multiplexArtifactResponses(responses, preflight.convId)
+  } catch (workerSetupError) {
+    for (const row of preflight.rows) {
+      try {
+        await db
+          .update(generationRuns)
+          .set({ status: 'failed', completedAt: new Date() })
+          .where(eq(generationRuns.id, row.genId))
+        await refundCredits({
+          userId,
+          generationRunId: row.genId,
+          modelId: data.modelId,
+          amount: cost,
+        })
+      } catch (refundErr) {
+        console.error('Failed to compensate preflight row', refundErr)
+      }
+    }
+    throw workerSetupError
+  }
 }
 
 export type CompareTerminalStatus =
@@ -1487,6 +1562,13 @@ export async function generateCompareArtifactsCore({
   const modelCosts = new Map<string, { cost: number; routerModelId: string }>()
   for (const modelId of data.modelIds) {
     const entry = getModelById(modelId)
+    if (!isModelAvailable(entry.routerModelId)) {
+      throw new AppError(
+        'Model ini sedang dinonaktifkan oleh administrator.',
+        400,
+        'ERR-MODEL-DISABLED',
+      )
+    }
     const cost =
       typeof entry.creditCost === 'number'
         ? entry.creditCost
@@ -1793,132 +1875,168 @@ export async function generateCompareArtifactsCore({
     }
   }
 
-  const workerInputs: ArtifactWorkerInput[] = []
-  for (const row of preflight.rows) {
-    const target = planned[row.targetIndex]
-    const pricing = modelCosts.get(row.modelId)
-    if (!pricing) throw new AppError('Model tidak valid.', 400, 'ERR-003')
-    const aiMessages: ModelMessage[] = await buildModelHistory(preflight.convId)
-    let systemPrompt: string
-    let workerOperation: 'create' | 'fork' = 'create'
-    let sourceIds: Pick<
-      ArtifactWorkerInput,
-      | 'artifactId'
-      | 'sourceArtifactId'
-      | 'sourceVersionId'
-      | 'expectedCurrentVersionId'
-    > = {}
-    if (target.type === 'revise') {
-      const source = loadedSources.find(
-        (s) => s.artifactId === target.artifactId,
+  try {
+    const mentionSources =
+      resolvedMentions.length > 0
+        ? await loadArtifactMentionSources(resolvedMentions)
+        : []
+    const workerInputs: ArtifactWorkerInput[] = []
+    for (const row of preflight.rows) {
+      const target = planned[row.targetIndex]
+      const pricing = modelCosts.get(row.modelId)
+      if (!pricing) throw new AppError('Model tidak valid.', 400, 'ERR-003')
+      const aiMessages: ModelMessage[] = await buildModelHistory(
+        preflight.convId,
       )
-      if (!source) throw new AppError('Source not loaded', 500, 'ERR-013')
-      systemPrompt = target.profile.buildRevisionSystemPrompt({
-        instruction: data.content,
-        sourceMarkdown: source.sourceMarkdown,
-        ragSuffix: '',
-      })
-      workerOperation = 'fork'
-      sourceIds = {
-        sourceArtifactId: source.artifactId,
-        sourceVersionId: source.versionId,
-        expectedCurrentVersionId: source.expectedCurrentVersionId,
+      if (mentionSources.length > 0) {
+        const mentionContextMsg = buildMentionContext(mentionSources)
+        const lastUserIdx = aiMessages.findLastIndex((m) => m.role === 'user')
+        if (lastUserIdx >= 0) {
+          aiMessages.splice(lastUserIdx, 0, mentionContextMsg)
+        } else {
+          aiMessages.push(mentionContextMsg)
+        }
       }
-    } else {
-      systemPrompt = target.profile.buildSystemPrompt({
-        userContent: data.content,
-        ragSuffix: createRagSuffix,
-      })
-      if (createFileParts.length) {
-        for (let i = aiMessages.length - 1; i >= 0; i--) {
-          if (aiMessages[i].role === 'user') {
-            const current = aiMessages[i]
-            if (typeof current.content === 'string') {
-              current.content = [
-                { type: 'text', text: data.content },
-                ...createFileParts,
-              ] as ModelMessage['content']
+      let systemPrompt: string
+      let workerOperation: 'create' | 'fork' = 'create'
+      let sourceIds: Pick<
+        ArtifactWorkerInput,
+        | 'artifactId'
+        | 'sourceArtifactId'
+        | 'sourceVersionId'
+        | 'expectedCurrentVersionId'
+      > = {}
+      if (target.type === 'revise') {
+        const source = loadedSources.find(
+          (s) => s.artifactId === target.artifactId,
+        )
+        if (!source) throw new AppError('Source not loaded', 500, 'ERR-013')
+        systemPrompt = target.profile.buildRevisionSystemPrompt({
+          instruction: data.content,
+          sourceMarkdown: source.sourceMarkdown,
+          ragSuffix: '',
+        })
+        workerOperation = 'fork'
+        sourceIds = {
+          sourceArtifactId: source.artifactId,
+          sourceVersionId: source.versionId,
+          expectedCurrentVersionId: source.expectedCurrentVersionId,
+        }
+      } else {
+        systemPrompt = target.profile.buildSystemPrompt({
+          userContent: data.content,
+          ragSuffix: createRagSuffix,
+        })
+        if (createFileParts.length) {
+          for (let i = aiMessages.length - 1; i >= 0; i--) {
+            if (aiMessages[i].role === 'user') {
+              const current = aiMessages[i]
+              if (typeof current.content === 'string') {
+                current.content = [
+                  { type: 'text', text: data.content },
+                  ...createFileParts,
+                ] as ModelMessage['content']
+              }
+              break
             }
-            break
           }
         }
       }
-    }
-    workerInputs.push({
-      profile: target.profile,
-      operation: workerOperation,
-      userId,
-      convId: preflight.convId,
-      assistantMsgId: row.assistantMsgId,
-      genId: row.genId,
-      modelId: row.modelId,
-      routerModelId: pricing.routerModelId,
-      comparisonRunId: row.comparisonRunId,
-      cost: pricing.cost,
-      userContent: data.content,
-      aiMessages,
-      systemPrompt,
-      startTime: Date.now(),
-      fanOut,
-      revisionCount,
-      contextCount: 0,
-      mentionCount: 0,
-      ...sourceIds,
-    })
-  }
-
-  const settled = await Promise.allSettled(
-    workerInputs.map((worker) => executeArtifactGeneration(worker)),
-  )
-  const responses: Response[] = []
-  const generationIds = preflight.rows.map((r) => r.genId)
-  for (let i = 0; i < settled.length; i++) {
-    const result = settled[i]
-    if (result.status === 'fulfilled') {
-      responses.push(result.value)
-    } else {
-      const worker = workerInputs[i]
-      try {
-        const won = await finalizeTerminalRun({
-          genId: worker.genId,
-          status: 'failed',
-          error: { message: worker.profile.failureMessage, code: 'ERR-016' },
-        })
-        if (won) {
-          await refundCredits({
-            userId,
-            generationRunId: worker.genId,
-            modelId: worker.modelId,
-            amount: worker.cost,
-          })
-        }
-      } catch (err) {
-        console.error('Compare worker start cleanup failed:', err)
-      }
-      logArtifactLifecycle({
-        generationId: worker.genId,
-        conversationId: worker.convId,
-        messageId: worker.assistantMsgId,
-        operation: worker.operation,
-        kind: worker.profile.kind,
-        phase: 'terminal',
-        status: 'failed',
-        code: 'ERR-016',
+      workerInputs.push({
+        profile: target.profile,
+        operation: workerOperation,
+        userId,
+        convId: preflight.convId,
+        assistantMsgId: row.assistantMsgId,
+        genId: row.genId,
+        modelId: row.modelId,
+        routerModelId: pricing.routerModelId,
+        comparisonRunId: row.comparisonRunId,
+        cost: pricing.cost,
+        userContent: data.content,
+        aiMessages,
+        systemPrompt,
+        startTime: Date.now(),
+        fanOut,
+        revisionCount,
+        contextCount: 0,
+        mentionCount: 0,
+        ...sourceIds,
       })
     }
-  }
-  if (responses.length === 0) {
-    throw new AppError('Gagal memulai generasi Compare.', 500, 'ERR-016')
-  }
 
-  void settleCompareArtifactRuns({
-    comparisonRunIds: preflight.comparisonRunIds,
-    generationIds,
-  }).catch((err) => console.error('Compare artifact barrier failed:', err))
+    const settled = await Promise.allSettled(
+      workerInputs.map((worker) => executeArtifactGeneration(worker)),
+    )
+    const responses: Response[] = []
+    const generationIds = preflight.rows.map((r) => r.genId)
+    for (let i = 0; i < settled.length; i++) {
+      const result = settled[i]
+      if (result.status === 'fulfilled') {
+        responses.push(result.value)
+      } else {
+        const worker = workerInputs[i]
+        try {
+          const won = await finalizeTerminalRun({
+            genId: worker.genId,
+            status: 'failed',
+            error: { message: worker.profile.failureMessage, code: 'ERR-016' },
+          })
+          if (won) {
+            await refundCredits({
+              userId,
+              generationRunId: worker.genId,
+              modelId: worker.modelId,
+              amount: worker.cost,
+            })
+          }
+        } catch (err) {
+          console.error('Compare worker start cleanup failed:', err)
+        }
+        logArtifactLifecycle({
+          generationId: worker.genId,
+          conversationId: worker.convId,
+          messageId: worker.assistantMsgId,
+          operation: worker.operation,
+          kind: worker.profile.kind,
+          phase: 'terminal',
+          status: 'failed',
+          code: 'ERR-016',
+        })
+      }
+    }
+    if (responses.length === 0) {
+      throw new AppError('Gagal memulai generasi Compare.', 500, 'ERR-016')
+    }
 
-  return multiplexCompareArtifactResponses(responses, {
-    conversationId: preflight.convId,
-    comparisonRunIds: preflight.comparisonRunIds,
-    artifactKind: planned[0].kind,
-  })
+    void settleCompareArtifactRuns({
+      comparisonRunIds: preflight.comparisonRunIds,
+      generationIds,
+    }).catch((err) => console.error('Compare artifact barrier failed:', err))
+
+    return multiplexCompareArtifactResponses(responses, {
+      conversationId: preflight.convId,
+      comparisonRunIds: preflight.comparisonRunIds,
+      artifactKind: planned[0].kind,
+    })
+  } catch (workerSetupError) {
+    for (const row of preflight.rows) {
+      const pricing = modelCosts.get(row.modelId)
+      try {
+        await db
+          .update(generationRuns)
+          .set({ status: 'failed', completedAt: new Date() })
+          .where(eq(generationRuns.id, row.genId))
+        await refundCredits({
+          userId,
+          generationRunId: row.genId,
+          modelId: row.modelId,
+          amount: pricing?.cost ?? 0,
+        })
+      } catch (refundErr) {
+        console.error('Failed to compensate preflight compare row', refundErr)
+      }
+    }
+    throw workerSetupError
+  }
 }

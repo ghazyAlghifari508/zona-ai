@@ -121,8 +121,16 @@ export function buildArtifactObjectKey({
   fileName: string
 }): string {
   const leaf =
-    fileName.split('/').pop()?.split('\\').pop()?.trim() || 'artifact.md'
-  return `users/${userId}/attachments/${attachmentId}/${leaf}`
+    fileName
+      .split('/')
+      .pop()
+      ?.split('\\')
+      .pop()
+      ?.replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/^\.+/, '')
+      .trim() || 'artifact.md'
+  const safeLeaf = leaf.length > 0 ? leaf : 'artifact.md'
+  return `users/${userId}/attachments/${attachmentId}/${safeLeaf}`
 }
 
 export function buildChangeSummary(
@@ -209,11 +217,21 @@ async function commitFinalizedVersion(
   }
 
   const current = await tx
-    .select({ status: generationRuns.status })
+    .select({
+      status: generationRuns.status,
+      messageId: generationRuns.messageId,
+      conversationId: generationRuns.conversationId,
+    })
     .from(generationRuns)
     .where(eq(generationRuns.id, args.generationId))
     .for('update')
-  if (current[0]?.status !== 'streaming') throw generationInactiveError()
+  if (
+    current[0]?.status !== 'streaming' ||
+    current[0]?.messageId !== args.messageId ||
+    current[0]?.conversationId !== args.conversationId
+  ) {
+    throw generationInactiveError()
+  }
 
   let versionNumber: number
   if (args.mode === 'revise') {
