@@ -15,7 +15,6 @@ export function AdminShell({ children }: AdminShellProps) {
       data-testid="admin-shell"
       className="flex min-h-screen min-h-dvh flex-col bg-[#fcfbf9] text-ink dark:bg-[#121212]"
     >
-      {/* Top Command Bar & Horizontal Nav (No Left Sidebar!) */}
       <AdminSidebar />
 
       {/* Floating Mobile Menu Button */}

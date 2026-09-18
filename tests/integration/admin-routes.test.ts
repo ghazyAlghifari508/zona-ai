@@ -184,7 +184,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
   })
 
   describe('AdminSidebar Component', () => {
-    it('should render brand logo, ADMIN badge, and all 6 navigation links plus back to workspace', async () => {
+    it('should render all 6 navigation links and back to workspace without admin branding', async () => {
       const { AdminSidebar } = await import(
         '../../src/components/admin/AdminSidebar'
       )
@@ -192,8 +192,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
       const { getByTestId, unmount } = render(React.createElement(AdminSidebar))
 
       expect(getByTestId('admin-sidebar')).toBeDefined()
-      expect(getByTestId('admin-brand-badge')).toBeDefined()
-
+      expect(screen.queryByTestId('admin-brand-badge')).toBeNull()
       const overviewLink = getByTestId('admin-nav-overview')
       const usersLink = getByTestId('admin-nav-users')
       const modelsLink = getByTestId('admin-nav-models')
