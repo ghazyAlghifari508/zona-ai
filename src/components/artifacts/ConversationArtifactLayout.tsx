@@ -54,10 +54,17 @@ export function ConversationArtifactLayout({
   canvasPane,
 }: ConversationArtifactLayoutProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [canvasWidth, setCanvasWidth] = useState<number>(getInitialWidth)
+  const [canvasWidth, setCanvasWidth] = useState<number>(DEFAULT_CANVAS_WIDTH)
   const [isDragging, setIsDragging] = useState(false)
   const canvasWidthRef = useRef(canvasWidth)
   canvasWidthRef.current = canvasWidth
+
+  useEffect(() => {
+    const saved = getInitialWidth()
+    if (saved !== DEFAULT_CANVAS_WIDTH) {
+      setCanvasWidth(saved)
+    }
+  }, [])
 
   const [isMounted, setIsMounted] = useState(canvasOpen)
   const [isExpanded, setIsExpanded] = useState(canvasOpen)

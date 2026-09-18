@@ -11,7 +11,11 @@ type Props = {
   onModeChange?: (artifactId: string, mode: ArtifactMentionMode) => void
 }
 
-export function ArtifactMentionChips({ mentions, onRemove }: Props) {
+export function ArtifactMentionChips({
+  mentions,
+  onRemove,
+  onModeChange,
+}: Props) {
   if (mentions.length === 0) return null
 
   return (
@@ -35,6 +39,34 @@ export function ArtifactMentionChips({ mentions, onRemove }: Props) {
           <span className="rounded bg-sandstone/30 px-1 py-0.2 text-[10px] text-graphite">
             v{mention.version}
           </span>
+
+          {onModeChange ? (
+            <button
+              type="button"
+              onClick={() =>
+                onModeChange(
+                  mention.artifactId,
+                  mention.mode === 'revise' ? 'context' : 'revise',
+                )
+              }
+              className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                mention.mode === 'revise'
+                  ? 'bg-notion-blue/10 text-notion-blue hover:bg-notion-blue/20'
+                  : 'bg-stone/10 text-stone hover:bg-stone/20'
+              }`}
+              title={
+                mention.mode === 'revise'
+                  ? 'Mode: Revisi (klik untuk ubah ke Referensi)'
+                  : 'Mode: Referensi (klik untuk ubah ke Revisi)'
+              }
+            >
+              {mention.mode === 'revise' ? 'Revisi' : 'Referensi'}
+            </button>
+          ) : (
+            <span className="rounded bg-sandstone/20 px-1 py-0.2 text-[10px] text-stone">
+              {mention.mode === 'revise' ? 'Revisi' : 'Referensi'}
+            </span>
+          )}
 
           <button
             type="button"

@@ -246,8 +246,18 @@ export const MarkdownContent = memo(function MarkdownContent({
             })
 
             const rawText = extractRawText(inlineChildren).trim()
-            const occurrence = occurrenceMap.get(rawText) ?? 0
-            occurrenceMap.set(rawText, occurrence + 1)
+            const baseSlug =
+              rawText
+                .toLowerCase()
+                .replace(/^\s*[-*]?\s*\[[ xX]\]\s*/g, '')
+                .replace(/\[[ xX]\]/g, '')
+                .replace(/[^\p{L}\p{N}\s-]/gu, '')
+                .trim()
+                .replace(/\s+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .slice(0, 60) || 'item'
+            const occurrence = occurrenceMap.get(baseSlug) ?? 0
+            occurrenceMap.set(baseSlug, occurrence + 1)
             const itemId = createChecklistItemId(rawText, occurrence)
 
             const isChecked = taskOverrides?.[itemId] ?? baseChecked
