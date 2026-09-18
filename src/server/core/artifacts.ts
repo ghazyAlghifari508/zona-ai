@@ -1,12 +1,18 @@
 import type { ModelMessage } from 'ai'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { reserveGenerationBatchCredits } from '../../lib/ai/credits'
+import { checkUserNotBanned } from '../../lib/auth/admin-guard'
 import { getAuthSession } from '../../lib/auth/session'
 import { artifactKindForSkill } from '../../lib/chat/skills'
 import { db } from '../../lib/db/index'
 import { conversations, generationRuns, messages } from '../../lib/db/schema'
 import { getModelById } from '../../lib/models/registry'
 import { resolveAutoModel } from '../../lib/models/router'
+import { enforceRateLimit } from '../../lib/security/rate-limit'
+import {
+  RATE_LIMIT_CHAT_PER_MINUTE,
+  RATE_LIMIT_WINDOW_MS,
+} from '../../lib/utils/constants'
 import { AppError, throwZonaError } from '../../lib/utils/errors'
 import type { ArtifactInput } from '../../lib/utils/validation'
 import {
@@ -118,6 +124,12 @@ export async function retryArtifactGenerationCore({
   request: Request
 }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
+  enforceRateLimit({
+    key: `chat:${session.user.id}`,
+    limit: RATE_LIMIT_CHAT_PER_MINUTE,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
   const userId = session.user.id
   const [gen] = await db
     .select()
@@ -218,6 +230,8 @@ export async function retryArtifactGenerationCore({
     })
   }
 
+  const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
+
   const preflight = await db.transaction(async (tx) => {
     const [newMsg] = await tx
       .insert(messages)
@@ -250,8 +264,6 @@ export async function retryArtifactGenerationCore({
     })
     return { newMsgId: newMsg.id, newGenId }
   })
-
-  const aiMessages: ModelMessage[] = await buildModelHistory(gen.conversationId)
 
   return executeArtifactGeneration({
     profile,
