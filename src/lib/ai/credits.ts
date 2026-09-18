@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm'
+import { inArray, sql } from 'drizzle-orm'
 import { type DatabaseTransaction, db } from '../db/index'
 import { creditTransactions } from '../db/schema'
 import { AppError } from '../utils/errors'
@@ -33,6 +33,14 @@ export async function deductCredits({
 }): Promise<number> {
   assertCreditAmount(amount)
   return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ balanceAfter: creditTransactions.balanceAfter })
+      .from(creditTransactions)
+      .where(
+        sql`${creditTransactions.userId} = ${userId} AND ${creditTransactions.generationRunId} = ${generationRunId} AND ${creditTransactions.type} = 'usage'`,
+      )
+      .limit(1)
+    if (existing[0]) return existing[0].balanceAfter
     const res = await tx.execute(
       sql`UPDATE users SET credits = credits - ${amount} WHERE id=${userId} AND credits >= ${amount} RETURNING credits`,
     )
@@ -68,6 +76,14 @@ export async function refundCredits(opts: {
 }): Promise<number> {
   assertCreditAmount(opts.amount)
   return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ balanceAfter: creditTransactions.balanceAfter })
+      .from(creditTransactions)
+      .where(
+        sql`${creditTransactions.userId} = ${opts.userId} AND ${creditTransactions.generationRunId} = ${opts.generationRunId} AND ${creditTransactions.type} = 'refund'`,
+      )
+      .limit(1)
+    if (existing[0]) return existing[0].balanceAfter
     const res = await tx.execute(
       sql`UPDATE users SET credits = credits + ${opts.amount} WHERE id=${opts.userId} RETURNING credits`,
     )
@@ -110,6 +126,22 @@ export async function deductCompareCredits({
   costs.forEach(assertCreditAmount)
   const total = costs.reduce((a, b) => a + b, 0)
   return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ balanceAfter: creditTransactions.balanceAfter })
+      .from(creditTransactions)
+      .where(
+        sql`${creditTransactions.userId} = ${userId} AND ${inArray(creditTransactions.generationRunId, generationRunIds)} AND ${creditTransactions.type} = 'usage'`,
+      )
+    if (existing.length === generationRunIds.length) {
+      return existing[existing.length - 1].balanceAfter
+    }
+    if (existing.length > 0) {
+      throw new AppError(
+        'Comparison charge already partially recorded',
+        409,
+        'ERR-020',
+      )
+    }
     const res = await tx.execute(
       sql`UPDATE users SET credits = credits - ${total} WHERE id=${userId} AND credits >= ${total} RETURNING credits`,
     )

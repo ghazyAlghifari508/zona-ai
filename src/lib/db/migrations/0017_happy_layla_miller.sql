@@ -1,0 +1,1 @@
+ALTER TABLE "credit_transactions" ADD CONSTRAINT "credit_transactions_generation_type_unique" UNIQUE("generation_run_id","type");

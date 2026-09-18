@@ -521,6 +521,10 @@ export const creditTransactions = pgTable(
       table.generationRunId,
     ),
     index('credit_transactions_created_at_idx').on(table.createdAt),
+    unique('credit_transactions_generation_type_unique').on(
+      table.generationRunId,
+      table.type,
+    ),
   ],
 )
 
