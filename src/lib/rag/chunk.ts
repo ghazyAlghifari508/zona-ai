@@ -9,6 +9,15 @@ export function chunkText(
   opts: { chunkSize: number; overlap: number },
 ): Array<Chunk> {
   const { chunkSize, overlap } = opts
+  if (
+    !Number.isSafeInteger(chunkSize) ||
+    !Number.isSafeInteger(overlap) ||
+    chunkSize <= 0 ||
+    overlap < 0 ||
+    overlap >= chunkSize
+  ) {
+    throw new Error('chunkSize must be positive and overlap must be smaller')
+  }
   if (text.length <= chunkSize) {
     return [
       {
@@ -42,7 +51,6 @@ export function chunkText(
       break
     }
     start = end - overlap
-    // Guard against infinite loop if overlap >= chunkSize
     if (start < 0) start = 0
     if (chunks.length > 10000) break
   }

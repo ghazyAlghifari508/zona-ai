@@ -276,13 +276,17 @@ export function Composer({
     return sum + cost
   }, 0)
   const compareInsufficient = credits < compareTotal
+  const attachmentsReady = attachments.every(
+    (attachment) => attachment.processingStatus === 'completed',
+  )
   const hasContent = content.trim().length > 0 || attachmentIds.length > 0
   const canSendCompare = canSendCompareWith(compareModelIds, {
-    hasContent,
+    hasContent: hasContent && attachmentsReady,
     enoughCredits: !compareInsufficient,
     idle: !isStreaming && !uploading,
   })
-  const canSendNormal = hasContent && !isStreaming && !uploading
+  const canSendNormal =
+    hasContent && attachmentsReady && !isStreaming && !uploading
 
   async function handleFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList as FileList)
@@ -322,6 +326,7 @@ export function Composer({
       }
     }
     setError(null)
+    setUploading(true)
     for (const f of files) {
       const tempId = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       setAttachments((prev) => [
@@ -334,7 +339,6 @@ export function Composer({
           uploading: true,
         },
       ])
-      setUploading(true)
       const fd = new FormData()
       fd.append('file', f)
       fd.append('conversationId', conversationId)
@@ -379,10 +383,9 @@ export function Composer({
       } catch {
         setError('File upload failed. Please try again.')
         setAttachments((prev) => prev.filter((a) => a.id !== tempId))
-      } finally {
-        setUploading(false)
       }
     }
+    setUploading(false)
     // reset file input
     if (fileRef.current) fileRef.current.value = ''
   }

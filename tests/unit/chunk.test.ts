@@ -5,6 +5,18 @@ import { describe, expect, it } from 'vitest'
 import { chunkText } from '../../src/lib/rag/chunk'
 
 describe('chunk', () => {
+  it('rejects non-progressing chunk configuration', () => {
+    expect(() =>
+      chunkText('a'.repeat(10), { chunkSize: 0, overlap: 0 }),
+    ).toThrow()
+    expect(() =>
+      chunkText('a'.repeat(10), { chunkSize: 4, overlap: 4 }),
+    ).toThrow()
+    expect(() =>
+      chunkText('a'.repeat(10), { chunkSize: 4, overlap: 5 }),
+    ).toThrow()
+  })
+
   it('splits 2000 chars into 3 chunks with overlap 200', () => {
     const text = 'a'.repeat(2000)
     const chunks = chunkText(text, { chunkSize: 1000, overlap: 200 })

@@ -95,6 +95,7 @@ export async function consumeArtifactEventResponse(
   if (!reader) throw new Error('Artifact comparison stream is unavailable.')
 
   let parserError: Error | null = null
+  let completed = false
   const parser = createArtifactSseParser({
     onEvent,
     onError: (error) => {
@@ -103,14 +104,20 @@ export async function consumeArtifactEventResponse(
   })
   const decoder = new TextDecoder()
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    parser.push(decoder.decode(value, { stream: true }))
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      parser.push(decoder.decode(value, { stream: true }))
+      if (parserError) throw parserError
+    }
+    parser.push(decoder.decode())
+    parser.flush()
     if (parserError) throw parserError
+    await onComplete()
+    completed = true
+  } finally {
+    if (!completed) await reader.cancel()
+    reader.releaseLock()
   }
-  parser.push(decoder.decode())
-  parser.flush()
-  if (parserError) throw parserError
-  await onComplete()
 }

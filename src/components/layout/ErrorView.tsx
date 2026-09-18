@@ -35,16 +35,16 @@ function isForbiddenError(err: unknown): boolean {
   return false
 }
 
-function getErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message
-  if (typeof err === 'string') return err
-  return 'Terjadi kendala yang tidak terduga pada sistem.'
+function getErrorCode(err: unknown): string {
+  if (typeof err !== 'object' || err === null) return 'ERR-000'
+  if ('code' in err && typeof err.code === 'string') return err.code
+  return 'ERR-000'
 }
 
 export function ErrorView({ error, reset }: ErrorViewProps) {
   const [showDetails, setShowDetails] = useState(false)
   const isForbidden = isForbiddenError(error)
-  const message = getErrorMessage(error)
+  const errorCode = getErrorCode(error)
 
   const handleRetry = () => {
     if (reset) {
@@ -106,7 +106,7 @@ export function ErrorView({ error, reset }: ErrorViewProps) {
             </button>
             {showDetails && (
               <div className="mt-2 max-h-32 overflow-y-auto rounded border border-hairline bg-paper p-2.5 text-left font-mono text-[11px] text-ink/70 break-all">
-                {message}
+                Kode error: {errorCode}
               </div>
             )}
           </div>
