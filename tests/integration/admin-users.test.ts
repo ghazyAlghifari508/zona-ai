@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { auth } from '../../src/lib/auth/auth'
 import { db } from '../../src/lib/db/index'
-import { auditLogs, users } from '../../src/lib/db/schema'
 import { AppError } from '../../src/lib/utils/errors'
 import {
   banUserCore,
@@ -32,6 +31,9 @@ import { searchWebCore } from '../../src/server/functions/search'
 describe('Admin User Management & Ban Enforcement', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.spyOn(db, 'transaction').mockImplementation(async (cb: unknown) => {
+      return (cb as (tx: unknown) => Promise<unknown>)(db)
+    })
   })
 
   describe('Exports and Server Functions', () => {
@@ -323,7 +325,10 @@ describe('Admin User Management & Ban Enforcement', () => {
       try {
         await banUserCore({
           request,
-          data: { userId: 'master-admin-id', reason: 'Testing master admin ban' },
+          data: {
+            userId: 'master-admin-id',
+            reason: 'Testing master admin ban',
+          },
         })
         expect.fail('Should have thrown ERR-004')
       } catch (e) {
@@ -551,7 +556,9 @@ describe('Admin User Management & Ban Enforcement', () => {
         }),
       } as unknown as ReturnType<typeof db.select>)
 
-      const request = new Request('http://localhost:3000/api/admin/users/delete')
+      const request = new Request(
+        'http://localhost:3000/api/admin/users/delete',
+      )
       await expect(
         deleteUserCore({ request, data: { userId: 'admin-1' } }),
       ).rejects.toMatchObject({
@@ -595,7 +602,10 @@ describe('Admin User Management & Ban Enforcement', () => {
         }),
       } as unknown as ReturnType<typeof db.select>)
 
-      const whereSpy = vi.fn().mockResolvedValue([])
+      const returningSpy = vi
+        .fn()
+        .mockResolvedValue([{ id: 'test-user-to-delete' }])
+      const whereSpy = vi.fn().mockReturnValue({ returning: returningSpy })
       vi.spyOn(db, 'delete').mockReturnValue({
         where: whereSpy,
       } as unknown as ReturnType<typeof db.delete>)
@@ -608,7 +618,9 @@ describe('Admin User Management & Ban Enforcement', () => {
         }),
       } as unknown as ReturnType<typeof db.insert>)
 
-      const request = new Request('http://localhost:3000/api/admin/users/delete')
+      const request = new Request(
+        'http://localhost:3000/api/admin/users/delete',
+      )
       const res = await deleteUserCore({
         request,
         data: { userId: 'test-user-to-delete' },
