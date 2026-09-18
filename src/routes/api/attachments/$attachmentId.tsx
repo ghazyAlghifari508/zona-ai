@@ -26,7 +26,14 @@ export const Route = createFileRoute('/api/attachments/$attachmentId')({
           const err = e as Error & { status?: number; code?: string }
           const status = err.status ?? 500
           return new Response(
-            JSON.stringify({ message: err.message, code: err.code, status }),
+            JSON.stringify({
+              message:
+                status >= 500
+                  ? 'Terjadi kesalahan pada lampiran.'
+                  : err.message,
+              code: err.code,
+              status,
+            }),
             {
               status,
               headers: { 'Content-Type': 'application/json' },
@@ -53,7 +60,14 @@ export const Route = createFileRoute('/api/attachments/$attachmentId')({
           const err = e as Error & { status?: number; code?: string }
           const status = err.status ?? 500
           return new Response(
-            JSON.stringify({ message: err.message, code: err.code, status }),
+            JSON.stringify({
+              message:
+                status >= 500
+                  ? 'Terjadi kesalahan pada lampiran.'
+                  : err.message,
+              code: err.code,
+              status,
+            }),
             {
               status,
               headers: { 'Content-Type': 'application/json' },
@@ -83,7 +97,14 @@ export const Route = createFileRoute('/api/attachments/$attachmentId')({
           const err = e as Error & { status?: number; code?: string }
           const status = err.status ?? 500
           return new Response(
-            JSON.stringify({ message: err.message, code: err.code, status }),
+            JSON.stringify({
+              message:
+                status >= 500
+                  ? 'Terjadi kesalahan pada lampiran.'
+                  : err.message,
+              code: err.code,
+              status,
+            }),
             {
               status,
               headers: { 'Content-Type': 'application/json' },

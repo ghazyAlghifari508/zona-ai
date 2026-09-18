@@ -59,24 +59,50 @@ export function parseStreamEvent(raw: unknown): StreamEvent {
 export function createMultiplexStream(
   streams: ReadableStream<StreamEvent>[],
 ): ReadableStream<StreamEvent> {
+  const readers = streams.map((stream) => stream.getReader())
+  let stopped = false
+
+  const cancelReaders = async () => {
+    if (stopped) return
+    stopped = true
+    await Promise.allSettled(
+      readers.map(async (reader) => {
+        try {
+          await reader.cancel()
+        } finally {
+          reader.releaseLock()
+        }
+      }),
+    )
+  }
+
   return new ReadableStream<StreamEvent>({
     async start(controller) {
-      const readers = streams.map((s) => s.getReader())
       let doneCount = 0
-      const pump = async (idx: number) => {
-        while (true) {
-          const { done, value } = await readers[idx].read()
-          if (done) {
-            doneCount++
-            if (doneCount === readers.length) controller.close()
-            break
-          } else {
-            controller.enqueue(value)
-          }
-        }
+      try {
+        await Promise.all(
+          readers.map(async (reader) => {
+            while (!stopped) {
+              const { done, value } = await reader.read()
+              if (done) break
+              controller.enqueue(value)
+            }
+            doneCount += 1
+            if (doneCount === readers.length && !stopped) {
+              stopped = true
+              controller.close()
+              readers.forEach((item) => {
+                item.releaseLock()
+              })
+            }
+          }),
+        )
+      } catch (error) {
+        await cancelReaders()
+        controller.error(error)
       }
-      await Promise.all(readers.map((_, i) => pump(i)))
     },
+    cancel: cancelReaders,
   })
 }
 
