@@ -9,7 +9,7 @@ export const Route = createFileRoute('/auth/sign-up')({
   beforeLoad: async () => {
     const { data } = await authClient.getSession()
     if (data?.user) {
-      throw redirect({ to: '/chat' })
+      throw redirect({ to: '/' })
     }
   },
   component: SignUp,

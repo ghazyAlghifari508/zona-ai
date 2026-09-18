@@ -141,7 +141,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
       })
     })
 
-    it('should throw redirect to /auth/sign-in when user is non-admin', async () => {
+    it('should throw 403 AppError when user is non-admin', async () => {
       const { verifyAdminAccessCore } = await import(
         '../../src/server/core/admin-auth'
       )
@@ -156,13 +156,12 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
 
       const req = new Request('http://localhost:3000/admin')
       await expect(verifyAdminAccessCore(req)).rejects.toMatchObject({
-        options: {
-          to: '/auth/sign-in',
-        },
+        status: 403,
+        code: 'ERR-003',
       })
     })
 
-    it('should throw redirect to /auth/sign-in when user is banned', async () => {
+    it('should throw redirect to /banned when user is banned', async () => {
       const { verifyAdminAccessCore } = await import(
         '../../src/server/core/admin-auth'
       )
@@ -178,7 +177,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
       const req = new Request('http://localhost:3000/admin')
       await expect(verifyAdminAccessCore(req)).rejects.toMatchObject({
         options: {
-          to: '/auth/sign-in',
+          to: '/banned',
         },
       })
     })

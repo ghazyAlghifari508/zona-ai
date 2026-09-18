@@ -69,6 +69,7 @@ describe('artifact client import boundary', () => {
     server = await createServer({
       appType: 'custom',
       server: { middlewareMode: true },
+      optimizeDeps: { noDiscovery: true },
     })
 
     await server.transformRequest(CLIENT_ARTIFACT_RPC_URL)

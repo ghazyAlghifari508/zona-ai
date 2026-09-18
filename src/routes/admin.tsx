@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { AdminShell } from '../components/admin/AdminShell'
+import { ErrorView } from '../components/layout/ErrorView'
 import { authClient } from '../lib/auth/auth-client'
 import { verifyAdminAccessFn } from '../server/functions/admin-auth'
 
@@ -41,6 +42,7 @@ export const Route = createFileRoute('/admin')({
     return res
   },
   component: AdminLayout,
+  errorComponent: ErrorView,
 })
 
 function AdminLayout() {
