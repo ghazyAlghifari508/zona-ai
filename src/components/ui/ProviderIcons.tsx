@@ -191,16 +191,50 @@ export function ProviderIcon({
 
   // 10. Zona AI / Auto Router
   if (p === 'zona' || p === 'zona-router' || p === 'auto') {
+    if (inverted) {
+      return (
+        <span
+          className="relative inline-flex shrink-0 items-center justify-center pointer-events-none"
+          style={{ width: size, height: size }}
+        >
+          <img
+            src="/assets/zonaai-logo-white.png"
+            alt="Zona.ai"
+            width={size}
+            height={size}
+            className="h-full w-full shrink-0 object-contain dark:hidden"
+          />
+          <img
+            src="/assets/zonaai-logo.png"
+            alt="Zona.ai"
+            width={size}
+            height={size}
+            className="hidden h-full w-full shrink-0 object-contain dark:block"
+          />
+        </span>
+      )
+    }
+
     return (
-      <img
-        src={
-          inverted ? '/assets/zonaai-logo-white.png' : '/assets/zonaai-logo.png'
-        }
-        alt="Zona.ai"
-        width={size}
-        height={size}
-        className="pointer-events-none block object-contain"
-      />
+      <span
+        className="relative inline-flex shrink-0 items-center justify-center pointer-events-none"
+        style={{ width: size, height: size }}
+      >
+        <img
+          src="/assets/zonaai-logo.png"
+          alt="Zona.ai"
+          width={size}
+          height={size}
+          className="h-full w-full shrink-0 object-contain dark:hidden"
+        />
+        <img
+          src="/assets/zonaai-logo-white.png"
+          alt="Zona.ai"
+          width={size}
+          height={size}
+          className="hidden h-full w-full shrink-0 object-contain dark:block"
+        />
+      </span>
     )
   }
 
