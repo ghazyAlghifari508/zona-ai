@@ -55,8 +55,18 @@ export function getStoredArtifactChecklist(
       while (match !== null) {
         const isChecked = match[1]?.toLowerCase() === 'x'
         const text = match[2]?.trim() ?? ''
-        const occ = occurrenceMap.get(text) ?? 0
-        occurrenceMap.set(text, occ + 1)
+        const base =
+          text
+            .toLowerCase()
+            .replace(/^\s*[-*]?\s*\[[ xX]\]\s*/g, '')
+            .replace(/\[[ xX]\]/g, '')
+            .replace(/[^\p{L}\p{N}\s-]/gu, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60) || 'item'
+        const occ = occurrenceMap.get(base) ?? 0
+        occurrenceMap.set(base, occ + 1)
         const id = createChecklistItemId(text, occ)
         migrated[id] = isChecked
         match = taskRegex.exec(legacyMarkdown)

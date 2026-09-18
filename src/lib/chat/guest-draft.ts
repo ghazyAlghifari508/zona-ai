@@ -8,6 +8,8 @@ export type PendingMessage = {
   modelIds?: string[]
   skillId: string
   enableWebSearch: boolean
+  attachmentIds?: string[]
+  artifactMentions?: unknown[]
 }
 
 export function saveGuestDraft(content: string) {
@@ -67,6 +69,16 @@ function parsePendingMessage(stored: string | null) {
         message.modelIds.every((id) => typeof id === 'string')
           ? (message.modelIds as string[])
           : undefined
+      const attachmentIds =
+        'attachmentIds' in message &&
+        Array.isArray(message.attachmentIds) &&
+        message.attachmentIds.every((id) => typeof id === 'string')
+          ? (message.attachmentIds as string[])
+          : undefined
+      const artifactMentions =
+        'artifactMentions' in message && Array.isArray(message.artifactMentions)
+          ? (message.artifactMentions as unknown[])
+          : undefined
       return {
         conversationId: message.conversationId,
         content: message.content,
@@ -74,6 +86,8 @@ function parsePendingMessage(stored: string | null) {
         ...(modelIds ? { modelIds } : {}),
         skillId: message.skillId,
         enableWebSearch: message.enableWebSearch,
+        ...(attachmentIds ? { attachmentIds } : {}),
+        ...(artifactMentions ? { artifactMentions } : {}),
       } satisfies PendingMessage
     }
   } catch {

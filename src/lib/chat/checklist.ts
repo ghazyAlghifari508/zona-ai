@@ -52,13 +52,19 @@ export function parseChecklist(
   if (!parsed.success) return null
 
   const items: ChecklistItem[] = []
+  const seenIds = new Set<string>()
   for (const entry of parsed.data.items) {
     const item = checklistItemSchema.safeParse(entry)
     if (!item.success) continue
     const text = item.data.text.trim().slice(0, MAX_ITEM_TEXT)
     if (!text) continue
+    let itemId = item.data.id || `task-${items.length + 1}`
+    if (seenIds.has(itemId)) {
+      itemId = `${itemId}-${items.length + 1}`
+    }
+    seenIds.add(itemId)
     items.push({
-      id: item.data.id || `task-${items.length + 1}`,
+      id: itemId,
       text,
       completed: item.data.completed,
     })

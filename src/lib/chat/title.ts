@@ -23,6 +23,7 @@ export async function generateAiTitle(input: {
       system: TITLE_SYSTEM,
       prompt: `Pesan pengguna:\n${input.prompt.slice(0, 800)}`,
       maxOutputTokens: 48,
+      abortSignal: AbortSignal.timeout(10_000),
     })
     const text = await result.text
     const title = text

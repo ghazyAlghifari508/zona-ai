@@ -108,10 +108,12 @@ function ChatHome() {
   const serverCredits = loaderData?.creditBalance ?? 0
   const { data: clientSession, isPending } = authClient.useSession()
 
-  // Hydrate Better Auth client store immediately on mount if server provided session
-  if (typeof window !== 'undefined' && serverSession && !clientSession) {
-    authClient.hydrateSession(serverSession)
-  }
+  // Hydrate Better Auth client store safely in effect
+  useEffect(() => {
+    if (serverSession && !clientSession) {
+      authClient.hydrateSession(serverSession)
+    }
+  }, [serverSession, clientSession])
 
   // Active session: clientSession has priority if resolved, otherwise fallback to serverSession
   const activeSession = clientSession ?? serverSession ?? null
@@ -179,9 +181,9 @@ function ChatHome() {
     content: string,
     modelId: string,
     skillId: string,
-    _attachmentIds?: string[],
+    attachmentIds?: string[],
     enableWebSearch = false,
-    _artifactMentions?: unknown[],
+    artifactMentions?: unknown[],
   ) => {
     if (!activeSession?.user) {
       await signIn(content)
@@ -198,11 +200,16 @@ function ChatHome() {
         modelId,
         skillId,
         enableWebSearch,
+        attachmentIds,
+        artifactMentions,
       })
       await navigate({
         to: '/chat/$conversationId',
         params: { conversationId: conversation.id },
       })
+    } catch (err) {
+      console.error('Failed to start conversation:', err)
+      setAuthError('Gagal membuat percakapan baru. Silakan coba lagi.')
     } finally {
       setSubmitting(false)
     }
@@ -212,9 +219,9 @@ function ChatHome() {
     content: string,
     modelIds: string[],
     skillId: string,
-    _attachmentIds?: string[],
+    attachmentIds?: string[],
     enableWebSearch = false,
-    _artifactMentions?: unknown[],
+    artifactMentions?: unknown[],
   ) => {
     if (!isCompareSelectionValid(modelIds)) return
     if (!activeSession?.user) {
@@ -233,11 +240,16 @@ function ChatHome() {
         modelIds,
         skillId,
         enableWebSearch,
+        attachmentIds,
+        artifactMentions,
       })
       await navigate({
         to: '/chat/$conversationId',
         params: { conversationId: conversation.id },
       })
+    } catch (err) {
+      console.error('Failed to start compare conversation:', err)
+      setAuthError('Gagal membuat percakapan compare. Silakan coba lagi.')
     } finally {
       setSubmitting(false)
     }

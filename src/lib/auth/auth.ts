@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { db } from '../db/index'
+import { env } from '../env.server'
 
 if (typeof window !== 'undefined') {
   throw new Error(
@@ -22,15 +23,15 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
   },
   plugins: [tanstackStartCookies()],
   session: {
     cookieName: 'zona_session',
     expiresIn: 60 * 60 * 24 * 30,
-    cookieCache: { enabled: true },
+    cookieCache: { enabled: false },
   },
   advanced: {
     useSecureCookies: process.env.NODE_ENV === 'production',

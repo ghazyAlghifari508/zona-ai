@@ -10,7 +10,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { MarketingLayout } from '@/components/layout/MarketingLayout'
 import { authClient } from '@/lib/auth/auth-client'
@@ -70,9 +70,11 @@ function FeedbackPage() {
   const serverSession = loaderData?.session
   const { data: clientSession, isPending } = authClient.useSession()
 
-  if (typeof window !== 'undefined' && serverSession && !clientSession) {
-    authClient.hydrateSession(serverSession)
-  }
+  useEffect(() => {
+    if (serverSession && !clientSession) {
+      authClient.hydrateSession(serverSession)
+    }
+  }, [serverSession, clientSession])
 
   const activeSession = clientSession ?? serverSession ?? null
   const authState = activeSession?.user

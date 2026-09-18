@@ -724,9 +724,14 @@ function ChatThread() {
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.role !== 'assistant') return msg
-                if (msg.artifactKind === event.kind) {
+                if (
+                  (msg.generationRunId &&
+                    msg.generationRunId === event.generationId) ||
+                  (!msg.generationRunId && msg.artifactKind === event.kind)
+                ) {
                   return {
                     ...msg,
+                    generationRunId: event.generationId,
                     artifact: descriptor,
                     artifactStatus: 'completed' as const,
                     content: event.summary,
@@ -741,10 +746,12 @@ function ChatThread() {
               prev.map((msg) => {
                 if (
                   msg.role === 'assistant' &&
-                  event.generationId === msg.generationRunId
+                  (event.generationId === msg.generationRunId ||
+                    (!msg.generationRunId && msg.artifactKind === event.kind))
                 ) {
                   return {
                     ...msg,
+                    generationRunId: event.generationId,
                     artifactStatus: event.phase,
                     artifactSection: event.section,
                   }
@@ -757,10 +764,12 @@ function ChatThread() {
               prev.map((msg) => {
                 if (
                   msg.role === 'assistant' &&
-                  event.generationId === msg.generationRunId
+                  (event.generationId === msg.generationRunId ||
+                    (!msg.generationRunId && msg.artifactKind === event.kind))
                 ) {
                   return {
                     ...msg,
+                    generationRunId: event.generationId,
                     artifactStatus: 'failed' as const,
                     errorMessage: event.message ?? 'Revisi artifact gagal.',
                     streaming: false,
@@ -1020,42 +1029,43 @@ function ChatThread() {
       }
       const decoder = new TextDecoder()
       let fullText = ''
+      let sseBuffer = ''
+      const processSingleLine = (line: string) => {
+        if (!line.startsWith('data:')) return
+        const data = line.slice(5).trim()
+        if (!data || data === '[DONE]') return
+        let delta = data
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.type === 'text-delta' && parsed.delta) delta = parsed.delta
+          else if (parsed.textDelta) delta = parsed.textDelta
+          else if (typeof parsed === 'string') delta = parsed
+          else return
+        } catch {
+          delta = data
+        }
+        fullText += delta
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: fullText } : m,
+          ),
+        )
+      }
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        let delta = chunk
-        if (chunk.includes('data:')) {
-          const lines = chunk.split('\n')
-          for (const line of lines) {
-            if (line.startsWith('data:')) {
-              const data = line.slice(5).trim()
-              if (data === '[DONE]') continue
-              try {
-                const parsed = JSON.parse(data)
-                if (parsed.type === 'text-delta' && parsed.delta)
-                  delta = parsed.delta
-                else if (parsed.textDelta) delta = parsed.textDelta
-                else if (typeof parsed === 'string') delta = parsed
-                else continue
-              } catch {
-                delta = data
-              }
-              fullText += delta
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: fullText } : m,
-                ),
-              )
-            }
-          }
-        } else {
-          fullText += delta
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: fullText } : m,
-            ),
-          )
+        sseBuffer += decoder.decode(value, { stream: true })
+        const lines = sseBuffer.split('\n')
+        sseBuffer = lines.pop() ?? ''
+        for (const line of lines) {
+          processSingleLine(line)
+        }
+      }
+      sseBuffer += decoder.decode()
+      if (sseBuffer.trim()) {
+        const remaining = sseBuffer.split('\n')
+        for (const line of remaining) {
+          processSingleLine(line)
         }
       }
       const hasFinalText = Boolean(fullText && fullText.trim().length > 0)
@@ -1386,6 +1396,144 @@ function ChatThread() {
         })
       }
 
+      const processComparePart = (part: string) => {
+        const lines = part.split('\n')
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          const jsonStr = line.slice(5).trim()
+          if (!jsonStr || jsonStr === '[DONE]') continue
+          try {
+            const raw = JSON.parse(jsonStr)
+            const event = parseStreamEvent(raw)
+            const s = modelStats.get(event.modelId)
+
+            if (event.type === 'generation-start') {
+              if (s) s.eventTypes.add('generation-start')
+              const modelIdx = modelIds.indexOf(event.modelId)
+              if (modelIdx !== -1) {
+                genIdToIndex.set(event.generationId, modelIdx)
+                updateCompareGen((gens) =>
+                  gens.map((g, i) =>
+                    i === modelIdx
+                      ? {
+                          ...g,
+                          id: event.generationId,
+                          serverGenerationId: event.generationId,
+                        }
+                      : g,
+                  ),
+                )
+              }
+            } else if (event.type === 'reasoning-delta') {
+              const idx =
+                genIdToIndex.get(event.generationId) ??
+                modelIds.indexOf(event.modelId)
+              if (idx !== -1) {
+                if (s) {
+                  s.hasReasoning = true
+                  s.eventTypes.add('reasoning-delta')
+                }
+                updateCompareGen((gens) =>
+                  gens.map((g, i) =>
+                    i === idx
+                      ? {
+                          ...g,
+                          reasoningContent:
+                            (g.reasoningContent ?? '') + event.text,
+                        }
+                      : g,
+                  ),
+                )
+              }
+            } else if (event.type === 'text-delta') {
+              const idx =
+                genIdToIndex.get(event.generationId) ??
+                modelIds.indexOf(event.modelId)
+              if (idx !== -1) {
+                if (s) {
+                  s.hasText = true
+                  s.eventTypes.add('text-delta')
+                }
+                updateCompareGen((gens) =>
+                  gens.map((g, i) =>
+                    i === idx
+                      ? { ...g, content: (g.content ?? '') + event.text }
+                      : g,
+                  ),
+                )
+              }
+            } else if (event.type === 'generation-finish') {
+              const idx =
+                genIdToIndex.get(event.generationId) ??
+                modelIds.indexOf(event.modelId)
+              if (idx !== -1) {
+                if (s) {
+                  s.finishReason = event.finishReason
+                  s.eventTypes.add('generation-finish')
+                }
+                updateCompareGen((gens) =>
+                  gens.map((g, i) => {
+                    if (i !== idx) return g
+                    const hasValidAnswer = Boolean(
+                      g.content && g.content.trim().length > 0,
+                    )
+                    if (!hasValidAnswer) {
+                      return {
+                        ...g,
+                        status: 'failed',
+                        error: {
+                          message:
+                            'Model tidak menghasilkan jawaban akhir. Coba lagi.',
+                          code: 'ERR-001',
+                        },
+                      }
+                    }
+                    return { ...g, status: 'completed' }
+                  }),
+                )
+              }
+            } else if (event.type === 'generation-error') {
+              const idx =
+                genIdToIndex.get(event.generationId) ??
+                modelIds.indexOf(event.modelId)
+              if (idx !== -1) {
+                if (s) s.eventTypes.add('generation-error')
+                updateCompareGen((gens) =>
+                  gens.map((g, i) =>
+                    i === idx
+                      ? {
+                          ...g,
+                          status: 'failed',
+                          error: { message: event.error, code: event.code },
+                        }
+                      : g,
+                  ),
+                )
+              }
+            } else if (event.type === 'usage') {
+              const idx =
+                genIdToIndex.get(event.generationId) ??
+                modelIds.indexOf(event.modelId)
+              if (idx !== -1) {
+                if (s) s.eventTypes.add('usage')
+                updateCompareGen((gens) =>
+                  gens.map((g, i) =>
+                    i === idx
+                      ? {
+                          ...g,
+                          promptTokens: event.promptTokens,
+                          completionTokens: event.completionTokens,
+                          totalTokens: event.totalTokens,
+                        }
+                      : g,
+                  ),
+                )
+              }
+            }
+          } catch {}
+        }
+      }
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -1393,141 +1541,14 @@ function ChatThread() {
         const parts = buffer.split('\n\n')
         buffer = parts.pop() ?? ''
         for (const part of parts) {
-          const lines = part.split('\n')
-          for (const line of lines) {
-            if (!line.startsWith('data:')) continue
-            const jsonStr = line.slice(5).trim()
-            if (!jsonStr || jsonStr === '[DONE]') continue
-            try {
-              const raw = JSON.parse(jsonStr)
-              const event = parseStreamEvent(raw)
-              const s = modelStats.get(event.modelId)
-
-              if (event.type === 'generation-start') {
-                if (s) s.eventTypes.add('generation-start')
-                const modelIdx = modelIds.indexOf(event.modelId)
-                if (modelIdx !== -1) {
-                  genIdToIndex.set(event.generationId, modelIdx)
-                  updateCompareGen((gens) =>
-                    gens.map((g, i) =>
-                      i === modelIdx
-                        ? {
-                            ...g,
-                            id: event.generationId,
-                            serverGenerationId: event.generationId,
-                          }
-                        : g,
-                    ),
-                  )
-                }
-              } else if (event.type === 'reasoning-delta') {
-                const idx =
-                  genIdToIndex.get(event.generationId) ??
-                  modelIds.indexOf(event.modelId)
-                if (idx !== -1) {
-                  if (s) {
-                    s.hasReasoning = true
-                    s.eventTypes.add('reasoning-delta')
-                  }
-                  updateCompareGen((gens) =>
-                    gens.map((g, i) =>
-                      i === idx
-                        ? {
-                            ...g,
-                            reasoningContent:
-                              (g.reasoningContent ?? '') + event.text,
-                          }
-                        : g,
-                    ),
-                  )
-                }
-              } else if (event.type === 'text-delta') {
-                const idx =
-                  genIdToIndex.get(event.generationId) ??
-                  modelIds.indexOf(event.modelId)
-                if (idx !== -1) {
-                  if (s) {
-                    s.hasText = true
-                    s.eventTypes.add('text-delta')
-                  }
-                  updateCompareGen((gens) =>
-                    gens.map((g, i) =>
-                      i === idx
-                        ? { ...g, content: (g.content ?? '') + event.text }
-                        : g,
-                    ),
-                  )
-                }
-              } else if (event.type === 'generation-finish') {
-                const idx =
-                  genIdToIndex.get(event.generationId) ??
-                  modelIds.indexOf(event.modelId)
-                if (idx !== -1) {
-                  if (s) {
-                    s.finishReason = event.finishReason
-                    s.eventTypes.add('generation-finish')
-                  }
-                  updateCompareGen((gens) =>
-                    gens.map((g, i) => {
-                      if (i !== idx) return g
-                      const hasValidAnswer = Boolean(
-                        g.content && g.content.trim().length > 0,
-                      )
-                      if (!hasValidAnswer) {
-                        return {
-                          ...g,
-                          status: 'failed',
-                          error: {
-                            message:
-                              'Model tidak menghasilkan jawaban akhir. Coba lagi.',
-                            code: 'ERR-001',
-                          },
-                        }
-                      }
-                      return { ...g, status: 'completed' }
-                    }),
-                  )
-                }
-              } else if (event.type === 'generation-error') {
-                const idx =
-                  genIdToIndex.get(event.generationId) ??
-                  modelIds.indexOf(event.modelId)
-                if (idx !== -1) {
-                  if (s) s.eventTypes.add('generation-error')
-                  updateCompareGen((gens) =>
-                    gens.map((g, i) =>
-                      i === idx
-                        ? {
-                            ...g,
-                            status: 'failed',
-                            error: { message: event.error, code: event.code },
-                          }
-                        : g,
-                    ),
-                  )
-                }
-              } else if (event.type === 'usage') {
-                const idx =
-                  genIdToIndex.get(event.generationId) ??
-                  modelIds.indexOf(event.modelId)
-                if (idx !== -1) {
-                  if (s) s.eventTypes.add('usage')
-                  updateCompareGen((gens) =>
-                    gens.map((g, i) =>
-                      i === idx
-                        ? {
-                            ...g,
-                            promptTokens: event.promptTokens,
-                            completionTokens: event.completionTokens,
-                            totalTokens: event.totalTokens,
-                          }
-                        : g,
-                    ),
-                  )
-                }
-              }
-            } catch {}
-          }
+          processComparePart(part)
+        }
+      }
+      buffer += decoder.decode()
+      if (buffer.trim()) {
+        const parts = buffer.split('\n\n')
+        for (const part of parts) {
+          if (part.trim()) processComparePart(part)
         }
       }
 
@@ -1640,8 +1661,9 @@ function ChatThread() {
         pending.content,
         pending.modelIds,
         pending.skillId,
-        undefined,
+        pending.attachmentIds,
         pending.enableWebSearch,
+        pending.artifactMentions as ArtifactMentionInput[] | undefined,
       )
       return
     }
@@ -1649,8 +1671,9 @@ function ChatThread() {
       pending.content,
       pending.modelId,
       pending.skillId,
-      undefined,
+      pending.attachmentIds,
       pending.enableWebSearch,
+      pending.artifactMentions as ArtifactMentionInput[] | undefined,
     )
   })
 
