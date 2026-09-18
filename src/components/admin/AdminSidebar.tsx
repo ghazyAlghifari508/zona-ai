@@ -5,8 +5,6 @@ import {
   CpuIcon,
   DashboardSquare01Icon,
   Message01Icon,
-  SidebarLeft01Icon,
-  SidebarRight01Icon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -16,11 +14,10 @@ import { BrandLogo } from '../ui/BrandLogo'
 interface AdminSidebarProps {
   onClose?: () => void
   className?: string
-  collapsed?: boolean
-  onToggleCollapse?: () => void
+  layout?: 'top' | 'drawer'
 }
 
-interface NavItem {
+export interface NavItem {
   name: string
   to: string
   icon: typeof DashboardSquare01Icon
@@ -28,7 +25,7 @@ interface NavItem {
   exact?: boolean
 }
 
-const NAV_ITEMS: NavItem[] = [
+export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     name: 'Ringkasan',
     to: '/admin',
@@ -71,8 +68,7 @@ const NAV_ITEMS: NavItem[] = [
 export function AdminSidebar({
   onClose,
   className = '',
-  collapsed = false,
-  onToggleCollapse,
+  layout = 'top',
 }: AdminSidebarProps) {
   const handleNavClick = () => {
     if (onClose) {
@@ -80,147 +76,167 @@ export function AdminSidebar({
     }
   }
 
-  return (
-    <aside
-      data-testid="admin-sidebar"
-      className={`flex h-full flex-col border-r border-hairline bg-sidebar select-none transition-all duration-300 ease-in-out ${
-        collapsed ? 'w-[68px]' : 'w-64'
-      } ${className}`}
-    >
-      {/* Header */}
+  if (layout === 'drawer') {
+    return (
       <div
-        className={`flex h-14 items-center border-b border-hairline ${
-          collapsed ? 'justify-center px-2' : 'justify-between px-3.5'
-        }`}
+        data-testid="admin-sidebar"
+        className={`flex h-full flex-col bg-pure-white select-none dark:bg-[#161616] ${className}`}
       >
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-1">
-            {onToggleCollapse ? (
-              <button
-                type="button"
-                data-testid="admin-sidebar-collapse-toggle"
-                onClick={onToggleCollapse}
-                aria-label="Perbesar sidebar"
-                className="flex h-8 w-8 items-center justify-center rounded-md text-stone transition-colors hover:bg-stone/10 hover:text-ink"
-                title="Buka sidebar"
-              >
-                <HugeiconsIcon
-                  icon={SidebarRight01Icon}
-                  size={18}
-                  strokeWidth={1.75}
-                />
-              </button>
-            ) : (
-              <BrandLogo size={24} />
-            )}
-          </div>
-        ) : (
-          <>
-            <Link
-              to="/admin"
-              onClick={handleNavClick}
-              className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
-            >
-              <BrandLogo size={24} />
-              <span className="text-[14px] font-semibold tracking-tight text-ink">
-                Zona.ai
-              </span>
-            </Link>
-            <div className="flex items-center gap-1.5">
-              <span
-                data-testid="admin-brand-badge"
-                className="rounded border border-coral/30 bg-danger-soft px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-coral uppercase"
-              >
-                ADMIN
-              </span>
-              {onToggleCollapse && (
-                <button
-                  type="button"
-                  data-testid="admin-sidebar-collapse-toggle"
-                  onClick={onToggleCollapse}
-                  aria-label="Perkecil sidebar"
-                  className="hidden h-7 w-7 items-center justify-center rounded-md text-stone transition-colors hover:bg-stone/10 hover:text-ink md:flex"
-                  title="Tutup sidebar"
-                >
-                  <HugeiconsIcon
-                    icon={SidebarLeft01Icon}
-                    size={16}
-                    strokeWidth={1.75}
-                  />
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+        <div className="flex h-14 items-center justify-between border-b border-hairline px-4">
+          <Link
+            to="/admin"
+            onClick={handleNavClick}
+            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+          >
+            <BrandLogo size={22} />
+            <span className="font-semibold text-[15px] tracking-tight text-ink">
+              Zona.ai
+            </span>
+          </Link>
+          <span
+            data-testid="admin-brand-badge"
+            className="rounded border border-coral/30 bg-danger-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-coral uppercase"
+          >
+            ADMIN
+          </span>
+        </div>
 
-      {/* Navigation */}
-      <nav
-        className={`flex-1 space-y-1 overflow-y-auto ${
-          collapsed ? 'px-2 py-4' : 'px-3 py-4'
-        }`}
-      >
-        {!collapsed ? (
-          <div className="px-2 pb-2 text-[11px] font-semibold tracking-wider text-stone uppercase">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          <div className="px-2.5 pb-2 font-semibold text-[11px] tracking-wider text-stone uppercase">
             Menu Administrasi
           </div>
-        ) : (
-          <div className="my-1 border-b border-hairline/60" />
-        )}
-        {NAV_ITEMS.map((item) => (
+          {ADMIN_NAV_ITEMS.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              preload="intent"
+              data-testid={item.testId}
+              onClick={handleNavClick}
+              activeOptions={{ exact: item.exact }}
+              activeProps={{
+                className:
+                  'bg-paper text-ink font-semibold border border-hairline dark:bg-zinc-800',
+              }}
+              inactiveProps={{
+                className:
+                  'text-stone border border-transparent hover:bg-paper/60 hover:text-ink',
+              }}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 font-medium text-[13px] transition-colors"
+            >
+              <HugeiconsIcon
+                icon={item.icon}
+                size={18}
+                strokeWidth={1.75}
+                aria-hidden="true"
+                className="shrink-0"
+              />
+              <span>{item.name}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="border-t border-hairline p-3">
           <Link
-            key={item.to}
-            to={item.to}
-            preload="intent"
-            data-testid={item.testId}
+            to="/"
+            data-testid="admin-back-workspace"
             onClick={handleNavClick}
-            title={collapsed ? item.name : undefined}
-            activeOptions={{ exact: item.exact }}
-            activeProps={{
-              className:
-                'bg-pure-white text-ink font-semibold border border-hairline shadow-xs',
-            }}
-            inactiveProps={{
-              className:
-                'text-stone border border-transparent hover:bg-pure-white/70 hover:text-ink',
-            }}
-            className={`flex items-center rounded-md text-[13px] font-medium transition-colors ${
-              collapsed ? 'justify-center px-0 py-2.5' : 'gap-2.5 px-2.5 py-2'
-            }`}
+            className="flex items-center gap-2.5 rounded-lg border border-hairline bg-paper px-3 py-2.5 font-medium text-[13px] text-stone transition-colors hover:text-ink dark:bg-zinc-900"
           >
             <HugeiconsIcon
-              icon={item.icon}
-              size={18}
+              icon={ArrowLeft01Icon}
+              size={16}
               strokeWidth={1.75}
               aria-hidden="true"
               className="shrink-0"
             />
-            {!collapsed && <span>{item.name}</span>}
+            <span>Kembali ke Workspace</span>
           </Link>
-        ))}
-      </nav>
-
-      {/* Footer */}
-      <div className={`border-t border-hairline ${collapsed ? 'p-2' : 'p-3'}`}>
-        <Link
-          to="/"
-          data-testid="admin-back-workspace"
-          onClick={handleNavClick}
-          title={collapsed ? 'Kembali ke Workspace' : undefined}
-          className={`flex items-center rounded-md border border-hairline bg-pure-white text-[13px] font-medium text-stone transition-colors hover:bg-stone/10 hover:text-ink ${
-            collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2'
-          }`}
-        >
-          <HugeiconsIcon
-            icon={ArrowLeft01Icon}
-            size={16}
-            strokeWidth={1.75}
-            aria-hidden="true"
-            className="shrink-0"
-          />
-          {!collapsed && <span>Kembali ke Workspace</span>}
-        </Link>
+        </div>
       </div>
-    </aside>
+    )
+  }
+
+  return (
+    <header
+      data-testid="admin-sidebar"
+      className={`sticky top-0 z-40 w-full border-b border-hairline bg-pure-white/95 select-none backdrop-blur-md dark:bg-[#141414]/95 ${className}`}
+    >
+      {/* Top Banner Row */}
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/admin"
+            onClick={handleNavClick}
+            className="flex items-center gap-2.5 transition-opacity hover:opacity-80"
+          >
+            <BrandLogo size={22} />
+            <span className="font-semibold text-[15px] tracking-tight text-ink">
+              Zona.ai
+            </span>
+          </Link>
+          <div className="h-4 w-px bg-hairline" />
+          <span
+            data-testid="admin-brand-badge"
+            className="rounded border border-coral/30 bg-danger-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-coral uppercase"
+          >
+            ADMIN
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Link
+            to="/"
+            data-testid="admin-back-workspace"
+            onClick={handleNavClick}
+            className="inline-flex items-center gap-2 rounded-md border border-hairline bg-pure-white px-3 py-1.5 font-medium text-[13px] text-stone transition-colors hover:bg-stone/5 hover:text-ink dark:bg-[#1a1a1a]"
+          >
+            <HugeiconsIcon
+              icon={ArrowLeft01Icon}
+              size={15}
+              strokeWidth={1.75}
+              aria-hidden="true"
+              className="shrink-0"
+            />
+            <span>Kembali ke Workspace</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Horizontal Tab Navigation Strip */}
+      <div className="border-t border-hairline/70 bg-[#faf8f5]/60 dark:bg-[#181818]/60">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <nav className="no-scrollbar flex items-center gap-1.5 overflow-x-auto py-2">
+            {ADMIN_NAV_ITEMS.map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                preload="intent"
+                data-testid={item.testId}
+                onClick={handleNavClick}
+                activeOptions={{ exact: item.exact }}
+                activeProps={{
+                  className:
+                    'bg-pure-white text-ink font-semibold border border-hairline shadow-2xs dark:bg-zinc-800',
+                }}
+                inactiveProps={{
+                  className:
+                    'text-stone border border-transparent hover:bg-pure-white/70 hover:text-ink dark:hover:bg-zinc-800/50',
+                }}
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 font-medium text-[13px] transition-all"
+              >
+                <HugeiconsIcon
+                  icon={item.icon}
+                  size={16}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                  className="shrink-0"
+                />
+                <span>{item.name}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </div>
+    </header>
   )
 }
