@@ -1,5 +1,5 @@
 import type { ModelMessage } from 'ai'
-import { asc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import { ARTIFACT_HISTORY_BUDGET_BYTES } from '../../lib/ai/agent-skill'
 import { ARTIFACT_SKILL_IDS } from '../../lib/chat/skills'
 import { db } from '../../lib/db/index'
@@ -27,6 +27,7 @@ export async function buildModelHistory(
     })
     .from(generationRuns)
     .where(eq(generationRuns.conversationId, conversationId))
+    .orderBy(desc(generationRuns.completedAt), desc(generationRuns.createdAt))
   const sourceByMessage = new Map<string, string>()
   const candidates: Array<{
     messageId: string

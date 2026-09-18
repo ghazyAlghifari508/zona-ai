@@ -27,13 +27,18 @@ export const Route = createFileRoute('/api/attachments/reprocess')({
         } catch (e) {
           const err = e as Error & { status?: number; code?: string }
           const status = err.status ?? 500
-          return new Response(
-            JSON.stringify({ message: err.message, code: err.code, status }),
-            {
-              status,
-              headers: { 'Content-Type': 'application/json' },
-            },
-          )
+          const message =
+            status < 500
+              ? err.message
+              : 'Terjadi kesalahan pada server. Silakan coba lagi nanti.'
+          const code = status < 500 ? err.code : 'ERR-000'
+          if (status >= 500) {
+            console.error('Attachments reprocess error:', e)
+          }
+          return new Response(JSON.stringify({ message, code, status }), {
+            status,
+            headers: { 'Content-Type': 'application/json' },
+          })
         }
       },
     },

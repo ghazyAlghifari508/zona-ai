@@ -18,17 +18,24 @@ export const Route = createFileRoute('/api/files/upload')({
             retryAfterSeconds?: number
           }
           const status = err.status ?? 500
-          const code = err.code
+          const message =
+            status < 500
+              ? err.message
+              : 'Terjadi kesalahan pada server saat mengunggah file.'
+          const code = status < 500 ? err.code : 'ERR-000'
           const headers: Record<string, string> = {
             'Content-Type': 'application/json',
           }
           if (status === 429 && err.retryAfterSeconds) {
             headers['Retry-After'] = String(err.retryAfterSeconds)
           }
-          return new Response(
-            JSON.stringify({ message: err.message, code, status }),
-            { status, headers },
-          )
+          if (status >= 500) {
+            console.error('File upload internal error:', e)
+          }
+          return new Response(JSON.stringify({ message, code, status }), {
+            status,
+            headers,
+          })
         }
       },
     },

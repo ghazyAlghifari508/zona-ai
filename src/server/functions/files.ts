@@ -431,6 +431,11 @@ export async function reprocessAttachmentCore({
   const session = await getAuthSession(request)
   checkUserNotBanned(session.user)
   const userId = session.user.id
+  enforceRateLimit({
+    key: `reprocess:${userId}`,
+    limit: 10,
+    windowMs: RATE_LIMIT_WINDOW_MS,
+  })
   const parsed = z.object({ id: z.string().uuid() }).safeParse(data)
   if (!parsed.success) throw httpError(400, 'Invalid id')
   const [att] = await db
@@ -439,6 +444,9 @@ export async function reprocessAttachmentCore({
     .where(eq(attachments.id, data.id))
   if (!att) throw httpError(404, 'Not found')
   if (att.userId !== userId) throw httpError(403, 'Forbidden')
+  if (att.processingStatus === 'processing') {
+    throw httpError(409, 'Dokumen sedang diproses.')
+  }
   const { processDocument } = await import('../../lib/rag/process')
   await processDocument(data.id)
   const [updated] = await db

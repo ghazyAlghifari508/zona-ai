@@ -38,6 +38,13 @@ export async function readArtifactVersionContentCore({
   })
   const { body } = await getObject(source.locator)
   const bytes = new Uint8Array(body)
+  if (bytes.byteLength > 5 * 1024 * 1024) {
+    throw new AppError(
+      'Artifact content exceeds maximum allowed size.',
+      413,
+      'ERR-003',
+    )
+  }
   const computedHash = sha256(bytes)
 
   if (source.contentSha256 && source.contentSha256 !== computedHash) {

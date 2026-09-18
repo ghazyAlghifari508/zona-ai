@@ -347,7 +347,14 @@ export async function sendMessageCore({
       await db
         .update(attachments)
         .set({ messageId: _userMsg.id })
-        .where(eq(attachments.id, id))
+        .where(
+          and(
+            eq(attachments.id, id),
+            eq(attachments.userId, session.user.id),
+            eq(attachments.conversationId, convId),
+            isNull(attachments.messageId),
+          ),
+        )
     }
   }
 
@@ -821,7 +828,14 @@ export async function sendCompareMessageCore({
       await db
         .update(attachments)
         .set({ messageId: userMsg.id })
-        .where(eq(attachments.id, id))
+        .where(
+          and(
+            eq(attachments.id, id),
+            eq(attachments.userId, userId),
+            eq(attachments.conversationId, convId),
+            isNull(attachments.messageId),
+          ),
+        )
     }
   }
 
@@ -1385,6 +1399,7 @@ export async function getComparisonRunsCore({
   request: Request
 }) {
   const session = await getAuthSession(request)
+  checkUserNotBanned(session.user)
   const [conv] = await db
     .select()
     .from(conversations)
