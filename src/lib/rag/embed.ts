@@ -45,9 +45,11 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
   const vectors = data.data.map((d) => d.embedding as number[])
   for (const v of vectors) {
     if (v.length !== EMBEDDING_DIMENSION) {
-      console.warn(
-        `Embedding dimension mismatch ${v.length} != ${EMBEDDING_DIMENSION}`,
-      )
+      const e = new Error(
+        `Document indexing failed: embedding dimension mismatch (${v.length} != ${EMBEDDING_DIMENSION}).`,
+      ) as Error & { code: string }
+      e.code = 'ERR-014'
+      throw e
     }
   }
   return vectors

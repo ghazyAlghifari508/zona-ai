@@ -11,8 +11,18 @@ export const MAX_ARTIFACT_VERSION_BYTES = 256 * 1024
 export const MAX_ARTIFACT_MENTION_CONTEXT_BYTES =
   MAX_ARTIFACT_MENTIONS * MAX_ARTIFACT_VERSION_BYTES
 
-export const MAX_FILE_SIZE_BYTES = Number(
-  process.env.MAX_FILE_SIZE_BYTES ?? 10_485_760,
+function parsePositiveIntEnv(
+  value: string | undefined,
+  defaultValue: number,
+): number {
+  if (value === undefined || value === '') return defaultValue
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : defaultValue
+}
+
+export const MAX_FILE_SIZE_BYTES = parsePositiveIntEnv(
+  process.env.MAX_FILE_SIZE_BYTES,
+  10_485_760,
 )
 
 export const ALLOWED_MIME_TYPES = [
@@ -28,42 +38,53 @@ export const ALLOWED_MIME_TYPES = [
 const getEnv = (key: string) =>
   (process.env as Record<string, string | undefined>)[key]
 
-export const EMBEDDING_DIMENSION = Number(
-  getEnv(['EMBEDDING', 'DIMENSION'].join('_')) ?? 1536,
+export const EMBEDDING_DIMENSION = parsePositiveIntEnv(
+  getEnv(['EMBEDDING', 'DIMENSION'].join('_')),
+  1536,
 )
 
-export const TAVILY_MAX_RESULTS = Number(
-  getEnv(['TAVILY', 'MAX', 'RESULTS'].join('_')) ?? 5,
+export const TAVILY_MAX_RESULTS = parsePositiveIntEnv(
+  getEnv(['TAVILY', 'MAX', 'RESULTS'].join('_')),
+  5,
 )
 
-export const TAVILY_TIMEOUT_MS = Number(
-  getEnv(['TAVILY', 'TIMEOUT', 'MS'].join('_')) ?? 10000,
+export const TAVILY_TIMEOUT_MS = parsePositiveIntEnv(
+  getEnv(['TAVILY', 'TIMEOUT', 'MS'].join('_')),
+  10000,
 )
 
 // Rate limiting (in-memory per-user/IP) — SECURITY.md §13
-export const RATE_LIMIT_CHAT_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'CHAT', 'PER', 'MINUTE'].join('_')) ?? 20,
+export const RATE_LIMIT_CHAT_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'CHAT', 'PER', 'MINUTE'].join('_')),
+  20,
 )
-export const RATE_LIMIT_COMPARE_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'COMPARE', 'PER', 'MINUTE'].join('_')) ?? 20,
+export const RATE_LIMIT_COMPARE_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'COMPARE', 'PER', 'MINUTE'].join('_')),
+  20,
 )
-export const RATE_LIMIT_UPLOAD_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'UPLOAD', 'PER', 'MINUTE'].join('_')) ?? 10,
+export const RATE_LIMIT_UPLOAD_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'UPLOAD', 'PER', 'MINUTE'].join('_')),
+  10,
 )
-export const RATE_LIMIT_SEARCH_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'SEARCH', 'PER', 'MINUTE'].join('_')) ?? 30,
+export const RATE_LIMIT_SEARCH_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'SEARCH', 'PER', 'MINUTE'].join('_')),
+  30,
 )
-export const RATE_LIMIT_PRD_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'PRD', 'PER', 'MINUTE'].join('_')) ?? 5,
+export const RATE_LIMIT_PRD_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'PRD', 'PER', 'MINUTE'].join('_')),
+  5,
 )
-export const RATE_LIMIT_AGENT_SKILL_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'AGENT', 'SKILL', 'PER', 'MINUTE'].join('_')) ?? 5,
+export const RATE_LIMIT_AGENT_SKILL_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'AGENT', 'SKILL', 'PER', 'MINUTE'].join('_')),
+  5,
 )
-export const RATE_LIMIT_PAYMENT_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'PAYMENT', 'PER', 'MINUTE'].join('_')) ?? 5,
+export const RATE_LIMIT_PAYMENT_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'PAYMENT', 'PER', 'MINUTE'].join('_')),
+  5,
 )
-export const RATE_LIMIT_PAYMENT_STATUS_PER_MINUTE = Number(
-  getEnv(['RATE_LIMIT', 'PAYMENT', 'STATUS', 'PER', 'MINUTE'].join('_')) ?? 30,
+export const RATE_LIMIT_PAYMENT_STATUS_PER_MINUTE = parsePositiveIntEnv(
+  getEnv(['RATE_LIMIT', 'PAYMENT', 'STATUS', 'PER', 'MINUTE'].join('_')),
+  30,
 )
 export const RATE_LIMIT_WINDOW_MS = 60_000
 

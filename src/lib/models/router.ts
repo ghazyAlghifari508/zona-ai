@@ -1,4 +1,5 @@
 import { CREDIT_COST_BY_BARS } from '../utils/constants'
+import { modelRegistry } from './registry'
 
 export interface ResolveAutoModelOptions {
   credits?: number
@@ -34,6 +35,22 @@ export function resolveAutoModel(
     for (const candidate of candidates) {
       if (isAvailable(candidate.routerModelId)) {
         return candidate
+      }
+    }
+    const fallbackEntry = modelRegistry.find(
+      (m) => m.id !== 'auto' && m.enabled && isAvailable(m.routerModelId),
+    )
+    if (fallbackEntry) {
+      const bars = (fallbackEntry.intelligenceBars ?? 3) as 2 | 3 | 4
+      const cost =
+        typeof fallbackEntry.creditCost === 'number'
+          ? fallbackEntry.creditCost
+          : (CREDIT_COST_BY_BARS[bars] ?? CREDIT_COST_BY_BARS[3])
+      return {
+        routerModelId: fallbackEntry.routerModelId,
+        cost,
+        reason: 'registry-fallback',
+        tier: fallbackEntry.creditTier ?? 'balanced',
       }
     }
     return candidates[0]

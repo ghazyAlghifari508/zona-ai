@@ -16,6 +16,15 @@ export type RateLimitResult = {
   retryAfter?: number
 }
 
+function sweepExpired(now: number): void {
+  if (store.size < 100) return
+  for (const [k, v] of store.entries()) {
+    if (now >= v.resetAt) {
+      store.delete(k)
+    }
+  }
+}
+
 export function checkRateLimit({
   key,
   limit,
@@ -26,6 +35,7 @@ export function checkRateLimit({
   windowMs: number
 }): RateLimitResult {
   const now = Date.now()
+  sweepExpired(now)
   const entry = store.get(key)
   if (!entry || now >= entry.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs })

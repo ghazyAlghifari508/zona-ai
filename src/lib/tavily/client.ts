@@ -1,4 +1,4 @@
-import { TAVILY_MAX_RESULTS } from '../utils/constants'
+import { TAVILY_MAX_RESULTS, TAVILY_TIMEOUT_MS } from '../utils/constants'
 import { AppError } from '../utils/errors'
 
 if (typeof window !== 'undefined') {
@@ -19,15 +19,6 @@ export interface SearchProvider {
   ): Promise<SearchResult[]>
 }
 
-type TavilyApiResponse = {
-  results: Array<{
-    url: string
-    title: string
-    content: string
-    score: number
-  }>
-}
-
 export class TavilyProvider implements SearchProvider {
   async search(
     query: string,
@@ -45,6 +36,7 @@ export class TavilyProvider implements SearchProvider {
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(TAVILY_TIMEOUT_MS),
       body: JSON.stringify({
         api_key: apiKey,
         query,
@@ -60,13 +52,26 @@ export class TavilyProvider implements SearchProvider {
         'ERR-015',
       )
     }
-    const data = (await res.json()) as TavilyApiResponse
-    return data.results.map((r) => ({
-      url: r.url,
-      title: r.title,
-      content: r.content,
-      score: r.score,
-    }))
+    const data = (await res.json()) as unknown
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      !Array.isArray((data as { results?: unknown }).results)
+    ) {
+      return []
+    }
+    const rawResults = (data as { results: unknown[] }).results
+    return rawResults
+      .filter(
+        (r): r is Record<string, unknown> =>
+          typeof r === 'object' && r !== null,
+      )
+      .map((r) => ({
+        url: typeof r.url === 'string' ? r.url : '',
+        title: typeof r.title === 'string' ? r.title : '',
+        content: typeof r.content === 'string' ? r.content : '',
+        score: typeof r.score === 'number' ? r.score : 0,
+      }))
   }
 }
 

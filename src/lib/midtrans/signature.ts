@@ -6,6 +6,19 @@ function toHex(buffer: ArrayBuffer): string {
     .join('')
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const aLen = a.length
+  const bLen = b.length
+  const maxLen = Math.max(aLen, bLen)
+  let mismatch = aLen ^ bLen
+  for (let i = 0; i < maxLen; i++) {
+    const charA = i < aLen ? a.charCodeAt(i) : 0
+    const charB = i < bLen ? b.charCodeAt(i) : 0
+    mismatch |= charA ^ charB
+  }
+  return mismatch === 0
+}
+
 export async function verifyStatusSignature(params: {
   orderId: string
   statusCode: string
@@ -20,5 +33,5 @@ export async function verifyStatusSignature(params: {
     params.serverKey
   const digest = await crypto.subtle.digest('SHA-512', encoder.encode(raw))
 
-  return toHex(digest) === params.signatureKey
+  return timingSafeEqual(toHex(digest), params.signatureKey)
 }

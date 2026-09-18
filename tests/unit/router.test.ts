@@ -31,4 +31,17 @@ describe('resolveAutoModel', () => {
       cost: 6,
     })
   })
+  it('falls back to available model when primary candidates are unavailable', () => {
+    const result = resolveAutoModel('halo', {
+      isAvailable: (modelId) => modelId === 'ag/gemini-3.7-flash-high',
+    })
+    expect(result.routerModelId).toBe('ag/gemini-3.7-flash-high')
+  })
+  it('falls back to registry model when all rule candidates are unavailable', () => {
+    const result = resolveAutoModel('halo', {
+      isAvailable: (modelId) => modelId === 'bai/qwen3.8-flash',
+    })
+    expect(result.routerModelId).toBe('bai/qwen3.8-flash')
+    expect(result.reason).toBe('registry-fallback')
+  })
 })
