@@ -312,17 +312,17 @@ export function PricingSection({
     return 'pending'
   }
 
-  async function checkStatus(planId: PurchasablePlanId, orderId: string) {
+  async function checkStatus(_planId: PurchasablePlanId, orderId: string) {
     if (pollingRef.current === orderId) return
     pollingRef.current = orderId
     try {
       const outcome = await pollPaymentStatus(orderId)
-      if (outcome === 'paid') {
-        setPurchase({ planId, orderId, state: 'paid' })
-        void router.invalidate()
-      } else {
-        setPurchase({ planId, orderId, state: outcome })
-      }
+      if (pollingRef.current !== orderId) return
+      setPurchase((current) => {
+        if (!current || current.orderId !== orderId) return current
+        return { ...current, state: outcome }
+      })
+      if (outcome === 'paid') void router.invalidate()
     } finally {
       if (pollingRef.current === orderId) pollingRef.current = null
     }

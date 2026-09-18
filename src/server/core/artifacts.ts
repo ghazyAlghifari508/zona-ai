@@ -83,7 +83,12 @@ async function loadCreateInstruction(
     const [requestMsg] = await db
       .select()
       .from(messages)
-      .where(eq(messages.id, requestMessageId))
+      .where(
+        and(
+          eq(messages.id, requestMessageId),
+          eq(messages.conversationId, conversationId),
+        ),
+      )
     if (requestMsg) {
       return { instruction: requestMsg.content, requestId: requestMsg.id }
     }
