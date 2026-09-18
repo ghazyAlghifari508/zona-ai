@@ -1,5 +1,6 @@
 import mermaid from 'mermaid'
 import { useEffect, useId, useRef, useState } from 'react'
+import { autoHealMermaid } from '@/lib/chat/mermaid'
 import { CodeBlock } from './CodeBlock'
 
 type Props = {
@@ -10,13 +11,24 @@ let mermaidInitialized = false
 
 function ensureMermaidInitialized() {
   if (mermaidInitialized || typeof window === 'undefined') return
+  const isDark = document.documentElement.classList.contains('dark')
   mermaid.initialize({
     startOnLoad: false,
-    theme: 'neutral',
-    securityLevel: 'strict',
+    theme: isDark ? 'dark' : 'neutral',
+    securityLevel: 'loose',
     fontFamily: 'Inter, system-ui, sans-serif',
+    suppressErrorRendering: true,
   })
   mermaidInitialized = true
+}
+
+function cleanupDanglingMermaidElements(id: string) {
+  if (typeof document === 'undefined') return
+  document.getElementById(id)?.remove()
+  document.getElementById(`d${id}`)?.remove()
+  document.querySelectorAll(`[id^="d${id}"]`).forEach((el) => {
+    el.remove()
+  })
 }
 
 export function MermaidBlock({ code }: Props) {
@@ -37,8 +49,11 @@ export function MermaidBlock({ code }: Props) {
       return
     }
 
+    const healed = autoHealMermaid(trimmed)
+    cleanupDanglingMermaidElements(elementId)
+
     void mermaid
-      .render(elementId, trimmed)
+      .render(elementId, healed)
       .then(({ svg: renderedSvg }) => {
         if (active) {
           setSvg(renderedSvg)
@@ -46,6 +61,7 @@ export function MermaidBlock({ code }: Props) {
         }
       })
       .catch((err: unknown) => {
+        cleanupDanglingMermaidElements(elementId)
         if (active) {
           const message =
             err instanceof Error ? err.message : 'Invalid Mermaid syntax'
@@ -56,6 +72,7 @@ export function MermaidBlock({ code }: Props) {
 
     return () => {
       active = false
+      cleanupDanglingMermaidElements(elementId)
     }
   }, [code, elementId])
 
@@ -74,10 +91,16 @@ export function MermaidBlock({ code }: Props) {
 
   if (error) {
     return (
-      <div data-testid="mermaid-fallback" className="my-3">
-        <div className="mb-1 flex items-center justify-between text-[11px] text-coral">
-          <span>
-            Format diagram Mermaid tidak valid. Menampilkan kode sumber:
+      <div
+        data-testid="mermaid-fallback"
+        className="my-3 overflow-hidden rounded-lg border border-hairline bg-pure-white"
+      >
+        <div className="flex items-center justify-between border-b border-hairline bg-paper/40 px-3 py-1.5">
+          <span className="text-[11px] font-semibold text-stone uppercase tracking-wider">
+            Diagram (Format tidak valid)
+          </span>
+          <span className="text-[11px] text-stone">
+            Menampilkan kode sumber
           </span>
         </div>
         <CodeBlock className="language-mermaid">{code}</CodeBlock>
