@@ -20,6 +20,9 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    include: ['mermaid'],
+  },
   plugins: [
     tailwindcss(),
     tanstackStart(),

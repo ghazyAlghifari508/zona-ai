@@ -34,4 +34,28 @@ describe('MermaidBlock', () => {
     expect(await screen.findByTestId('mermaid-fallback')).toBeDefined()
     expect(screen.getByText(/invalid_syntax/)).toBeDefined()
   })
+
+  it('retries on transient DOM race errors and renders successfully', async () => {
+    let attempts = 0
+    const mermaidMock = (await import('mermaid')).default
+    vi.mocked(mermaidMock.render)
+      .mockImplementationOnce(() => {
+        attempts++
+        return Promise.reject(
+          new Error("Cannot read properties of null (reading 'firstChild')"),
+        )
+      })
+      .mockImplementationOnce((id: string) => {
+        attempts++
+        return Promise.resolve({
+          svg: `<svg id="${id}"><text>Recovered Diagram</text></svg>`,
+        })
+      })
+
+    render(<MermaidBlock code="graph TD\n  C --> D" />)
+
+    expect(await screen.findByText('Recovered Diagram')).toBeDefined()
+    expect(attempts).toBe(2)
+    expect(screen.queryByTestId('mermaid-fallback')).toBeNull()
+  })
 })

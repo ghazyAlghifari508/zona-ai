@@ -1,5 +1,5 @@
 import mermaid from 'mermaid'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { autoHealMermaid } from '@/lib/chat/mermaid'
 import { CodeBlock } from './CodeBlock'
 
@@ -22,24 +22,34 @@ function ensureMermaidInitialized() {
   mermaidInitialized = true
 }
 
+let renderSeq = 0
+function getNextRenderId(): string {
+  renderSeq = (renderSeq + 1) % 1_000_000
+  return `mm_${Date.now().toString(36)}_${renderSeq}_${Math.random().toString(36).slice(2, 6)}`
+}
+
 function cleanupDanglingMermaidElements(id: string) {
   if (typeof document === 'undefined') return
-  document.getElementById(id)?.remove()
-  document.getElementById(`d${id}`)?.remove()
-  document.querySelectorAll(`[id^="d${id}"]`).forEach((el) => {
-    el.remove()
-  })
+  try {
+    document.getElementById(id)?.remove()
+    document.getElementById(`d${id}`)?.remove()
+    document.querySelectorAll(`[id^="d${id}"]`).forEach((el) => {
+      el.remove()
+    })
+  } catch {
+    // Ignore DOM cleanup errors
+  }
 }
 
 export function MermaidBlock({ code }: Props) {
   const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<'preview' | 'code'>('preview')
-  const rawId = useId().replace(/:/g, '_')
-  const elementId = `mermaid_${rawId}`
 
   useEffect(() => {
     let active = true
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
     ensureMermaidInitialized()
 
     const trimmed = code.trim()
@@ -50,31 +60,51 @@ export function MermaidBlock({ code }: Props) {
     }
 
     const healed = autoHealMermaid(trimmed)
-    cleanupDanglingMermaidElements(elementId)
 
-    void mermaid
-      .render(elementId, healed)
-      .then(({ svg: renderedSvg }) => {
-        if (active) {
-          setSvg(renderedSvg)
-          setError(null)
-        }
-      })
-      .catch((err: unknown) => {
-        cleanupDanglingMermaidElements(elementId)
-        if (active) {
-          const message =
-            err instanceof Error ? err.message : 'Invalid Mermaid syntax'
-          setError(message)
-          setSvg(null)
-        }
-      })
+    const attemptRender = (attempt = 1) => {
+      const renderId = getNextRenderId()
+
+      mermaid
+        .render(renderId, healed)
+        .then(({ svg: renderedSvg }) => {
+          if (active) {
+            setSvg(renderedSvg)
+            setError(null)
+          }
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err)
+          const isTransient =
+            message.includes("reading 'firstChild'") ||
+            message.includes('Cannot read properties of null') ||
+            message.includes('dynamically imported module') ||
+            message.includes('Failed to fetch') ||
+            message.includes('Outdated Optimize Dep')
+
+          if (isTransient && attempt < 3 && active) {
+            retryTimer = setTimeout(() => {
+              if (active) attemptRender(attempt + 1)
+            }, 150 * attempt)
+            return
+          }
+
+          if (active) {
+            setError(message || 'Invalid Mermaid syntax')
+            setSvg(null)
+          }
+        })
+        .finally(() => {
+          cleanupDanglingMermaidElements(renderId)
+        })
+    }
+
+    attemptRender()
 
     return () => {
       active = false
-      cleanupDanglingMermaidElements(elementId)
+      if (retryTimer) clearTimeout(retryTimer)
     }
-  }, [code, elementId])
+  }, [code])
 
   const svgContainerRef = useRef<HTMLDivElement>(null)
 
