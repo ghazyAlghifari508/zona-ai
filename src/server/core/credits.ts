@@ -77,6 +77,7 @@ export async function adjustUserCreditsCore(
       .select({ id: users.id, credits: users.credits })
       .from(users)
       .where(eq(users.id, params.data.userId))
+      .for('update')
 
     if (!targetUser) {
       throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')

@@ -19,7 +19,15 @@ export const listUsersSchema = z.object({
 export const banUserSchema = z.object({
   userId: z.string().min(1),
   reason: z.string().optional().nullable(),
-  expiresAt: z.union([z.string(), z.date()]).optional().nullable(),
+  expiresAt: z
+    .union([
+      z.string().refine((val) => !Number.isNaN(Date.parse(val)), {
+        message: 'Invalid date format',
+      }),
+      z.date(),
+    ])
+    .optional()
+    .nullable(),
 })
 
 export const unbanUserSchema = z.object({

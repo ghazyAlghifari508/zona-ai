@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, isNull, or } from 'drizzle-orm'
 import {
   preventAdminSelfBan,
   requireAdminSession,
@@ -57,7 +57,7 @@ export async function listUsersCore(params: ListUsersParams) {
     if (params.status === 'banned') {
       conditions.push(eq(users.banned, true))
     } else if (params.status === 'active') {
-      conditions.push(eq(users.banned, false))
+      conditions.push(or(eq(users.banned, false), isNull(users.banned)))
     }
   }
 
@@ -124,9 +124,25 @@ export async function banUserCore(params: {
 
   preventAdminSelfBan(session.user.id, targetUser.id, targetUser.role)
 
-  const banExpires = params.data.expiresAt
-    ? new Date(params.data.expiresAt)
-    : null
+  let banExpires: Date | null = null
+  if (params.data.expiresAt) {
+    const d = new Date(params.data.expiresAt)
+    if (Number.isNaN(d.getTime())) {
+      throw new AppError(
+        'Format tanggal kedaluwarsa ban tidak valid.',
+        400,
+        'ERR-002',
+      )
+    }
+    if (d.getTime() <= Date.now()) {
+      throw new AppError(
+        'Tanggal kedaluwarsa ban harus di masa mendatang.',
+        400,
+        'ERR-002',
+      )
+    }
+    banExpires = d
+  }
   const banReason = params.data.reason?.trim() || null
   const now = new Date()
 

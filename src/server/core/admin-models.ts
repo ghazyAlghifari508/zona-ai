@@ -129,36 +129,38 @@ export async function updateModelAvailabilityCore(params: {
   const now = new Date()
   const disabledReason = params.disabledReason ?? null
 
-  await db
-    .insert(modelSettings)
-    .values({
-      modelId: params.modelId,
-      isActive: params.isActive,
-      disabledReason,
-      updatedBy: session.user.id,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: modelSettings.modelId,
-      set: {
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(modelSettings)
+      .values({
+        modelId: params.modelId,
         isActive: params.isActive,
         disabledReason,
         updatedBy: session.user.id,
+        createdAt: now,
         updatedAt: now,
-      },
-    })
+      })
+      .onConflictDoUpdate({
+        target: modelSettings.modelId,
+        set: {
+          isActive: params.isActive,
+          disabledReason,
+          updatedBy: session.user.id,
+          updatedAt: now,
+        },
+      })
 
-  await db.insert(auditLogs).values({
-    adminId: session.user.id,
-    adminEmail: session.user.email,
-    action: params.isActive ? 'model.enable' : 'model.disable',
-    targetId: params.modelId,
-    targetType: 'model',
-    metadata: {
-      disabledReason,
-    },
-    createdAt: now,
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: params.isActive ? 'model.enable' : 'model.disable',
+      targetId: params.modelId,
+      targetType: 'model',
+      metadata: {
+        disabledReason,
+      },
+      createdAt: now,
+    })
   })
 
   updateModelOverrideInMemory(params.modelId, params.isActive, disabledReason)

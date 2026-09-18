@@ -40,7 +40,7 @@ export interface ListAuditLogsParams {
 
 export interface AuditLogItem {
   id: string
-  adminId: string
+  adminId: string | null
   adminEmail: string
   adminName: string | null
   adminImage: string | null

@@ -189,6 +189,13 @@ export async function reserveGenerationBatchCredits(
     assertCreditAmount(reservation.amount)
   }
   const total = args.reservations.reduce((sum, r) => sum + r.amount, 0)
+  if (!Number.isSafeInteger(total) || total <= 0) {
+    throw new AppError(
+      'Total biaya kredit harus bilangan bulat positif',
+      400,
+      'ERR-018',
+    )
+  }
   const res = await tx.execute(
     sql`UPDATE users SET credits = credits - ${total} WHERE id=${args.userId} AND credits >= ${total} RETURNING credits`,
   )
@@ -222,17 +229,29 @@ export async function getCreditBalance(userId: string): Promise<number> {
 export async function resetDevCredits(userId: string): Promise<number> {
   if (process.env.NODE_ENV === 'production')
     throw new Error('Forbidden in production')
-  const res = await db.execute(
-    sql`UPDATE users SET credits=100 WHERE id=${userId} RETURNING credits`,
-  )
-  const rows = getRows<{ credits: number }>(res)
-  const bal = rows[0]?.credits ?? 100
-  await db.insert(creditTransactions).values({
-    userId,
-    amount: 100,
-    type: 'refill',
-    balanceAfter: bal,
-    description: 'Dev reset 100',
+  return await db.transaction(async (tx) => {
+    const prevRes = await tx.execute(
+      sql`SELECT credits FROM users WHERE id=${userId} FOR UPDATE`,
+    )
+    const prevRows = getRows<{ credits: number }>(prevRes)
+    const oldBalance = prevRows[0]?.credits ?? 0
+    const diff = 100 - oldBalance
+
+    const res = await tx.execute(
+      sql`UPDATE users SET credits=100 WHERE id=${userId} RETURNING credits`,
+    )
+    const rows = getRows<{ credits: number }>(res)
+    const bal = rows[0]?.credits ?? 100
+
+    if (diff !== 0) {
+      await tx.insert(creditTransactions).values({
+        userId,
+        amount: diff,
+        type: diff > 0 ? 'refill' : 'adjustment',
+        balanceAfter: bal,
+        description: `Dev reset to 100 (${diff > 0 ? '+' : ''}${diff})`,
+      })
+    }
+    return bal
   })
-  return bal
 }

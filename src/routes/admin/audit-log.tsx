@@ -210,7 +210,7 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
                             {log.adminName || log.adminEmail}
                           </p>
                           <p className="text-[10px] text-stone font-mono truncate">
-                            {log.adminId}
+                            {log.adminId ?? 'Deleted User'}
                           </p>
                         </div>
                       </div>

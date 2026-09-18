@@ -4,12 +4,14 @@ import { verifyAdminAccessCore } from '../core/admin-auth'
 
 export const verifyAdminAccessFn = createServerFn({ method: 'GET' }).handler(
   async () => {
-    let request: Request
-    try {
-      const serverReq = getRequest()
-      request = serverReq ?? new Request('http://localhost:3000/admin')
-    } catch {
-      request = new Request('http://localhost:3000/admin')
+    const serverReq = getRequest()
+    const request =
+      serverReq ??
+      (process.env.NODE_ENV === 'test'
+        ? new Request('http://localhost:3000/admin')
+        : null)
+    if (!request) {
+      throw new Error('Server request context unavailable')
     }
     return verifyAdminAccessCore(request)
   },
