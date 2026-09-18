@@ -1,3 +1,5 @@
+import { Alert02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { ArtifactDescriptor } from '@/lib/artifacts/contracts'
 import { getCompareGridClasses } from '@/lib/chat/compare-card-width'
 import { ModelColumn } from './ModelColumn'
@@ -83,16 +85,23 @@ export function CompareGrid({
       {disabledGenerations.length > 0 && (
         <div
           data-testid="compare-disabled-warning"
-          className="flex items-center gap-2 rounded-md border border-hairline bg-paper px-3 py-2 text-xs text-stone"
+          className="flex items-center gap-2.5 rounded-lg border border-warning-strong/25 bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-strong dark:border-amber-700/30 dark:bg-amber-950/30 dark:text-amber-200"
         >
-          <span className="shrink-0 rounded-full bg-stone/10 px-1.5 py-0.5 text-[10.5px] font-medium text-stone">
-            Sedang tidak tersedia
-          </span>
-          <span className="truncate">
-            {disabledGenerations.length === 1
-              ? `Model ${findCatalogEntry(catalog, disabledGenerations[0].modelId)?.displayName ?? disabledGenerations[0].modelId} sedang tidak tersedia.`
-              : 'Beberapa model dalam perbandingan ini sedang tidak tersedia.'}
-          </span>
+          <HugeiconsIcon
+            icon={Alert02Icon}
+            size={16}
+            strokeWidth={2}
+            className="shrink-0 text-warning-strong dark:text-amber-400"
+            aria-hidden="true"
+          />
+          <div className="flex flex-wrap items-center gap-1.5 text-[13px] leading-snug">
+            <span className="font-semibold">Sedang tidak tersedia:</span>
+            <span>
+              {disabledGenerations.length === 1
+                ? `Model ${findCatalogEntry(catalog, disabledGenerations[0].modelId)?.displayName ?? disabledGenerations[0].modelId} dinonaktifkan sementara oleh administrator.`
+                : 'Beberapa model dalam perbandingan ini dinonaktifkan sementara oleh administrator.'}
+            </span>
+          </div>
         </div>
       )}
       {onOpenArtifacts && successfulArtifacts.length > 0 ? (
@@ -120,13 +129,25 @@ export function CompareGrid({
               {isDisabled && (
                 <div
                   data-testid={`column-disabled-indicator-${g.modelId}`}
-                  className="mb-2 flex items-center justify-between gap-2 rounded-md border border-hairline bg-paper px-2.5 py-1.5 text-xs text-stone"
+                  className="mb-2.5 flex items-center justify-between gap-2 rounded-md border border-warning-strong/20 bg-warning-soft/80 px-2.5 py-1.5 text-xs text-warning-strong dark:border-amber-700/30 dark:bg-amber-950/25 dark:text-amber-200"
                 >
-                  <span className="shrink-0 rounded-full bg-stone/10 px-1.5 py-0.5 text-[10.5px] font-medium text-stone">
-                    Sedang tidak tersedia
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <HugeiconsIcon
+                      icon={Alert02Icon}
+                      size={13}
+                      strokeWidth={2}
+                      className="shrink-0 text-warning-strong dark:text-amber-400"
+                      aria-hidden="true"
+                    />
+                    <span className="font-semibold text-[11px] tracking-wide uppercase">
+                      Sedang tidak tersedia
+                    </span>
+                  </div>
                   {entry?.disabledReason && (
-                    <span className="truncate text-[11px] text-stone">
+                    <span
+                      className="truncate text-[11px] text-warning-strong/80 dark:text-amber-300/80"
+                      title={entry.disabledReason}
+                    >
                       {entry.disabledReason}
                     </span>
                   )}

@@ -231,7 +231,7 @@ export function ModelSelector({
             {isDisabled && (
               <span
                 data-testid={`model-disabled-badge-${m.id}`}
-                className="shrink-0 rounded-full bg-stone/10 px-1.5 py-0.5 text-[10.5px] font-medium text-stone"
+                className="shrink-0 rounded-full border border-warning-strong/25 bg-warning-soft px-1.5 py-0.5 text-[10.5px] font-semibold text-warning-strong dark:border-amber-700/30 dark:bg-amber-950/40 dark:text-amber-300"
               >
                 Sedang tidak tersedia
               </span>
@@ -374,7 +374,7 @@ export function ModelSelector({
             (selected.isActive === false ? (
               <span
                 data-testid="model-selector-selected-disabled-badge"
-                className="hidden sm:inline-block shrink-0 rounded-full bg-stone/10 px-1.5 py-0.5 text-[10px] font-medium text-stone"
+                className="hidden sm:inline-block shrink-0 rounded-full border border-warning-strong/25 bg-warning-soft px-1.5 py-0.5 text-[10px] font-semibold text-warning-strong dark:border-amber-700/30 dark:bg-amber-950/40 dark:text-amber-300"
               >
                 Sedang tidak tersedia
               </span>
