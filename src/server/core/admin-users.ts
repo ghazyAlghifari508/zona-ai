@@ -122,7 +122,7 @@ export async function banUserCore(params: {
     throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
   }
 
-  preventAdminSelfBan(session.user.id, targetUser.id, targetUser.email)
+  preventAdminSelfBan(session.user.id, targetUser.id, targetUser.role)
 
   const banExpires = params.data.expiresAt
     ? new Date(params.data.expiresAt)
@@ -240,7 +240,7 @@ export async function deleteUserCore(params: {
     throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
   }
 
-  preventAdminSelfBan(session.user.id, targetUser.id, targetUser.email)
+  preventAdminSelfBan(session.user.id, targetUser.id, targetUser.role)
 
   await db.delete(users).where(eq(users.id, params.data.userId))
 

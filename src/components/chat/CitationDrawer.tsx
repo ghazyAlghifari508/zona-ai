@@ -14,10 +14,26 @@ type Props = {
   sources: CitationSource[]
 }
 
+function safeCitationUrl(value: string): string | null {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? url.href
+      : null
+  } catch {
+    return null
+  }
+}
+
 export function CitationDrawer({ sources }: Props) {
   const [open, setOpen] = useState(true)
   if (!sources.length) return null
-  const sorted = [...sources].sort((a, b) => a.position - b.position)
+  const sorted = [...sources]
+    .sort((a, b) => a.position - b.position)
+    .flatMap((source) => {
+      const url = safeCitationUrl(source.url)
+      return url ? [{ ...source, url }] : []
+    })
   return (
     <div className="mt-2">
       <div className="flex flex-wrap gap-1">

@@ -1,5 +1,5 @@
 import { AppError } from '../utils/errors'
-import { type AuthSession, getAdminEmails, getAuthSession } from './session'
+import { type AuthSession, getAuthSession } from './session'
 
 if (typeof window !== 'undefined') {
   throw new Error(
@@ -11,9 +11,15 @@ export function checkUserNotBanned(
   user?: {
     banned?: boolean | null
     banReason?: string | null
+    banExpires?: Date | null
   } | null,
 ): void {
-  if (user?.banned) {
+  const isActiveBan =
+    user?.banned === true &&
+    (user.banExpires === null ||
+      user.banExpires === undefined ||
+      user.banExpires.getTime() > Date.now())
+  if (isActiveBan) {
     const reason = user.banReason?.trim() ? `: ${user.banReason.trim()}` : ''
     throw new AppError(
       `Akun Anda telah dinonaktifkan${reason}.`,
@@ -26,16 +32,9 @@ export function checkUserNotBanned(
 export function preventAdminSelfBan(
   currentAdminId: string,
   targetUserId: string,
-  targetEmail: string,
+  targetRole: string | null | undefined,
 ): void {
-  const adminEmails = getAdminEmails()
-  const normalizedTargetEmail = targetEmail.trim().toLowerCase()
-
-  if (
-    currentAdminId === targetUserId ||
-    adminEmails.includes(normalizedTargetEmail) ||
-    normalizedTargetEmail === 'alghifarighazy508@gmail.com'
-  ) {
+  if (currentAdminId === targetUserId || targetRole === 'admin') {
     throw new AppError(
       'Admin utama tidak dapat menonaktifkan akun sendiri.',
       400,

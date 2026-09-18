@@ -13,7 +13,7 @@ function ensureMermaidInitialized() {
   mermaid.initialize({
     startOnLoad: false,
     theme: 'neutral',
-    securityLevel: 'loose',
+    securityLevel: 'strict',
     fontFamily: 'Inter, system-ui, sans-serif',
   })
   mermaidInitialized = true

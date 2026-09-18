@@ -44,7 +44,7 @@ describe('Admin & Ban Guards', () => {
     expect(() => checkUserNotBanned(undefined)).not.toThrow()
   })
 
-  it('should prevent admin from banning self or primary admin email', () => {
+  it('should prevent admin from banning self or another admin', () => {
     expect(() =>
       preventAdminSelfBan('admin-1', 'admin-1', 'admin@zona.ai'),
     ).toThrowError('Admin utama tidak dapat menonaktifkan akun sendiri.')
@@ -58,7 +58,7 @@ describe('Admin & Ban Guards', () => {
     }
 
     expect(() =>
-      preventAdminSelfBan('admin-1', 'user-2', 'alghifarighazy508@gmail.com'),
+      preventAdminSelfBan('admin-1', 'user-2', 'admin'),
     ).toThrowError('Admin utama tidak dapat menonaktifkan akun sendiri.')
 
     expect(() =>
@@ -191,7 +191,7 @@ describe('getAuthSession admin bootstrap sync', () => {
     vi.restoreAllMocks()
   })
 
-  it('should automatically upgrade role to admin if user email is in ADMIN_EMAILS', async () => {
+  it('should not promote a session based only on its email', async () => {
     const updateSpy = vi.spyOn(db, 'update').mockReturnValue({
       set: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue({}),
@@ -221,8 +221,8 @@ describe('getAuthSession admin bootstrap sync', () => {
     const request = new Request('http://localhost:3000/api/me')
 
     const session = await getAuthSession(request)
-    expect(session.user.role).toBe('admin')
-    expect(updateSpy).toHaveBeenCalled()
+    expect(session.user.role).toBe('user')
+    expect(updateSpy).not.toHaveBeenCalled()
   })
 
   it('should not modify role if user email is not in ADMIN_EMAILS', async () => {

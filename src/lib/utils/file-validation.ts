@@ -16,7 +16,8 @@ export function validateMime(mime: string) {
 }
 
 export function validateSize(size: number) {
-  const ok = size <= MAX_FILE_SIZE_BYTES
+  const ok =
+    Number.isSafeInteger(size) && size >= 0 && size <= MAX_FILE_SIZE_BYTES
   return { ok, reason: ok ? '' : `Size ${size} > ${MAX_FILE_SIZE_BYTES}` }
 }
 
@@ -45,8 +46,8 @@ export async function validateMagicBytes(
       buffer[2] === 0x46 &&
       buffer[3] === 0x46 &&
       buffer.slice(8, 12).toString('utf8') === 'WEBP'
-    // If buffer too small, fallback to allow (maybe truncated in test) — but for real WEBP we check
-    if (buffer.length < 12) return { ok: true, reason: '' }
+    if (buffer.length < 12)
+      return { ok: false, reason: 'WEBP header truncated' }
     return { ok, reason: ok ? '' : 'WEBP header mismatch' }
   }
   if (claimedMime.startsWith('text/')) {

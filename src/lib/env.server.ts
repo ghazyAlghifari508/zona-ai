@@ -51,7 +51,17 @@ export const envSchema = z.object({
     .optional()
     .default('https://cloud.langfuse.com'),
   APP_URL: z.string().url(),
-  ADMIN_EMAILS: z.string().default('alghifarighazy508@gmail.com'),
+  ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .refine(
+      (value) =>
+        value === '' ||
+        value
+          .split(',')
+          .every((email) => z.string().email().safeParse(email.trim()).success),
+      'ADMIN_EMAILS must contain comma-separated valid email addresses',
+    ),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),

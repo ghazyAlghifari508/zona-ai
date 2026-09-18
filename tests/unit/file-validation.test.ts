@@ -28,7 +28,11 @@ describe('file-validation', () => {
     expect(sanitizeFilename('../../etc/passwd')).toBe('passwd')
     expect(sanitizeFilename('my file@#$.pdf')).not.toContain('/')
   })
-  it('validateSize rejects >MAX', () => {
+  it('validateSize rejects non-finite, negative, and fractional sizes', () => {
+    expect(validateSize(Number.NaN).ok).toBe(false)
+    expect(validateSize(Number.POSITIVE_INFINITY).ok).toBe(false)
+    expect(validateSize(-1).ok).toBe(false)
+    expect(validateSize(1.5).ok).toBe(false)
     expect(validateSize(MAX_FILE_SIZE_BYTES + 1).ok).toBe(false)
     expect(validateSize(MAX_FILE_SIZE_BYTES - 1).ok).toBe(true)
     expect(validateSize(MAX_FILE_SIZE_BYTES).ok).toBe(true)
@@ -46,5 +50,12 @@ describe('file-validation', () => {
     const pdfBuffer = Buffer.from('%PDF-1.4')
     const res = await validateMagicBytes(pdfBuffer, 'application/pdf')
     expect(res.ok).toBe(true)
+  })
+  it('rejects truncated webp data', async () => {
+    const res = await validateMagicBytes(
+      Buffer.from('RIFF', 'ascii'),
+      'image/webp',
+    )
+    expect(res.ok).toBe(false)
   })
 })
