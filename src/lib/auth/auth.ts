@@ -11,6 +11,11 @@ if (typeof window !== 'undefined') {
 }
 
 export const auth = betterAuth({
+  baseURL: env.BETTER_AUTH_URL,
+  trustedOrigins:
+    env.NODE_ENV === 'development'
+      ? ['http://localhost:*', 'http://127.0.0.1:*']
+      : [env.APP_URL],
   database: drizzleAdapter(db, { provider: 'pg', usePlural: true }),
   emailAndPassword: { enabled: false },
   user: {

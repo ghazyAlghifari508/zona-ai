@@ -11,7 +11,7 @@ export const Route = createFileRoute('/banned')({
   component: BannedPage,
 })
 
-export function BannedPage() {
+function BannedPage() {
   const handleSignOut = () => {
     void authClient.signOut({
       fetchOptions: {
