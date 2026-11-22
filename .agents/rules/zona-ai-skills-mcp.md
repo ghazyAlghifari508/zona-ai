@@ -23,18 +23,26 @@
 | `superpowers:executing-plans` | **Saat eksekusi plan batch** (inline, checkpoint per 2-3 tasks). | Eksekusi Fase 10 Hardening: `executing-plans` batch Task 1-3 (errors+rate-limit) → checkpoint review → Task 4-6. |
 | `superpowers:subagent-driven-development` | **Saat eksekusi plan per task** (recommended, fresh subagent per Task + two-stage review). | Eksekusi Fase 05 Compare: dispatch subagent Task 1 `comparison_runs` → review → Task 2 `deductCompareCredits` → review. |
 | `superpowers:systematic-debugging` | **Sebelum fix bug apa pun** (streaming putus, Compare satu model fail, RAG `vector` mismatch, `getAuthSession` 401). | Bug `Compare partial_failure refund tidak jalan`: trace `sendCompareMessage → deductCompareCredits → onFinish failed → refundCredits` + `generationId` → root cause → fix + test. |
-| `superpowers:verification-before-completion` | **Sebelum claim Done** (18 pts DoD). | Fase 09: `bun x tsc --noEmit` 0 + `biome check` pass + `vitest run` unit+integration + `playwright` E2E `usage.spec.ts` + `grep LANGFUSE_SECRET` client 0 → baru claim Done. |
+| `superpowers:verification-before-completion` | **Sebelum claim Done** (18 pts DoD). | Fase 09: `bun x tsc --noEmit` 0 + `bun x biome check ./src` pass + `bun x vitest run` + `bun x playwright test` + `grep -r LANGFUSE_SECRET_KEY src/components src/routes` 0 → baru claim Done. |
 | `superpowers:dispatching-parallel-agents` | **Saat 2+ task independen tanpa shared state.** | Fase 01: `Biome` vs `Tailwind @theme` vs `Vitest` parallel setelah `app.config.ts` init. |
 | `superpowers:using-git-worktrees` | **Sebelum eksekusi plan di isolated worktree.** | Fase 06 File Upload: `using-git-worktrees` → worktree `fase-06-file-upload` → `executing-plans`. |
 | `superpowers:finishing-a-development-branch` | **Saat selesai branch, decide merge/PR.** | Fase 10 Hardening done: `finishing-a-development-branch` → cek `git status` → PR. |
 | `superpowers:brainstorming` (visual companion) | **Saat pertanyaan visual** (Compare 2-4 cols vs tabs, Composer pill 50px). | Fase 05 Compare: "This next part might be easier if I show you — I can put together mockups..." → browser tab `CompareGrid` 50/50 vs 2x2 vs tabs swipe. |
 | `test-driven-development` | **Saat implement feature/bugfix, sebelum code.** | Fase 06 `file-validation.test.ts`: `validateMagicBytes exe→pdf` fail → implement → pass. |
+| `tanstack-start-best-practices` | **Saat routing, server functions, & SSR TanStack Start.** | Fase 02/03/04: `createServerFn` validation Zod, route loader, file-based routing `$conversationId.tsx`. |
+| `tanstack-router-best-practices` | **Saat navigasi, route search params, loader.** | Fase 04/05: search params state compare mode, route preload, nested routes. |
+| `tanstack-query-best-practices` | **Saat client caching & mutations.** | Query invalidation setelah send message, optimistic updates, cache keys structure. |
+| `ai-sdk` | **Saat streamText, messages, tools, AI SDK 7.** | Fase 03/05/08: `streamText({ model, messages: CoreMessage[] })`, SSE streaming tagging, multi-modal vision parts. |
+| `drizzle` | **Saat schema, relations, migrations, pgvector.** | Fase 02/07/08: Drizzle `$inferInsert`, `$type()`, HNSW vector indexing, cascaded deletes. |
+| `tailwind-4-docs` | **Saat styling Tailwind v4.** | `@theme` token setup, CSS variables, utility classes tanpa Tailwind v3 config files. |
+| `playwright-best-practices` + `webapp-testing` | **Saat E2E testing Playwright.** | Page object patterns, locators (`getByTestId`), mock routes, multi-viewport tests. |
 | `context7-mcp` | **Saat tanya library/framework** (React, Next.js, Prisma, TanStack Start, AI SDK 7, Better Auth, Drizzle, Tailwind). | Cek `AI SDK 7 streamText` signature sebelum `chat.ts` `streamText({model:nineRouter})` — jangan pakai API lama. |
 | `better-auth-authentication` | **Saat auth flow** (Google OAuth only `FR-001`). | Fase 02: `betterAuth({database:drizzleAdapter(db,{provider:"pg"}), emailAndPassword:{enabled:false}, socialProviders:{google:{clientId,clientSecret}}, plugins:[tanstackStartCookies()]})` + `createAuthClient` + `api.auth.$` catch-all. |
 | `better-auth-security-best-practices` | **Saat hardening auth** (rate limit, CSRF, session). | Fase 10: `RateLimit 20/min` `checkRateLimit({key:"chat:${userId}"})` + `SameSite=Lax` `HttpOnly Secure` + `getAuthSession` di tiap `createServerFn`. |
 | `ui-ux-pro-max` + `ui-design-system` | **Saat UI** (DESIGN.md MindMarket cream `#f5f1e4` radius 50px, no shadow). | Fase 08 `CitationDrawer` White `10px` `border hairline-mist` `Body-sm` `ExternalLink` — bukan `shadow-xl` neon. |
 | `document-pdf` | **Saat RAG extract** (PDF/DOCX). | Fase 07 `extract.ts` `unpdf` `mammoth` + `chunk.ts` `1000/200` + `HNSW` test. |
-| `webapp-testing` | **Saat E2E `playwright` 12 critical paths.** | Fase 10 `critical.spec.ts` `Register→Logout` 12 paths `page.route` mock 9Router SSE `msw` + real PG `DATABASE_URL_TEST`. |
+| `shadcn-component-discovery` | **Saat butuh komponen UI baru.** | Discovery dialog, popover, tabs sebelum bikin custom. |
+| `vercel-react-best-practices` | **Saat optimasi perf React.** | Virtualizer list, memoization, bundle optimization. |
 
 ---
 
@@ -53,15 +61,10 @@
 
 | Skill / MCP / Plugin | Untuk Apa di Zona.ai | Contoh |
 |---|---|---|
-| `mcp: langfuse` (belum ada MCP, hanya `@langfuse/vercel-ai-sdk` lib) | Observability Fase 09 — jika ada MCP Langfuse, pakai untuk trace `streamText` `generationId`. | Install `langfuse` MCP → `trace` `generation_runs.id` `modelId` `latencyMs` `TTFT` — saat ini via lib `src/lib/langfuse/tracing.ts` `withLangfuse` manual. |
+| `mcp: langfuse` (belum ada MCP) | Observability Fase 09 — jika ada MCP Langfuse, pakai untuk trace `streamText` `generationId`. | Install `langfuse` MCP → `trace` `generation_runs.id` `modelId` `latencyMs` `TTFT`. Belum ada implementasi tracing di main. |
 | `mcp: tavily` / `exa` | Web search Fase 08 — jika ada MCP Tavily, pakai untuk `searchWeb` `POST /search` `{query, max_results 5}`. | Saat ini via `src/lib/tavily/client.ts` `fetch https://api.tavily.com/search` `TAVILY_API_KEY tvly-` server-only — MCP bisa gantikan fetch. |
 | `mcp: r2` / `cloudflare` | R2 Fase 06 — jika ada MCP Cloudflare R2, pakai untuk `putObject/getObject` `users/{userId}/attachments/{uuid}`. | Saat ini via `@aws-sdk/client-s3` `S3Client` — MCP bisa untuk `headObject` debug. |
-| `skill: tanstack-start` (context7 cover) | TanStack Start file-based routing `createServerFn` `createServerFileRoute /api/auth/$`. | Sebelum `chat.ts` `sendMessage` — `context7` query `TanStack Start createServerFn validator Zod`. |
-| `skill: drizzle-orm` (context7 cover) | Drizzle `drizzle(postgres)` `drizzle-kit generate` `CREATE EXTENSION vector` `HNSW`. | Fase 07 `document_chunks` `vector(1536)` `CREATE INDEX USING hnsw`. |
-| `skill: ai-sdk-7` (context7 cover) | AI SDK 7 `streamText` `toDataStreamResponse` tagged `generationId` `reasoning` `usage`. | Fase 03 `streamText({model:nineRouter(routerModelId)})` + `multiplex.ts` `generation-start`. |
 | `plugin: superpowers` (sudah) | Sudah terinstall — `brainstorming` `writing-plans` `executing-plans` `subagent-driven-development` `systematic-debugging` `verification-before-completion`. | Wajib untuk Fase 01-11. |
-| `skill: shadcn-component-discovery` | Cari komponen shadcn sebelum bikin `Button` `Dialog` `Popover` `Tabs` custom. | Fase 05 `CompareSelector` `Popover` `Tabs` `MobileCompareTabs` — discovery dulu baru build. |
-| `skill: vercel-react-best-practices` | Perf React 19 `useVirtualizer` `memo` `bundle size`. | Fase 04 `MessageList` `useVirtualizer` `estimateSize 80 overscan 5` + Fase 10 `vite build --report`. |
 
 **Aturan install:** Jangan `bun add` MCP/skill baru tanpa **proposal + approve user**. Cek `AGENTS.md` lock dulu — tanya: "Mau install `mcp-tavily` untuk web search?"
 
@@ -85,7 +88,7 @@
 - **Fase 06 File:** `agent-browser` (debug `drag overlay Sandstone` `preview 40x40`) + `context7` (`@aws-sdk/client-s3` `PutObjectCommand`) + `document-pdf` (validasi `file-type` magic).
 - **Fase 07 RAG:** `context7` (`unpdf` `mammoth` `pgvector` `HNSW`), `document-pdf` (extract), `systematic-debugging` jika `embedding dimension 1536` mismatch.
 - **Fase 08 Web Search:** `context7` (Tavily `POST /search` `max_results 5`), `agent-browser` (debug `CitationDrawer` White 10px chips `[1]`).
-- **Fase 09 Observability:** `context7` (`@langfuse/vercel-ai-sdk` `withLangfuse`), `verification-before-completion` (TTFT <150ms `firstTokenAt`).
+- **Fase 09 Observability:** `context7` (`usage_records` agregasi + `timeToFirstTokenMs`), `verification-before-completion` (TTFT <150ms `firstTokenAt`).
 - **Fase 10 Hardening:** `better-auth-security-best-practices` (rate limit `Map` 20/min `SameSite` ) + `vercel-react-best-practices` (perf `useVirtualizer`) + `ui-ux-pro-max` (a11y `role=log aria-live=polite` + `prefers-reduced-motion`) + `webapp-testing` (12 critical paths `playwright` 3 viewports).
 
 ---
