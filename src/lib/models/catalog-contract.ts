@@ -11,26 +11,40 @@ export const catalogCapabilitiesSchema = z
   })
   .strict()
 
-const catalogStatusSchema = z.enum(['active', 'inactive', 'retired'])
-const evaluationStatusSchema = z.enum([
+export const catalogStatusSchema = z.enum(['active', 'inactive', 'retired'])
+export const evaluationStatusSchema = z.enum([
   'legacy',
   'pending',
   'verified',
   'failed',
   'inconclusive',
 ])
-const visionStatusSchema = z.enum([
+export const visionStatusSchema = z.enum([
   'supported',
   'unsupported',
   'unverified',
   'inconclusive',
   'not-tested',
 ])
-const creditTierSchema = z.enum([
+export const creditTierSchema = z.enum([
   'economy',
   'balanced',
   'premium',
   'adaptive',
+])
+export const confidenceSchema = z.enum(['high', 'medium', 'low'])
+export const routingProfileSchema = z.enum([
+  'lightweight',
+  'coding',
+  'reasoning',
+  'general',
+  'router',
+])
+export const intelligenceLevelSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
 ])
 const creditCostSchema = z.union([
   z.number().int().nonnegative(),

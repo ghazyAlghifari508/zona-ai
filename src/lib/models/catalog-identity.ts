@@ -23,11 +23,11 @@ export interface CatalogIdentityRow {
 
 const AUTO_MODEL_ID = 'auto'
 
-export function resolveCatalogIdentity(
-  catalog: readonly CatalogIdentityRow[],
+export function resolveCatalogIdentity<T extends CatalogIdentityRow>(
+  catalog: readonly T[],
   modelId: string,
   aliases: Readonly<Record<string, string>>,
-): CatalogIdentityRow | null {
+): T | null {
   const trimmed = modelId.trim()
   if (!trimmed) return null
   const canonicalId = aliases[trimmed] ?? trimmed
@@ -38,11 +38,11 @@ export function resolveCatalogIdentity(
   )
 }
 
-export function resolveHistoricalCatalogEntry(
-  catalog: readonly CatalogIdentityRow[],
+export function resolveHistoricalCatalogEntry<T extends CatalogIdentityRow>(
+  catalog: readonly T[],
   modelId: string,
   aliases?: Readonly<Record<string, string>>,
-): CatalogIdentityRow | null {
+): T | null {
   return resolveCatalogIdentity(catalog, modelId, aliases ?? {})
 }
 

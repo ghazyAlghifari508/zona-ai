@@ -19,6 +19,7 @@ import {
 } from 'drizzle-orm/pg-core'
 import { ARTIFACT_KINDS, type ArtifactKind } from '../artifacts/contracts'
 import type { ArtifactMentionMode } from '../artifacts/mentions'
+import type { CatalogCapabilities } from '../models/catalog-contract'
 import {
   ARTIFACT_TITLE_MAX_LENGTH,
   EMBEDDING_DIMENSION,
@@ -639,6 +640,42 @@ export const modelSettings = pgTable('model_settings', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })
+
+export const modelAliases = pgTable(
+  'model_aliases',
+  {
+    alias: text('alias').primaryKey(),
+    modelId: text('model_id')
+      .notNull()
+      .references(() => modelCatalog.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index('model_aliases_model_id_idx').on(table.modelId)],
+)
+
+export const modelSettings = pgTable(
+  'model_settings',
+  {
+    modelId: text('model_id').primaryKey(),
+    isActive: boolean('is_active').notNull().default(true),
+    status: text('status').notNull().default('active'),
+    disabledReason: text('disabled_reason'),
+    retiredAt: timestamp('retired_at', { withTimezone: true }),
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+    updatedBy: text('updated_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('model_settings_status_idx').on(table.status),
+    check(
+      'model_settings_status_check',
+      sql`${table.status} in ('active','inactive','retired')`,
+    ),
+  ],
+)
 
 export const feedback = pgTable(
   'feedback',
