@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  type AutoCandidate,
   AUTO_ROUTING_THRESHOLDS,
+  type AutoCandidate,
   selectAutoCandidate,
 } from '../../src/lib/models/auto-policy'
 

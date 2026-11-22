@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  type CatalogSeedRow,
   catalogEntryDtoSchema,
   catalogHistoryLabelSchema,
-  type CatalogSeedRow,
   toCatalogEntryDto,
 } from '../../src/lib/models/catalog-contract'
 
@@ -99,7 +99,8 @@ describe('catalog DTO boundary', () => {
     }
     expect(catalogHistoryLabelSchema.safeParse(label).success).toBe(true)
     expect(
-      catalogHistoryLabelSchema.safeParse({ ...label, status: 'active' }).success,
+      catalogHistoryLabelSchema.safeParse({ ...label, status: 'active' })
+        .success,
     ).toBe(true)
   })
 })

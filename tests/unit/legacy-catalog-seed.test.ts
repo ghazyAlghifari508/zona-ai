@@ -25,7 +25,9 @@ describe('legacy catalog seed', () => {
       'gpt-5.6-sol': 'cx/gpt-5.6-sol',
       'qwen3.8-flash': 'bai/qwen3.8-flash',
     })
-    for (const [alias, canonicalId] of Object.entries(LEGACY_IDENTITY_ALIASES)) {
+    for (const [alias, canonicalId] of Object.entries(
+      LEGACY_IDENTITY_ALIASES,
+    )) {
       expect(seed.some((row) => row.id === alias)).toBe(false)
       expect(seed.find((row) => row.id === canonicalId)?.routerModelId).toBe(
         canonicalId,
@@ -43,9 +45,9 @@ describe('legacy catalog seed', () => {
 
   it('marks every imported row as legacy evidence, not verified', () => {
     expect(seed.every((row) => row.evaluationStatus === 'legacy')).toBe(true)
-    expect(seed.every((row) => row.provenance === 'legacy-registry-2026-09')).toBe(
-      true,
-    )
+    expect(
+      seed.every((row) => row.provenance === 'legacy-registry-2026-09'),
+    ).toBe(true)
   })
 
   it('derives Auto routing roles from the legacy routing rules', () => {

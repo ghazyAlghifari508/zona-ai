@@ -134,6 +134,13 @@
       "when": 1789728913703,
       "tag": "0018_powerful_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795387683455,
+      "tag": "0019_model_catalog",
+      "breakpoints": true
     }
   ]
 }

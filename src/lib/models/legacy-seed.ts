@@ -137,7 +137,9 @@ export function buildLegacyCatalogSeed(): CatalogSeedRow[] {
       evaluationSuiteVersion: null,
       evidenceRef: null,
       visionStatus: entry.capabilities.vision ? 'unverified' : 'unsupported',
-      visionEvidence: entry.capabilities.vision ? 'legacy-registry-claim' : null,
+      visionEvidence: entry.capabilities.vision
+        ? 'legacy-registry-claim'
+        : null,
       provenance: 'legacy-registry-2026-09',
       observedAt: entry.lastEvaluated ?? null,
       status: 'active',

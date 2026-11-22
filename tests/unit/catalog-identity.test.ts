@@ -42,9 +42,9 @@ describe('exact catalog identity', () => {
     expect(resolveCatalogIdentity(catalog, 'cx/gpt-5.6-sol', aliases)?.id).toBe(
       'cx/gpt-5.6-sol',
     )
-    expect(resolveCatalogIdentity(catalog, 'bai/qwen3.8-flash', aliases)?.id).toBe(
-      'bai/qwen3.8-flash',
-    )
+    expect(
+      resolveCatalogIdentity(catalog, 'bai/qwen3.8-flash', aliases)?.id,
+    ).toBe('bai/qwen3.8-flash')
   })
 
   it('resolves only explicit legacy aliases', () => {
@@ -59,14 +59,16 @@ describe('exact catalog identity', () => {
   it('never suffix-matches an unknown id', () => {
     expect(resolveCatalogIdentity(catalog, 'gpt-5.5', aliases)).toBeNull()
     expect(resolveCatalogIdentity(catalog, 'sol', aliases)).toBeNull()
-    expect(resolveCatalogIdentity(catalog, 'other/gpt-5.6-sol', aliases)).toBeNull()
+    expect(
+      resolveCatalogIdentity(catalog, 'other/gpt-5.6-sol', aliases),
+    ).toBeNull()
     expect(resolveCatalogIdentity(catalog, 'not-exist', aliases)).toBeNull()
   })
 
   it('keeps historical labels for retired and inactive rows', () => {
-    expect(resolveHistoricalCatalogEntry(catalog, 'ag/retired-model')?.status).toBe(
-      'retired',
-    )
+    expect(
+      resolveHistoricalCatalogEntry(catalog, 'ag/retired-model')?.status,
+    ).toBe('retired')
     expect(resolveHistoricalCatalogEntry(catalog, 'cx/gpt-5.5')?.status).toBe(
       'inactive',
     )

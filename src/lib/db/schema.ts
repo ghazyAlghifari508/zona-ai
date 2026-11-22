@@ -630,16 +630,62 @@ export const webSources = pgTable(
   ],
 )
 
-export const modelSettings = pgTable('model_settings', {
-  modelId: text('model_id').primaryKey(),
-  isActive: boolean('is_active').notNull().default(true),
-  disabledReason: text('disabled_reason'),
-  updatedBy: text('updated_by').references(() => users.id, {
-    onDelete: 'set null',
-  }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-})
+export const modelCatalog = pgTable(
+  'model_catalog',
+  {
+    id: text('id').primaryKey(),
+    routerModelId: text('router_model_id').notNull(),
+    displayName: text('display_name').notNull(),
+    provider: text('provider').notNull(),
+    vendor: text('vendor').notNull(),
+    description: text('description').notNull(),
+    intelligenceLevel: integer('intelligence_level').notNull(),
+    intelligenceScore: integer('intelligence_score').notNull(),
+    intelligenceBars: integer('intelligence_bars').notNull(),
+    confidence: text('confidence').notNull(),
+    evaluationNotes: text('evaluation_notes'),
+    lastEvaluated: text('last_evaluated'),
+    creditCostMin: integer('credit_cost_min').notNull(),
+    creditCostMax: integer('credit_cost_max').notNull(),
+    creditTier: text('credit_tier').notNull(),
+    capabilities: jsonb('capabilities').$type<CatalogCapabilities>().notNull(),
+    searchAliases: jsonb('search_aliases').$type<string[]>().notNull(),
+    contextWindow: integer('context_window'),
+    maxOutput: integer('max_output'),
+    pricingInput: real('pricing_input'),
+    pricingOutput: real('pricing_output'),
+    category: text('category').notNull(),
+    speedClass: text('speed_class').notNull(),
+    routingProfile: text('routing_profile').notNull().default('general'),
+    routingPriority: integer('routing_priority').notNull().default(0),
+    isVirtual: boolean('is_virtual').notNull().default(false),
+    evaluationStatus: text('evaluation_status').notNull().default('pending'),
+    evaluationSuiteVersion: text('evaluation_suite_version'),
+    evidenceRef: text('evidence_ref'),
+    visionStatus: text('vision_status').notNull().default('not-tested'),
+    visionEvidence: text('vision_evidence'),
+    provenance: text('provenance').notNull(),
+    observedAt: timestamp('observed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('model_catalog_router_model_id_unique').on(table.routerModelId),
+    index('model_catalog_routing_profile_idx').on(
+      table.routingProfile,
+      table.routingPriority,
+    ),
+    index('model_catalog_evaluation_status_idx').on(table.evaluationStatus),
+    check(
+      'model_catalog_status_check',
+      sql`${table.evaluationStatus} in ('legacy','pending','verified','failed','inconclusive')`,
+    ),
+    check(
+      'model_catalog_vision_status_check',
+      sql`${table.visionStatus} in ('supported','unsupported','unverified','inconclusive','not-tested')`,
+    ),
+  ],
+)
 
 export const modelAliases = pgTable(
   'model_aliases',

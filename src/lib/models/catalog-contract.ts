@@ -48,7 +48,12 @@ export const intelligenceLevelSchema = z.union([
 ])
 const creditCostSchema = z.union([
   z.number().int().nonnegative(),
-  z.object({ min: z.number().int().nonnegative(), max: z.number().int().nonnegative() }).strict(),
+  z
+    .object({
+      min: z.number().int().nonnegative(),
+      max: z.number().int().nonnegative(),
+    })
+    .strict(),
 ])
 
 export const catalogEntryDtoSchema = z
@@ -114,10 +119,20 @@ export interface CatalogSeedRow {
   routingProfile: 'lightweight' | 'coding' | 'reasoning' | 'general' | 'router'
   routingPriority: number
   isVirtual: boolean
-  evaluationStatus: 'legacy' | 'pending' | 'verified' | 'failed' | 'inconclusive'
+  evaluationStatus:
+    | 'legacy'
+    | 'pending'
+    | 'verified'
+    | 'failed'
+    | 'inconclusive'
   evaluationSuiteVersion: string | null
   evidenceRef: string | null
-  visionStatus: 'supported' | 'unsupported' | 'unverified' | 'inconclusive' | 'not-tested'
+  visionStatus:
+    | 'supported'
+    | 'unsupported'
+    | 'unverified'
+    | 'inconclusive'
+    | 'not-tested'
   visionEvidence: string | null
   provenance: string
   observedAt: string | null

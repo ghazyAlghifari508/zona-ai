@@ -39,7 +39,11 @@ export interface SelectAutoCandidateInput {
 function classifyPrompt(prompt: string): Exclude<AutoRoutingProfile, 'router'> {
   const lower = prompt.toLowerCase()
   const wordCount = prompt.trim().split(/\s+/).filter(Boolean).length
-  if (/```|refactor|debug|implement|endpoint|regex|sql|schema|stack trace/i.test(prompt))
+  if (
+    /```|refactor|debug|implement|endpoint|regex|sql|schema|stack trace/i.test(
+      prompt,
+    )
+  )
     return 'coding'
   if (
     /langkah demi langkah|analisis|jelaskan mendalam|multi-step|logika|dokumen/i.test(
