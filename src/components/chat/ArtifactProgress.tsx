@@ -151,7 +151,7 @@ export function ArtifactProgress({
             {phase === 'generating' && section && (
               <span
                 data-testid="artifact-progress-badge"
-                className="rounded bg-paper px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-stone uppercase"
+                className="min-w-0 truncate text-[10px] font-medium text-stone"
               >
                 {section}
               </span>

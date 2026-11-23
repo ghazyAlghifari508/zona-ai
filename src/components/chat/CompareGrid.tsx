@@ -102,28 +102,19 @@ export function CompareGrid({
               {isDisabled && (
                 <div
                   data-testid={`column-disabled-indicator-${g.modelId}`}
-                  className="mb-2.5 flex items-center justify-between gap-2 rounded-md border border-warning-strong/20 bg-warning-soft/80 px-2.5 py-1.5 text-xs text-warning-strong dark:border-amber-700/30 dark:bg-amber-950/25 dark:text-amber-200"
+                  className="mb-2.5 flex items-start gap-1.5 text-[11.5px] leading-snug text-coral"
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <HugeiconsIcon
-                      icon={Alert02Icon}
-                      size={13}
-                      strokeWidth={2}
-                      className="shrink-0 text-warning-strong dark:text-amber-400"
-                      aria-hidden="true"
-                    />
-                    <span className="font-semibold text-[11px] tracking-wide uppercase">
-                      Sedang tidak tersedia
-                    </span>
-                  </div>
-                  {entry?.disabledReason && (
-                    <span
-                      className="truncate text-[11px] text-warning-strong/80 dark:text-amber-300/80"
-                      title={entry.disabledReason}
-                    >
-                      {entry.disabledReason}
-                    </span>
-                  )}
+                  <HugeiconsIcon
+                    icon={Alert02Icon}
+                    size={13}
+                    strokeWidth={2}
+                    className="mt-0.5 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 break-words">
+                    <span className="font-medium">Tidak tersedia</span>
+                    {entry.disabledReason ? ` — ${entry.disabledReason}` : ''}
+                  </span>
                 </div>
               )}
               <ModelColumn

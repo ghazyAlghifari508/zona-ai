@@ -68,9 +68,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             <span className="max-w-[100px] truncate text-[13px] font-medium">
               {a.fileName}
             </span>
-            <span className="rounded-full bg-paper px-1.5 py-0.5 text-[10px] font-medium text-stone">
-              {ext}
-            </span>
+            <span className="text-[10px] text-stone">{ext}</span>
             {a.fileSize !== undefined && (
               <span className="text-[10px] text-stone">
                 {(a.fileSize / 1024).toFixed(0)}KB
@@ -79,7 +77,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'pending' && (
               <span
                 data-testid="attachment-status-pending"
-                className="flex items-center gap-1 rounded-full bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-notion-blue"
+                className="flex items-center gap-1 text-[11px] font-medium text-stone"
               >
                 <HugeiconsIcon
                   icon={Loading03Icon}
@@ -92,7 +90,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'processing' && (
               <span
                 data-testid="attachment-status-processing"
-                className="flex items-center gap-1 rounded-full bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-notion-blue"
+                className="flex items-center gap-1 text-[11px] font-medium text-stone"
               >
                 <HugeiconsIcon
                   icon={Loading03Icon}
@@ -105,7 +103,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'completed' && (
               <span
                 data-testid="attachment-status-completed"
-                className="flex items-center gap-1 rounded-full bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-notion-blue"
+                className="flex items-center gap-1 text-[11px] font-medium text-stone"
               >
                 <HugeiconsIcon icon={Tick01Icon} size={12} strokeWidth={1.75} />
                 Indexed
@@ -114,7 +112,7 @@ export function AttachmentPreview({ attachments, onRemove, onRetry }: Props) {
             {status === 'failed' && (
               <span
                 data-testid="attachment-status-failed"
-                className="flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-coral"
+                className="flex items-center gap-1 text-[11px] font-medium text-coral"
               >
                 <HugeiconsIcon icon={Alert02Icon} size={12} strokeWidth={1.5} />
                 Could not process
