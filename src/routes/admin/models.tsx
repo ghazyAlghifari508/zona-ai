@@ -606,15 +606,23 @@ export function AdminModelsView({
                             />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-ink">{model.name}</p>
-                            <p className="font-mono text-[11px] text-stone">
+                            <p
+                              className="font-medium text-ink"
+                              title={model.name}
+                            >
+                              {model.name}
+                            </p>
+                            <p
+                              className="font-mono text-[11px] text-stone break-all"
+                              title={model.id}
+                            >
                               {model.id}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="rounded bg-paper px-2 py-0.5 text-[11px] font-medium text-stone uppercase">
+                        <span className="rounded bg-paper px-2 py-0.5 text-[11px] font-medium text-stone">
                           {model.vendor || model.provider}
                         </span>
                       </td>
