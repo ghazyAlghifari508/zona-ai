@@ -68,6 +68,8 @@ Run `p3-preflight-v2-usd1` completed at `2026-11-23T09:12:08.858Z`, manifest has
 
 The five correct answers returned bare model IDs, not the requested exact routes. The other responses were recorded as `http-rejected` with status 200; the journal did not retain their body, so the cause is unknown. Request IDs were recorded for five calls; none reported a gateway version. Inspect gateway logs for the rejected responses and verify the bare ID mapping before requesting approval for any additional inference.
 
+Read-only 9Router log correlation: in the preflight window, eight usage records matched the application key and target model names. Four were logged under `codex`, one under `grok-cli`, one under `antigravity`, and two under `claude`. This supports the provider mapping for the five bare IDs, but the usage records do not tie individual runner request IDs to gateway responses. For three SDK-rejected responses, 9Router logged successful upstream usage. No request detail rows were retained in that window, so the response parsing failure remains undiagnosed. No inference was repeated.
+
 Executed command (historical; do not rerun without separate authorization):
 
 ```bash
