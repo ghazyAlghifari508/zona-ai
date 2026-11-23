@@ -1,8 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import React from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MarkdownContent } from '../../src/components/chat/MarkdownContent'
 import { MessageList } from '../../src/components/chat/MessageList'
+
+vi.mock('../../src/components/chat/useModelCatalog', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/components/chat/useModelCatalog')
+    >()
+  return { ...actual, useModelCatalog: () => [] }
+})
 
 describe('markdown XSS sanitization (MessageList + rehype-sanitize)', () => {
   it('keeps script and iframe HTML inert in the shared renderer', () => {

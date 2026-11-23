@@ -4,8 +4,16 @@ import { ModelSelector } from '../../src/components/chat/ModelSelector'
 import { getModelCatalog as getRealModelCatalog } from '../../src/lib/models/registry'
 
 vi.mock('../../src/server/functions/models', () => ({
-  getModelCatalog: vi.fn(async () => getRealModelCatalog()),
+  getHistoricalCatalog: vi.fn(async () => getRealModelCatalog()),
 }))
+
+vi.mock('../../src/components/chat/useModelCatalog', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/components/chat/useModelCatalog')
+    >()
+  return { ...actual, useModelCatalog: () => getRealModelCatalog() }
+})
 
 describe('ModelSelector trigger UI in Single and Compare Mode', () => {
   afterEach(cleanup)

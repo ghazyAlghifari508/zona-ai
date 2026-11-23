@@ -39,6 +39,10 @@ vi.mock('../../src/lib/auth/auth-client', () => ({
   authClient: { signOut: vi.fn() },
 }))
 
+
+vi.mock('../../src/server/functions/models', () => ({
+  getHistoricalCatalog: vi.fn(async () => []),
+}))
 vi.mock('../../src/components/layout/CreditWidget', () => ({
   CreditWidget: () => null,
 }))

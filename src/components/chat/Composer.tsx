@@ -677,7 +677,8 @@ export function Composer({
     if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files)
   }
 
-  const isPremium = modelId === 'gpt-5.6-sol'
+  const selectedEntry = findCatalogEntry(catalog, modelId)
+  const isPremium = selectedEntry?.creditTier === 'premium'
 
   return (
     <div
@@ -937,7 +938,7 @@ export function Composer({
         </div>
         {!compareEnabled && isPremium && (
           <p className="px-2 text-[13px] text-stone">
-            GPT-5.6 Sol memakai kredit lebih cepat — pakai Auto →
+            Model premium memakai kredit lebih cepat — pakai Auto →
           </p>
         )}
       </div>

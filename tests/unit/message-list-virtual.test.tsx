@@ -5,6 +5,14 @@ import {
   MessageList,
 } from '../../src/components/chat/MessageList'
 
+vi.mock('../../src/components/chat/useModelCatalog', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/components/chat/useModelCatalog')
+    >()
+  return { ...actual, useModelCatalog: () => [] }
+})
+
 const messages = (count: number): ChatMessage[] =>
   Array.from({ length: count }, (_, index) => ({
     id: String(index),

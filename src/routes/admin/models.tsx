@@ -5,8 +5,10 @@ import {
   Search01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { modelCatalogQueryKey } from '../../components/chat/useModelCatalog'
 import {
   Dialog,
   DialogClose,
@@ -17,17 +19,18 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog'
 import { ProviderIcon } from '../../components/ui/ProviderIcons'
-import { modelRegistry } from '../../lib/models/registry'
 import {
   getModelSettingsFn,
   updateModelAvailabilityFn,
 } from '../../server/functions/admin-models'
+import { getModelCatalog } from '../../server/functions/models'
 
 export const Route = createFileRoute('/admin/models')({
   staleTime: 30_000,
   loader: async () => {
     const settings = await getModelSettingsFn()
-    const catalog = modelRegistry.map((m) => ({
+    const catalogRows = await getModelCatalog()
+    const catalog = catalogRows.map((m) => ({
       id: m.id,
       name: m.displayName,
       provider: m.provider,
@@ -75,6 +78,7 @@ export function AdminModelsView({
   catalog,
   initialSettings,
 }: AdminModelsViewProps) {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [providerFilter, setProviderFilter] = useState('all')
   const [settingsMap, setSettingsMap] = useState<
@@ -156,6 +160,7 @@ export function AdminModelsView({
         text: `Model ${modelId} berhasil di${isActive ? 'aktifkan' : 'nonaktifkan'}.`,
       })
       setTargetModelToDisable(null)
+      void queryClient.invalidateQueries({ queryKey: modelCatalogQueryKey })
     } catch (err) {
       setStatusMessage({
         type: 'error',

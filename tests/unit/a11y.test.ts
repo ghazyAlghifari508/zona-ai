@@ -2,8 +2,16 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import React from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MessageList } from '../../src/components/chat/MessageList'
+
+vi.mock('../../src/components/chat/useModelCatalog', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/components/chat/useModelCatalog')
+    >()
+  return { ...actual, useModelCatalog: () => [] }
+})
 
 describe('a11y — static contract checks (WCAG 2.1 AA)', () => {
   afterEach(cleanup)

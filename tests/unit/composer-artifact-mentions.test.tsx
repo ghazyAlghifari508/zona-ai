@@ -3,6 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Composer } from '../../src/components/chat/Composer'
 import type { ArtifactSummary } from '../../src/lib/artifacts/contracts'
 
+vi.mock('../../src/components/chat/useModelCatalog', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../../src/components/chat/useModelCatalog')
+    >()
+  return { ...actual, useModelCatalog: () => [] }
+})
+
 const mockArtifactSummary: ArtifactSummary = {
   artifactId: '10000000-0000-4000-8000-000000000001',
   kind: 'prd',

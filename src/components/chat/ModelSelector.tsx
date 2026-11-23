@@ -83,9 +83,12 @@ export function ModelSelector({
     }
   }, [catalog, value, onChange])
 
-  const selectable = compareEnabled
-    ? catalog.filter((m) => m.id !== 'auto')
-    : catalog
+  const selectable = catalog.filter(
+    (m) =>
+      m.status !== 'retired' &&
+      m.isActive !== false &&
+      (!compareEnabled || !m.isDefault),
+  )
   const filteredSelectable = searchQuery.trim()
     ? selectable.filter((m) => filterModelCatalogEntry(m, searchQuery))
     : selectable
@@ -101,11 +104,7 @@ export function ModelSelector({
   }
 
   const isInsufficient = (id: string) => {
-    const m =
-      catalog.find((x) => x.id === id) ??
-      (id.includes('/')
-        ? catalog.find((x) => x.id === id.split('/')[1])
-        : catalog.find((x) => x.id.endsWith(`/${id}`)))
+    const m = findCatalogEntry(catalog, id)
     if (!m) return false
     const cost =
       typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max
@@ -151,14 +150,8 @@ export function ModelSelector({
 
   const renderModelOption = (m: ModelCatalogEntry) => {
     const isSelected = compareEnabled
-      ? compareModelIds.includes(m.id) ||
-        (m.id.includes('/') && compareModelIds.includes(m.id.split('/')[1])) ||
-        compareModelIds.some(
-          (id) => id.includes('/') && id.split('/')[1] === m.id,
-        )
-      : m.id === value ||
-        (m.id.includes('/') && m.id.split('/')[1] === value) ||
-        (value.includes('/') && value.split('/')[1] === m.id)
+      ? compareModelIds.includes(m.id)
+      : m.id === value
 
     const insufficient = isInsufficient(m.id)
     const isDisabled = m.isActive === false

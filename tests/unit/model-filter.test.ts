@@ -83,6 +83,7 @@ const mockCatalog: ModelCatalogEntry[] = [
     isDefault: false,
     creditTier: 'balanced',
     creditCost: 2,
+    searchAliases: ['alibaba', 'aliyun', 'tongyi', 'qwen3.8-flash'],
     capabilities: {
       text: true,
       vision: false,

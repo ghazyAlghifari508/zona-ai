@@ -20,7 +20,6 @@ import {
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { authClient } from '../../lib/auth/auth-client'
-import { modelRegistry } from '../../lib/models/registry'
 import type { ModelCatalogEntry } from '../../lib/models/types'
 import { CONVERSATIONS_PAGE_SIZE } from '../../lib/utils/constants'
 import {
@@ -54,9 +53,7 @@ function getModelDisplayInfo(
   catalog: ModelCatalogEntry[],
   modelId: string,
 ): { provider: string; displayName: string } {
-  const entry =
-    findCatalogEntry(catalog, modelId) ??
-    modelRegistry.find((m) => m.id === modelId)
+  const entry = findCatalogEntry(catalog, modelId)
   return {
     provider: entry?.provider ?? 'zona-router',
     displayName: entry?.displayName ?? modelId,

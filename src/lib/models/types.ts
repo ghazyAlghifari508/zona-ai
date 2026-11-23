@@ -38,6 +38,7 @@ export interface ModelRegistryEntry {
 
 export interface ModelCatalogEntry {
   id: string
+  routerModelId?: string
   displayName: string
   provider: string
   vendor: string
@@ -52,4 +53,17 @@ export interface ModelCatalogEntry {
   capabilities: ModelRegistryEntry['capabilities']
   isActive?: boolean
   disabledReason?: string | null
+  status?: 'active' | 'inactive' | 'retired'
+  searchAliases?: string[]
+  aliasIds?: string[]
+  metadata?: {
+    contextWindow: number | null
+    maxOutput: number | null
+    pricing: {
+      inputPerMillion: number | null
+      outputPerMillion: number | null
+    } | null
+    category: string
+    speedClass: string
+  }
 }

@@ -88,9 +88,9 @@ describe('model preference store', () => {
 
   it('falls back to auto only when catalog is loaded and model is missing or disabled, never mutating the stored preference', () => {
     const mockCatalog = [
-      { id: 'auto', enabled: true },
-      { id: 'gemini-3.7-flash-high', enabled: true },
-      { id: 'deprecated-model', enabled: false },
+      { id: 'auto', isActive: true, status: 'active' },
+      { id: 'gemini-3.7-flash-high', isActive: true, status: 'active' },
+      { id: 'deprecated-model', isActive: false, status: 'inactive' },
     ]
 
     // Valid model in catalog

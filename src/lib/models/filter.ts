@@ -1,74 +1,5 @@
 import type { ModelCatalogEntry } from './types'
 
-const MODEL_SEARCH_ALIASES: Record<string, string[]> = {
-  // Existing / ecosystem
-  qwen: ['alibaba', 'aliyun', 'tongyi'],
-  'qwen3.8-flash': ['alibaba', 'aliyun', 'tongyi'],
-  'gpt-5.6-sol': ['openai', 'chatgpt', 'codex', 'sol', 'gpt-5.6-sol'],
-  'gemini-3.7-flash-high': ['google', 'deepmind', 'antigravity'],
-  'mimo-v2.5': ['xiaomi'],
-  hy3: ['tencent', 'hunyuan'],
-  'glm-5.3-flash': ['zhipu', 'zhipuai', 'chatglm'],
-
-  // OpenAI
-  'cx/gpt-5.6-terra': ['openai', 'chatgpt', 'codex', 'terra', 'gpt-5.6-terra'],
-  'cx/gpt-5.6-luna': ['openai', 'chatgpt', 'codex', 'luna', 'gpt-5.6-luna'],
-  'cx/gpt-5.5': ['openai', 'chatgpt', 'codex', 'gpt-5.5'],
-  'cx/gpt-5.4': ['openai', 'chatgpt', 'codex', 'gpt-5.4'],
-  'gh/gpt-4.1': ['openai', 'chatgpt', 'codex', 'gpt-4.1'],
-  'gh/gpt-4o': ['openai', 'chatgpt', 'codex', 'gpt-4o', 'omni'],
-
-  // Google
-  'ag/gemini-3.8-flash-high': [
-    'google',
-    'deepmind',
-    'antigravity',
-    'gemini',
-    'gemini-3.8-flash-high',
-  ],
-  'ag/gemini-3.7-flash-high': [
-    'google',
-    'deepmind',
-    'antigravity',
-    'gemini',
-    'gemini-3.7-flash-high',
-  ],
-  'ag/gemini-3.6-flash-high': [
-    'google',
-    'deepmind',
-    'antigravity',
-    'gemini',
-    'gemini-3.6-flash-high',
-  ],
-  'ag/gemini-pro-agent': [
-    'google',
-    'deepmind',
-    'antigravity',
-    'gemini',
-    'gemini-3.1-pro',
-    'gemini-pro-agent',
-    '3.1',
-  ],
-
-  // Anthropic
-  'ag/claude-opus-4-6-thinking': [
-    'anthropic',
-    'claude',
-    'opus',
-    'claude-opus-4-6-thinking',
-  ],
-  'ag/claude-sonnet-4-6': [
-    'anthropic',
-    'claude',
-    'sonnet',
-    'claude-sonnet-4-6',
-  ],
-
-  // xAI
-  'gcli/grok-4.6': ['xai', 'grok', 'grok-4.6', 'elon'],
-  'gcli/grok-4.5': ['xai', 'grok', 'grok-4.5'],
-}
-
 export function filterModelCatalogEntry(
   entry: ModelCatalogEntry,
   query: string,
@@ -82,10 +13,7 @@ export function filterModelCatalogEntry(
   if (entry.provider.toLowerCase().includes(normalized)) return true
   if (entry.description.toLowerCase().includes(normalized)) return true
 
-  const aliases = [
-    ...(MODEL_SEARCH_ALIASES[entry.id] ?? []),
-    ...(MODEL_SEARCH_ALIASES[entry.provider] ?? []),
-  ]
+  const aliases = entry.searchAliases ?? []
   if (
     aliases.some(
       (alias) => alias.includes(normalized) || normalized.includes(alias),

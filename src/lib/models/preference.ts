@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { ModelCatalogEntry } from './types'
 
 export const DEFAULT_MODEL_PREFERENCE_KEY = 'zona-ai:default-model'
 export const MODEL_PREFERENCE_KEY = DEFAULT_MODEL_PREFERENCE_KEY
@@ -74,7 +75,7 @@ export const resetModelPreferenceForTesting =
 export const useSelectedModel = useDefaultModel
 
 export function resolveModelFallback(
-  catalog: Array<{ id: string; enabled?: boolean }>,
+  catalog: ModelCatalogEntry[],
   currentModelId: string,
 ): string {
   if (!currentModelId || currentModelId === 'auto') return 'auto'
@@ -83,10 +84,10 @@ export function resolveModelFallback(
   const valid = catalog.some(
     (entry) =>
       (entry.id === currentModelId ||
-        entry.id.endsWith(`/${currentModelId}`) ||
-        currentModelId.endsWith(`/${entry.id}`)) &&
-      entry.enabled !== false,
+        entry.routerModelId === currentModelId ||
+        entry.aliasIds?.includes(currentModelId)) &&
+      entry.status !== 'retired' &&
+      entry.isActive !== false,
   )
-  if (!valid) return 'auto'
-  return currentModelId
+  return valid ? currentModelId : 'auto'
 }

@@ -1,100 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { ModelCatalogEntry } from '@/lib/models/types'
 
-let cachedCatalog: ModelCatalogEntry[] = []
-let catalogRequest: Promise<ModelCatalogEntry[]> | null = null
+export const modelCatalogQueryKey = ['model-catalog'] as const
+const CATALOG_STALE_TIME_MS = 30_000
 
-export interface ModelSettingOverride {
-  modelId: string
-  isActive: boolean
-  disabledReason?: string | null
+export function loadModelCatalog(): Promise<ModelCatalogEntry[]> {
+  return import('@/server/functions/models').then(({ getHistoricalCatalog }) =>
+    getHistoricalCatalog(),
+  )
 }
 
-export function mergeModelSettings(
-  entries: ModelCatalogEntry[],
-  settings?: ModelSettingOverride[] | null,
-): ModelCatalogEntry[] {
-  if (!settings || settings.length === 0) {
-    return entries.map((entry) => ({
-      ...entry,
-      isActive: entry.isActive !== false,
-      disabledReason: entry.disabledReason ?? null,
-    }))
-  }
-
-  const settingsMap = new Map(settings.map((s) => [s.modelId, s]))
-
-  return entries.map((entry) => {
-    let override = settingsMap.get(entry.id)
-    if (!override) {
-      for (const [key, value] of settingsMap.entries()) {
-        if (
-          key === entry.id ||
-          entry.id.endsWith(`/${key}`) ||
-          key.endsWith(`/${entry.id}`)
-        ) {
-          override = value
-          break
-        }
-      }
-    }
-
-    const isActive = override ? override.isActive : entry.isActive
-    const disabledReason = override
-      ? (override.disabledReason ?? null)
-      : (entry.disabledReason ?? null)
-
-    return {
-      ...entry,
-      isActive: isActive !== false,
-      disabledReason,
-    }
+export function useModelCatalog(): ModelCatalogEntry[] {
+  const { data } = useQuery({
+    queryKey: modelCatalogQueryKey,
+    queryFn: loadModelCatalog,
+    staleTime: CATALOG_STALE_TIME_MS,
+    refetchOnWindowFocus: true,
   })
-}
-
-export function clearModelCatalogCache(): void {
-  cachedCatalog = []
-  catalogRequest = null
-}
-
-export function loadModelCatalog(
-  settingsFetcher?: () => Promise<ModelSettingOverride[] | null>,
-): Promise<ModelCatalogEntry[]> {
-  if (!catalogRequest) {
-    catalogRequest = import('@/server/functions/models')
-      .then(async ({ getModelCatalog }) => {
-        const entries = await getModelCatalog()
-        const settings = settingsFetcher
-          ? await settingsFetcher().catch(() => null)
-          : null
-        const merged = mergeModelSettings(entries, settings)
-        cachedCatalog = merged
-        return merged
-      })
-      .catch((error: unknown) => {
-        catalogRequest = null
-        throw error
-      })
-  }
-  return catalogRequest
-}
-
-export function useModelCatalog(
-  settingsFetcher?: () => Promise<ModelSettingOverride[] | null>,
-): ModelCatalogEntry[] {
-  const [catalog, setCatalog] = useState<ModelCatalogEntry[]>(cachedCatalog)
-  useEffect(() => {
-    let active = true
-    loadModelCatalog(settingsFetcher)
-      .then((entries) => {
-        if (active) setCatalog(entries)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [settingsFetcher])
-  return catalog
+  return data ?? []
 }
 
 export function findCatalogEntry(
@@ -102,11 +25,14 @@ export function findCatalogEntry(
   modelId: string | null | undefined,
 ): ModelCatalogEntry | null {
   if (!modelId) return null
+  const trimmed = modelId.trim()
+  if (!trimmed) return null
   return (
-    catalog.find((m) => m.id === modelId) ??
-    catalog.find((m) => m.id.endsWith(`/${modelId}`)) ??
-    catalog.find((m) => modelId.endsWith(`/${m.id}`)) ??
-    catalog.find((m) => m.id === 'auto') ??
-    null
+    catalog.find(
+      (entry) =>
+        entry.id === trimmed ||
+        entry.routerModelId === trimmed ||
+        entry.aliasIds?.includes(trimmed),
+    ) ?? null
   )
 }
