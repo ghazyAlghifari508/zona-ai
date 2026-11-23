@@ -488,4 +488,78 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
       )?.evaluationStatus,
     ).toBe('legacy')
   })
+
+  it('rejects manual activation of an unevaluated model', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    await adminModels.importAdminModelCore({
+      request,
+      input: {
+        modelId: 'custom/route:free',
+        displayName: 'Custom Route',
+        vendor: 'Custom',
+        provider: 'custom',
+        description: '',
+        searchAliases: [],
+      },
+    })
+
+    await expect(
+      adminModels.updateModelAvailabilityCore({
+        request,
+        modelId: 'custom/route:free',
+        isActive: true,
+      }),
+    ).rejects.toMatchObject({ code: 'ERR-MODEL-UNVERIFIED' })
+    expect(await database.select().from(schema.auditLogs)).toHaveLength(1)
+  })
+
+  it('publishes an imported model only through guarded evaluation evidence', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    await adminModels.importAdminModelCore({
+      request,
+      input: {
+        modelId: 'custom/route:paid',
+        displayName: 'Custom Paid',
+        vendor: 'Custom',
+        provider: 'custom',
+        description: '',
+        searchAliases: [],
+      },
+    })
+    expect(await catalog.getEligibleModel('custom/route:paid')).toBeNull()
+
+    const result = await adminModels.publishAdminModelCore({
+      request,
+      modelId: 'custom/route:paid',
+      evaluationStatus: 'verified',
+      intelligenceLevel: 2,
+      intelligenceScore: 80,
+      intelligenceBars: 2,
+      confidence: 'medium',
+      creditCostMin: 2,
+      creditCostMax: 2,
+      creditTier: 'balanced',
+      capabilities: {
+        text: true,
+        vision: false,
+        files: false,
+        tools: true,
+        reasoning: true,
+        structuredOutput: true,
+      },
+      evidenceRef: 'https://eval.example.local/run/1',
+      evaluationSuiteVersion: 'p3-v1',
+    })
+    expect(result.evaluationStatus).toBe('verified')
+    expect(await catalog.getEligibleModel('custom/route:paid')).not.toBeNull()
+    expect(
+      (await catalog.getPublicCatalog()).find(
+        (item) => item.id === 'custom/route:paid',
+      )?.creditCost,
+    ).toBe(2)
+    const rows = await database.select().from(schema.auditLogs)
+    expect(rows.map((row) => row.action)).toEqual(['model.create', 'model.update'])
+  })
 })

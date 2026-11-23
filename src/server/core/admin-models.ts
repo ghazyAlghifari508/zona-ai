@@ -6,6 +6,8 @@ import {
   adminModelIdSchema,
   type CreateAdminModelInput,
   createAdminModelInputSchema,
+  type PublishAdminModelInput,
+  publishAdminModelInputSchema,
   type UpdateAdminModelInput,
   updateAdminModelInputSchema,
 } from '../../lib/models/admin-model-input'
@@ -21,6 +23,7 @@ import { checkRateLimit } from '../../lib/security/rate-limit'
 import { AppError } from '../../lib/utils/errors'
 import {
   findHistoricalModelLabel,
+  getEligibleModel,
   getPublicCatalog,
   invalidateCatalogCache,
 } from './model-catalog'
@@ -368,6 +371,66 @@ export async function retireAdminModelCore({
   }
 }
 
+export async function publishAdminModelCore(
+  params: PublishAdminModelInput & { request: Request },
+): Promise<AdminMutationResult> {
+  const session = await requireAdminSession(params.request)
+  const input = publishAdminModelInputSchema.parse(params)
+  const label = await findHistoricalModelLabel(input.modelId)
+  const [existing] = await db
+    .select()
+    .from(modelCatalog)
+    .where(eq(modelCatalog.routerModelId, input.modelId))
+    .limit(1)
+  if (!existing || label?.status === 'retired') {
+    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+
+  const now = new Date()
+  await db.transaction(async (tx) => {
+    await tx
+      .update(modelCatalog)
+      .set({
+        intelligenceLevel: input.intelligenceLevel,
+        intelligenceScore: input.intelligenceScore,
+        intelligenceBars: input.intelligenceBars,
+        confidence: input.confidence,
+        creditCostMin: input.creditCostMin,
+        creditCostMax: input.creditCostMax,
+        creditTier: input.creditTier,
+        capabilities: input.capabilities,
+        evaluationStatus: input.evaluationStatus,
+        evaluationSuiteVersion: input.evaluationSuiteVersion,
+        evidenceRef: input.evidenceRef,
+        lastEvaluated: now.toISOString(),
+        updatedAt: now,
+      })
+      .where(eq(modelCatalog.id, existing.id))
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'model.update',
+      targetId: existing.id,
+      targetType: 'model',
+      metadata: {
+        modelId: input.modelId,
+        evaluationStatus: input.evaluationStatus,
+        evaluationSuiteVersion: input.evaluationSuiteVersion,
+        evidenceRef: input.evidenceRef,
+      },
+      createdAt: now,
+    })
+  })
+
+  invalidateCatalogCache()
+  return {
+    success: true,
+    modelId: existing.routerModelId,
+    status: label?.status ?? 'active',
+    evaluationStatus: input.evaluationStatus,
+  }
+}
+
 const PROBE_RATE_LIMIT = { limit: 10, windowMs: 60_000 } as const
 
 export async function probeAdminModelCore({
@@ -453,6 +516,13 @@ export async function updateModelAvailabilityCore(params: {
   const label = await findHistoricalModelLabel(params.modelId)
   if (!label || label.status === 'retired') {
     throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+  if (params.isActive && (await getEligibleModel(params.modelId)) === null) {
+    throw new AppError(
+      'Model belum dievaluasi dan tidak dapat diaktifkan',
+      400,
+      'ERR-MODEL-UNVERIFIED',
+    )
   }
 
   const now = new Date()

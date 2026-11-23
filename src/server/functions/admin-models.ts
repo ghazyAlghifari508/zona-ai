@@ -4,6 +4,7 @@ import { z } from 'zod'
 import {
   adminModelIdSchema,
   createAdminModelInputSchema,
+  publishAdminModelInputSchema,
   retireAdminModelInputSchema,
   updateAdminModelInputSchema,
 } from '../../lib/models/admin-model-input'
@@ -13,6 +14,7 @@ import {
   importAdminModelCore,
   listAdminModelsCore,
   probeAdminModelCore,
+  publishAdminModelCore,
   retireAdminModelCore,
   updateAdminModelCore,
   updateModelAvailabilityCore,
@@ -85,4 +87,11 @@ export const updateModelAvailabilityFn = createServerFn({ method: 'POST' })
       disabledReason: data.disabledReason,
       request,
     })
+  })
+
+export const publishAdminModelFn = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => publishAdminModelInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    const request = getRequest()
+    return publishAdminModelCore({ ...data, request })
   })
