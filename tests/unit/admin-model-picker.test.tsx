@@ -161,7 +161,7 @@ describe('Model catalog entry status', () => {
 describe('ModelSelector disabled state', () => {
   afterEach(cleanup)
 
-  it('does not offer an inactive model for new selections', async () => {
+  it('keeps an inactive model visible but not selectable for new selections', async () => {
     render(
       <ModelSelector
         value="auto"
@@ -179,9 +179,11 @@ describe('ModelSelector disabled state', () => {
       expect(screen.getByTestId('model-search-input')).toBeTruthy()
     })
 
+    const disabledOption = screen.getByTestId('model-option-cx/gpt-5.6-sol')
+    expect(disabledOption.hasAttribute('disabled')).toBe(true)
     expect(
-      screen.queryByTestId('model-option-cx/gpt-5.6-sol'),
-    ).toBeNull()
+      screen.getByTestId('model-disabled-badge-cx/gpt-5.6-sol').textContent,
+    ).toContain('Tidak tersedia')
     expect(screen.getByTestId('model-option-auto')).toBeTruthy()
   })
 })
@@ -189,7 +191,7 @@ describe('ModelSelector disabled state', () => {
 describe('CompareGrid disabled model integration', () => {
   afterEach(cleanup)
 
-  it('displays "Sedang tidak tersedia" indicator for disabled model column in CompareGrid', () => {
+  it('displays "Tidak tersedia" indicator for disabled model column in CompareGrid', () => {
     const generations = [
       {
         id: 'gen-1',
@@ -211,7 +213,7 @@ describe('CompareGrid disabled model integration', () => {
       'column-disabled-indicator-cx/gpt-5.6-sol',
     )
     expect(disabledColIndicator).toBeTruthy()
-    expect(disabledColIndicator.textContent).toContain('Sedang tidak tersedia')
+    expect(disabledColIndicator.textContent).toContain('Tidak tersedia')
     expect(disabledColIndicator.textContent).toContain(
       'Pemeliharaan sistem OpenAI',
     )
