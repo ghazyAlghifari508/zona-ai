@@ -4,6 +4,11 @@ import type { Job } from '../models/p3-runner'
 import { classifyAttempt, retryAfterMs } from '../models/p3-runner'
 import { neutralSystem, scoreAnswer } from '../models/p3-suite'
 import { createNineRouter } from './9router'
+
+export type RouteProvenanceResolver = (input: {
+  route: string
+  finishedAt: Date
+}) => Promise<Provenance | null>
 import { imagePart } from './image-part'
 
 const identitySchema = z.object({ model: z.string().nullish() })
@@ -15,6 +20,7 @@ export async function evaluateGatewayJob(
   maxOutputTokens: number,
   signal: AbortSignal,
   transport: typeof fetch = fetch,
+  resolveProvenance: RouteProvenanceResolver = async () => null,
 ) {
   const model = createNineRouter(async (request, init) => {
     const response = await transport(request, { ...init, redirect: 'error' })
@@ -73,10 +79,8 @@ export async function evaluateGatewayJob(
       if (event.type === 'raw') {
         const frame = identitySchema.safeParse(event.rawValue)
         const reported = frame.success ? frame.data.model : null
-        if (reported) {
-          if (reported !== job.route) mismatch = true
-          if (identity === null || reported !== job.route) identity = reported
-        }
+        if (reported && (identity === null || reported !== job.route))
+          identity = reported
       } else if (event.type === 'text-delta') text += event.text
       else if (event.type === 'finish-step') {
         requestId =
@@ -88,9 +92,24 @@ export async function evaluateGatewayJob(
         usage = event.totalUsage
       }
     }
-    const state = mismatch
-      ? 'identity-mismatch'
-      : classifyAttempt(job.route, identity, finishReason, text)
+    let provenance: Provenance | null = null
+    try {
+      provenance = await resolveProvenance({
+        route: job.route,
+        finishedAt: new Date(),
+      })
+    } catch {
+      provenance = null
+    }
+    const verified =
+      provenance !== null &&
+      verifyRouteProvenance(job.route, identity, provenance).verified
+    const state = classifyAttempt(
+      job.route,
+      verified ? job.route : identity,
+      finishReason,
+      text,
+    )
     const points = state === 'valid' ? scoreAnswer(text, job.expected) : null
     return {
       state:
@@ -101,6 +120,10 @@ export async function evaluateGatewayJob(
       identity,
       requestId,
       gatewayVersion,
+      routeVerified: verified,
+      gatewayProvider: provenance?.provider ?? null,
+      gatewayModel: provenance?.model ?? null,
+      gatewayCost: provenance?.cost ?? null,
       finish: finish ?? null,
       raw: text,
       usage,

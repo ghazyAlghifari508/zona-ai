@@ -65,6 +65,7 @@ async function main() {
       live: { type: 'boolean' },
       resume: { type: 'boolean' },
       discover: { type: 'boolean' },
+      enrich: { type: 'boolean' },
       'max-calls': { type: 'string' },
       'max-tokens': { type: 'string' },
       'max-output': { type: 'string' },
@@ -84,6 +85,7 @@ async function main() {
   const stage = z
     .enum(['preflight', 'pilot', 'full'])
     .parse(values.stage ?? 'preflight')
+  const enrich = values.enrich === true
   const maxOutput = numeric(4096, 512, 32768).parse(values['max-output'])
   const timeout = numeric(60_000, 1000, 180_000).parse(values.timeout)
   const cap = {
@@ -208,6 +210,24 @@ async function main() {
       (job.png ? 4096 : 0)
     try {
       if (values.live) {
+        const resolveProvenance = async (input: {
+          route: string
+          finishedAt: Date
+        }) => {
+          const secret = process.env.NINE_ROUTER_API_KEY
+          if (!secret) return null
+          const at = input.finishedAt.toISOString()
+          const usage = await readGatewayUsage({
+            apiKey: secret,
+            from: new Date(input.finishedAt.getTime() - 2000).toISOString(),
+            to: new Date(input.finishedAt.getTime() + 1000).toISOString(),
+          })
+          return (
+            correlateProvenance([{ route: input.route, at }], usage).get(
+              provenanceKey(input.route, at),
+            ) ?? null
+          )
+        }
         const execute = async (job: (typeof jobs)[number]) => {
           const previous = history.get(job.key) ?? []
           const last = previous.at(-1)
@@ -257,6 +277,8 @@ async function main() {
               job,
               maxOutput,
               AbortSignal.any([stop.signal, AbortSignal.timeout(timeout)]),
+              fetch,
+              resolveProvenance,
             )
             const { raw, ...rest } = result
             const secret = process.env.NINE_ROUTER_API_KEY
@@ -329,7 +351,14 @@ async function main() {
       process.off('SIGTERM', cancel)
     }
     const summary = routes.map((route) => {
-      const connectivity = latest(`${route}|preflight`)?.state ?? 'not-tested'
+      const probe = latest(`${route}|preflight`)
+      const reported = probe
+        ? verifications.get(provenanceKey(route, probe.at))
+        : undefined
+      const connectivity =
+        probe?.state === 'identity-mismatch' && reported?.verified
+          ? 'valid'
+          : (probe?.state ?? 'not-tested')
       const points = new Map<string, number>()
       const outcomes = new Map<string, VisionResult>()
       for (const job of jobs.filter((item) => item.route === route)) {
@@ -388,6 +417,17 @@ async function main() {
         label: listing?.find((item) => item.id === route)?.label ?? null,
         connectivity,
         scoring,
+        routeEvidence: reported
+          ? {
+              verified: reported.verified,
+              reason: reported.reason,
+              reportedModel: reported.reportedModel,
+              provider: reported.gateway?.provider ?? null,
+              gatewayModel: reported.gateway?.model ?? null,
+              cost: reported.gateway?.cost ?? null,
+              deltaMs: reported.gateway?.deltaMs ?? null,
+            }
+          : null,
         repeats,
         vision: visionStatus,
         status,
@@ -449,7 +489,7 @@ async function main() {
       suiteVersion,
       hash,
       generatedAt: new Date().toISOString(),
-      mode: values.live ? 'live' : 'dry-run',
+      mode: enrich ? 'evidence-review' : values.live ? 'live' : 'dry-run',
       stage,
       plannedCalls: jobs.length,
       plannedTokenReservation: jobs.reduce((n, job) => n + reservedFor(job), 0),
@@ -472,6 +512,28 @@ async function main() {
       { mode: 0o600 },
     )
     writeFileSync(
+      join(directory, 'provenance.json'),
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          rows: gatewayUsage,
+          verifiedRoutes: summary
+            .filter((row) => row.routeEvidence?.verified === true)
+            .map((row) => ({
+              route: row.route,
+              reportedModel: row.routeEvidence?.reportedModel ?? null,
+              provider: row.routeEvidence?.provider ?? null,
+              gatewayModel: row.routeEvidence?.gatewayModel ?? null,
+              cost: row.routeEvidence?.cost ?? null,
+              deltaMs: row.routeEvidence?.deltaMs ?? null,
+            })),
+        },
+        null,
+        2,
+      ),
+      { mode: 0o600 },
+    )
+    writeFileSync(
       join(directory, 'report.csv'),
       [columns, ...rows].map((r) => r.map(quote).join(',')).join('\n'),
       { mode: 0o600 },
@@ -481,7 +543,7 @@ async function main() {
       [
         '# P3 benchmark',
         `Suite: ${hash}`,
-        `Calls: ${spent.calls}/${jobs.length}. Cost: unknown.`,
+        `Calls: ${spent.calls}/${jobs.length}. Provider cost: ${report.usage.providerCost === null ? 'unknown' : `$${report.usage.providerCost.toFixed(8)}`}.`,
         ...report.blockers,
         '',
         ...[columns, columns.map(() => '---'), ...rows].map(

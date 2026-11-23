@@ -136,3 +136,49 @@ it.each([
     expect(transport).toHaveBeenCalledTimes(1)
   },
 )
+
+const routeProvenance = (model: string) => ({
+  at: '2026-01-01T00:00:00.000Z',
+  provider: 'github',
+  model,
+  cost: 0,
+  promptTokens: 100,
+  completionTokens: 10,
+  status: 'ok',
+  deltaMs: 12,
+})
+
+it('accepts an alias when the gateway resolves the requested route', async () => {
+  const job = planRun(['gh/gpt-4.1'], 12).find((row) => row.kind === 'text')
+  if (!job) throw new Error('Missing text fixture')
+  const transport = vi.fn<typeof fetch>(() =>
+    sse('gpt-4.1-2025-04-14', JSON.stringify(job.expected)),
+  )
+  expect(
+    await evaluateGatewayJob(
+      job,
+      512,
+      AbortSignal.timeout(3000),
+      transport,
+      async () => routeProvenance('gpt-4.1'),
+    ),
+  ).toMatchObject({ state: 'valid', points: 1, routeVerified: true })
+  expect(transport).toHaveBeenCalledTimes(1)
+})
+
+it('keeps an alias inconclusive when the gateway resolved another model', async () => {
+  const job = planRun(['gh/gpt-4.1'], 12).find((row) => row.kind === 'text')
+  if (!job) throw new Error('Missing text fixture')
+  const transport = vi.fn<typeof fetch>(() =>
+    sse('gpt-4.1-2025-04-14', JSON.stringify(job.expected)),
+  )
+  expect(
+    await evaluateGatewayJob(
+      job,
+      512,
+      AbortSignal.timeout(3000),
+      transport,
+      async () => routeProvenance('gpt-4o'),
+    ),
+  ).toMatchObject({ state: 'identity-mismatch', routeVerified: false })
+})
