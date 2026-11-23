@@ -126,21 +126,17 @@ async function readSnapshot(
   const settings = new Map<string, StatusRow>()
   for (const setting of settingsRows) {
     const canonical = aliases.get(setting.modelId) ?? setting.modelId
-    const weight =
-      setting.status !== 'active' || setting.disabledReason !== null
-        ? 2
-        : setting.modelId === canonical
-          ? 1
-          : 0
+    const weight = (row: StatusRow) =>
+      row.status === 'retired'
+        ? 3
+        : row.status !== 'active' || row.disabledReason !== null
+          ? 2
+          : row.modelId === canonical
+            ? 1
+            : 0
     const current = settings.get(canonical)
-    const currentWeight = current
-      ? current.status !== 'active' || current.disabledReason !== null
-        ? 2
-        : current.modelId === canonical
-          ? 1
-          : 0
-      : -1
-    if (weight > currentWeight) settings.set(canonical, setting)
+    if (!current || weight(setting) > weight(current))
+      settings.set(canonical, setting)
   }
 
   return {
@@ -265,7 +261,7 @@ export async function resolveAutoForInference(
       tier: row.creditTier,
       profile: row.routingProfile,
       score: row.intelligenceScore,
-      vision: row.capabilities.vision,
+      vision: row.visionStatus === 'supported' && row.capabilities.vision,
       files: row.capabilities.files,
     }))
   return selectAutoCandidate({

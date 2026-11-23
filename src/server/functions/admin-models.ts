@@ -8,7 +8,9 @@ import {
   retireAdminModelInputSchema,
   updateAdminModelInputSchema,
 } from '../../lib/models/admin-model-input'
+import { p3Manifest } from '../../lib/models/p3-manifest'
 import {
+  cutoverP3CatalogCore,
   discoverAdminGatewayModelsCore,
   getModelSettingsCore,
   importAdminModelCore,
@@ -16,6 +18,7 @@ import {
   probeAdminModelCore,
   publishAdminModelCore,
   retireAdminModelCore,
+  stageP3CatalogCore,
   updateAdminModelCore,
   updateModelAvailabilityCore,
 } from '../core/admin-models'
@@ -95,3 +98,11 @@ export const publishAdminModelFn = createServerFn({ method: 'POST' })
     const request = getRequest()
     return publishAdminModelCore({ ...data, request })
   })
+
+export const stageP3CatalogFn = createServerFn({ method: 'POST' }).handler(() =>
+  stageP3CatalogCore(getRequest()),
+)
+
+export const cutoverP3CatalogFn = createServerFn({ method: 'POST' })
+  .validator((data: unknown) => z.literal(p3Manifest.version).parse(data))
+  .handler(({ data }) => cutoverP3CatalogCore(getRequest(), data))

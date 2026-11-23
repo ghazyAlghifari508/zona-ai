@@ -1,10 +1,10 @@
+import { describe, expect, it } from 'vitest'
 import {
   adminModelIdSchema,
   createAdminModelInputSchema,
   publishAdminModelInputSchema,
   updateAdminModelInputSchema,
 } from '../../src/lib/models/admin-model-input'
-import { describe, expect, it } from 'vitest'
 
 describe('admin model id boundary', () => {
   it('preserves exact route identity', () => {
@@ -20,7 +20,14 @@ describe('admin model id boundary', () => {
   })
 
   it('rejects reserved, empty and URL-shaped ids', () => {
-    for (const id of ['', 'auto', ' AUTO ', 'https://evil.example/model', '../model', 'a b']) {
+    for (const id of [
+      '',
+      'auto',
+      ' AUTO ',
+      'https://evil.example/model',
+      '../model',
+      'a b',
+    ]) {
       expect(adminModelIdSchema.safeParse(id).success).toBe(false)
     }
   })
@@ -57,41 +64,28 @@ describe('admin model mutation schemas', () => {
 
   it('requires a route and allows only editable fields on update', () => {
     const { contextWindow: _contextWindow, ...updateValid } = valid
-    expect(updateAdminModelInputSchema.safeParse(updateValid).success).toBe(true)
+    expect(updateAdminModelInputSchema.safeParse(updateValid).success).toBe(
+      true,
+    )
     expect(
       updateAdminModelInputSchema.safeParse({ ...updateValid, id: 'other' })
         .success,
     ).toBe(false)
-    expect(updateAdminModelInputSchema.safeParse({ displayName: '' }).success).toBe(false)
+    expect(
+      updateAdminModelInputSchema.safeParse({ displayName: '' }).success,
+    ).toBe(false)
   })
 
   it('requires evidence for a guarded evaluation publication', async () => {
     const result = publishAdminModelInputSchema.safeParse({
       modelId: 'custom/route:free',
-      evaluationStatus: 'verified',
-      intelligenceLevel: 2,
-      intelligenceScore: 80,
-      intelligenceBars: 2,
-      confidence: 'medium',
-      creditCostMin: 2,
-      creditCostMax: 2,
-      creditTier: 'balanced',
-      capabilities: {
-        text: true,
-        vision: false,
-        files: false,
-        tools: true,
-        reasoning: true,
-        structuredOutput: true,
-      },
-      evidenceRef: 'https://eval.example.local/run/1',
-      evaluationSuiteVersion: 'p3-v1',
+      run: 'trusted-run-1',
     })
     expect(result.success).toBe(true)
     expect(
       publishAdminModelInputSchema.safeParse({
         ...result.data,
-        evidenceRef: '',
+        run: '../outside-checkpoint',
       }).success,
     ).toBe(false)
   })

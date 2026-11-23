@@ -1,14 +1,26 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import * as schema from '../../src/lib/db/schema'
+import { p3Manifest } from '../../src/lib/models/p3-manifest'
+import { planRun } from '../../src/lib/models/p3-runner'
+import { suiteVersion } from '../../src/lib/models/p3-suite'
 import { AppError } from '../../src/lib/utils/errors'
 
 const connectionString = process.env.ZONA_P1_TEST_DATABASE_URL ?? ''
@@ -122,7 +134,11 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
 
     await database
       .update(schema.modelSettings)
-      .set({ isActive: false, status: 'inactive', disabledReason: 'Maintenance' })
+      .set({
+        isActive: false,
+        status: 'inactive',
+        disabledReason: 'Maintenance',
+      })
       .where(eq(schema.modelSettings.modelId, 'cx/gpt-5.6-terra'))
     catalog.invalidateCatalogCache()
 
@@ -136,9 +152,7 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
   })
 
   it('rejects non-admin updates before touching the catalog', async () => {
-    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValueOnce(
-      session('user'),
-    )
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValueOnce(session('user'))
     const request = new Request('http://localhost:3000/api/admin/models')
 
     await expect(
@@ -230,24 +244,41 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
 
     await sql`UPDATE users SET credits = 777 WHERE id = 'user-admin'`
     await sql`UPDATE model_settings SET is_active = false, disabled_reason = 'legacy maintenance', updated_by = 'user-admin' WHERE model_id = 'cx/gpt-5.6-terra'`
-    const [conversation] = await sql<{ id: string }>`INSERT INTO conversations (user_id, title, model_id) VALUES ('user-admin', 'Legacy chat', 'cx/gpt-5.6-terra') RETURNING id`
+    const [conversation] = await sql<{
+      id: string
+    }>`INSERT INTO conversations (user_id, title, model_id) VALUES ('user-admin', 'Legacy chat', 'cx/gpt-5.6-terra') RETURNING id`
     await sql`INSERT INTO messages (conversation_id, role, content) VALUES (${conversation?.id}, 'user', 'legacy message')`
     await sql`INSERT INTO artifacts (user_id, conversation_id, kind, title) VALUES ('user-admin', ${conversation?.id}, 'prd', 'Legacy artifact')`
     await sql`INSERT INTO credit_transactions (user_id, amount, type, model_id, balance_after) VALUES ('user-admin', -15, 'generation', 'cx/gpt-5.6-terra', 777)`
     await sql`INSERT INTO audit_logs (admin_id, admin_email, action, target_id, target_type) VALUES ('user-admin', 'admin@example.com', 'model.disable', 'cx/gpt-5.6-terra', 'model')`
 
     const migration = readFileSync(
-      path.resolve(process.cwd(), 'src/lib/db/migrations/0019_model_catalog.sql'),
+      path.resolve(
+        process.cwd(),
+        'src/lib/db/migrations/0019_model_catalog.sql',
+      ),
       'utf8',
     )
     await sql.unsafe(migration.replaceAll('--> statement-breakpoint', ''))
 
-    const [user] = await sql<{ credits: number }>`SELECT credits FROM users WHERE id = 'user-admin'`
-    const [storedConversation] = await sql<{ title: string }>`SELECT title FROM conversations WHERE id = ${conversation?.id}`
-    const [messageCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM messages`
-    const [artifactCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM artifacts`
-    const [creditCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM credit_transactions`
-    const [auditCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM audit_logs`
+    const [user] = await sql<{
+      credits: number
+    }>`SELECT credits FROM users WHERE id = 'user-admin'`
+    const [storedConversation] = await sql<{
+      title: string
+    }>`SELECT title FROM conversations WHERE id = ${conversation?.id}`
+    const [messageCount] = await sql<{
+      value: number
+    }>`SELECT count(*)::int AS value FROM messages`
+    const [artifactCount] = await sql<{
+      value: number
+    }>`SELECT count(*)::int AS value FROM artifacts`
+    const [creditCount] = await sql<{
+      value: number
+    }>`SELECT count(*)::int AS value FROM credit_transactions`
+    const [auditCount] = await sql<{
+      value: number
+    }>`SELECT count(*)::int AS value FROM audit_logs`
     const [setting] = await sql<{
       status: string
       disabled_reason: string | null
@@ -272,7 +303,9 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
       catalogRows: 26,
       aliasRows: 2,
     })
-    expect(await catalog.getEligibleModel('cx/gpt-5.6-terra', database)).toBeNull()
+    expect(
+      await catalog.getEligibleModel('cx/gpt-5.6-terra', database),
+    ).toBeNull()
   })
 
   it('imports an exact route as a pending draft without inventing credit or eligibility', async () => {
@@ -393,7 +426,9 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
     })
     expect(retired.status).toBe('retired')
     expect(
-      (await catalog.getPublicCatalog()).some((item) => item.id === 'cx/gpt-5.6-sol'),
+      (await catalog.getPublicCatalog()).some(
+        (item) => item.id === 'cx/gpt-5.6-sol',
+      ),
     ).toBe(false)
     expect(
       await catalog.findHistoricalModelLabel('cx/gpt-5.6-sol'),
@@ -448,7 +483,9 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
     const [auditRow] = await database.select().from(schema.auditLogs)
     expect(auditRow).toMatchObject({ action: 'model.update' })
     const metadata = auditRow?.metadata
-    expect(metadata && typeof metadata === 'object' && 'before' in metadata).toBe(true)
+    expect(
+      metadata && typeof metadata === 'object' && 'before' in metadata,
+    ).toBe(true)
   })
 
   it('records an honest connection test without changing availability or rating', async () => {
@@ -456,7 +493,9 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       if (String(input).endsWith('/models')) {
         return new Response(
-          JSON.stringify({ data: [{ id: 'cx/gpt-5.6-sol', owned_by: 'codex' }] }),
+          JSON.stringify({
+            data: [{ id: 'cx/gpt-5.6-sol', owned_by: 'codex' }],
+          }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         )
       }
@@ -530,36 +569,162 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
     })
     expect(await catalog.getEligibleModel('custom/route:paid')).toBeNull()
 
-    const result = await adminModels.publishAdminModelCore({
-      request,
-      modelId: 'custom/route:paid',
-      evaluationStatus: 'verified',
-      intelligenceLevel: 2,
-      intelligenceScore: 80,
-      intelligenceBars: 2,
-      confidence: 'medium',
-      creditCostMin: 2,
-      creditCostMax: 2,
-      creditTier: 'balanced',
-      capabilities: {
-        text: true,
-        vision: false,
-        files: false,
-        tools: true,
-        reasoning: true,
-        structuredOutput: true,
-      },
-      evidenceRef: 'https://eval.example.local/run/1',
-      evaluationSuiteVersion: 'p3-v1',
-    })
-    expect(result.evaluationStatus).toBe('verified')
-    expect(await catalog.getEligibleModel('custom/route:paid')).not.toBeNull()
-    expect(
-      (await catalog.getPublicCatalog()).find(
-        (item) => item.id === 'custom/route:paid',
-      )?.creditCost,
-    ).toBe(2)
+    const modelId = 'custom/route:paid'
+    const run = `fixture-${randomUUID()}`
+    const dir = path.join('test-results', 'p3', run)
+    const input = { request, modelId, run }
+    await expect(
+      adminModels.publishAdminModelCore(input),
+    ).rejects.toMatchObject({ code: 'ERR-MODEL-EVIDENCE' })
+    const frozen = {
+      runnerVersion: 'zona-p3-runner-v1',
+      suiteVersion,
+      seed: 12,
+      routes: [modelId],
+    }
+    const hash = createHash('sha256')
+      .update(JSON.stringify(frozen))
+      .digest('hex')
+    mkdirSync(dir, { recursive: true })
+    try {
+      writeFileSync(
+        path.join(dir, 'manifest.json'),
+        JSON.stringify({ hash, ...frozen }),
+      )
+      const evidence = planRun([modelId], 12).map((job) =>
+        JSON.stringify({
+          key: job.key,
+          route: modelId,
+          identity: modelId,
+          state: 'valid',
+          finish: 'stop',
+          fixtureHash: job.hash,
+          at: new Date().toISOString(),
+          raw: JSON.stringify(
+            job.id.endsWith(':control') ? null : job.expected,
+          ),
+        }),
+      )
+      writeFileSync(
+        path.join(dir, 'attempts.jsonl'),
+        evidence.slice(1).join('\n'),
+      )
+      await expect(
+        adminModels.publishAdminModelCore(input),
+      ).rejects.toMatchObject({ code: 'ERR-MODEL-EVIDENCE' })
+      expect(await catalog.getEligibleModel(modelId)).toBeNull()
+      writeFileSync(path.join(dir, 'attempts.jsonl'), evidence.join('\n'))
+      expect(
+        (await adminModels.publishAdminModelCore(input)).evaluationStatus,
+      ).toBe('verified')
+      expect(
+        (await adminModels.publishAdminModelCore(input)).evaluationStatus,
+      ).toBe('verified')
+      expect(await catalog.getEligibleModel(modelId)).toMatchObject({
+        routerModelId: modelId,
+        creditCost: 15,
+        visionStatus: 'supported',
+      })
+      expect(
+        (await catalog.getPublicCatalog()).find((item) => item.id === modelId)
+          ?.creditCost,
+      ).toBe(15)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
     const rows = await database.select().from(schema.auditLogs)
-    expect(rows.map((row) => row.action)).toEqual(['model.create', 'model.update'])
+    expect(rows.map((row) => row.action)).toEqual([
+      'model.create',
+      'model.update',
+    ])
+  })
+
+  it('stages pending routes and retires only the approved set after publication', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    const pending = p3Manifest.added[0].routerModelId
+    vi.spyOn(
+      await import('../../src/lib/models/model-probe'),
+      'discoverGatewayModels',
+    ).mockResolvedValue([])
+    expect(await adminModels.stageP3CatalogCore(request)).toEqual({
+      missing: [],
+      drift: [],
+      conflicts: [],
+    })
+    expect(await catalog.getEligibleModel(pending)).toBeNull()
+    await expect(
+      adminModels.cutoverP3CatalogCore(request, p3Manifest.version),
+    ).rejects.toThrow('No verified active new route')
+    const run = `fixture-${randomUUID()}`
+    const dir = path.join('test-results', 'p3', run)
+    const frozen = {
+      runnerVersion: 'zona-p3-runner-v1',
+      suiteVersion,
+      seed: 12,
+      routes: [pending],
+    }
+    mkdirSync(dir, { recursive: true })
+    try {
+      const hash = createHash('sha256')
+        .update(JSON.stringify(frozen))
+        .digest('hex')
+      writeFileSync(
+        path.join(dir, 'manifest.json'),
+        JSON.stringify({ hash, ...frozen }),
+      )
+      writeFileSync(
+        path.join(dir, 'attempts.jsonl'),
+        planRun([pending], 12)
+          .map((job) =>
+            JSON.stringify({
+              key: job.key,
+              route: pending,
+              identity: pending,
+              state: 'valid',
+              finish: 'stop',
+              fixtureHash: job.hash,
+              at: new Date().toISOString(),
+              raw: JSON.stringify(
+                job.kind === 'text' || job.id.endsWith(':control')
+                  ? null
+                  : job.expected,
+              ),
+            }),
+          )
+          .join('\n'),
+      )
+      await adminModels.publishAdminModelCore({
+        request,
+        modelId: pending,
+        run,
+      })
+      const cutover = await adminModels.cutoverP3CatalogCore(
+        request,
+        p3Manifest.version,
+      )
+      expect(cutover.final).toHaveLength(19)
+      expect(new Set(cutover.retired)).toEqual(
+        new Set(p3Manifest.retire.map((row) => row.routerModelId)),
+      )
+      for (const id of p3Manifest.retained)
+        expect(await catalog.findHistoricalModelLabel(id)).toMatchObject({
+          id,
+          routerModelId: id,
+        })
+      expect(await catalog.getEligibleModel('gpt-5.6-sol')).toBeNull()
+      expect(
+        await catalog.findHistoricalModelLabel('gpt-5.6-sol'),
+      ).toMatchObject({ status: 'retired' })
+      expect(await catalog.resolveTitleModel()).toBe(pending)
+      expect(
+        await catalog.resolveAutoForInference({ prompt: 'Hello', credits: 2 }),
+      ).toBeNull()
+      expect(
+        await catalog.resolveAutoForInference({ prompt: 'Hello', credits: 3 }),
+      ).toMatchObject({ routerModelId: pending, cost: 3 })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm'
+import { z } from 'zod'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
 import { auditLogs, modelCatalog, modelSettings } from '../../lib/db/schema'
@@ -20,6 +21,9 @@ import {
   getGatewayProbeConfig,
   probeModelConnection,
 } from '../../lib/models/model-probe'
+import { planP3Cutover } from '../../lib/models/p3-cutover'
+import { loadEvaluation } from '../../lib/models/p3-evidence.server'
+import { inspectP3Scope, p3Manifest } from '../../lib/models/p3-manifest'
 import { checkRateLimit } from '../../lib/security/rate-limit'
 import { AppError } from '../../lib/utils/errors'
 import {
@@ -27,7 +31,93 @@ import {
   getEligibleModel,
   getPublicCatalog,
   invalidateCatalogCache,
+  loadCatalogSnapshot,
 } from './model-catalog'
+
+export async function stageP3CatalogCore(request: Request) {
+  await requireAdminSession(request)
+  const { rows } = await loadCatalogSnapshot()
+  const discovery = await discoverGatewayModels().catch(() => [])
+  for (const entry of p3Manifest.added) {
+    if (rows.some((row) => row.routerModelId === entry.routerModelId)) continue
+    const metadata = discovery.find((row) => row.id === entry.routerModelId)
+    const provider = entry.routerModelId.split('/')[0]
+    await importAdminModelCore({
+      request,
+      input: {
+        modelId: entry.routerModelId,
+        displayName: metadata?.label ?? entry.suggestedLabel,
+        vendor: 'Unknown',
+        provider,
+        description: '',
+        searchAliases: [],
+        contextWindow: metadata?.contextWindow,
+      },
+    })
+  }
+  const snapshot = await loadCatalogSnapshot()
+  const retiring = new Set(p3Manifest.retire.map((row) => row.routerModelId))
+  return inspectP3Scope(
+    snapshot.rows.filter(
+      (row) => row.status !== 'retired' && !retiring.has(row.routerModelId),
+    ),
+  )
+}
+
+export async function cutoverP3CatalogCore(request: Request, version: unknown) {
+  const session = await requireAdminSession(request)
+  z.literal(p3Manifest.version).parse(version)
+  const now = new Date()
+  const result = await db.transaction(
+    async (tx) => {
+      const { retire } = planP3Cutover((await loadCatalogSnapshot(tx)).rows)
+      for (const row of retire) {
+        const fields = {
+          isActive: false,
+          status: 'retired',
+          retiredAt: now,
+          updatedBy: session.user.id,
+          updatedAt: now,
+        }
+        await tx
+          .update(modelCatalog)
+          .set({ updatedAt: now })
+          .where(eq(modelCatalog.id, row.id))
+        await tx
+          .insert(modelSettings)
+          .values({ modelId: row.id, ...fields })
+          .onConflictDoUpdate({ target: modelSettings.modelId, set: fields })
+        await tx.insert(auditLogs).values({
+          adminId: session.user.id,
+          adminEmail: session.user.email,
+          action: 'model.delete',
+          targetType: 'model',
+          targetId: row.id,
+          metadata: {
+            modelId: row.routerModelId,
+            manifest: p3Manifest.version,
+          },
+          createdAt: now,
+        })
+      }
+      const post = (await loadCatalogSnapshot(tx)).rows.filter(
+        (row) => row.status !== 'retired',
+      )
+      const scope = inspectP3Scope(post)
+      if (
+        [scope.missing, scope.drift, scope.conflicts].some((ids) => ids.length)
+      )
+        throw new Error('Unexpected catalog after retirement')
+      return {
+        retired: retire.map((row) => row.id),
+        final: post.map((row) => row.id),
+      }
+    },
+    { isolationLevel: 'serializable' },
+  )
+  invalidateCatalogCache()
+  return result
+}
 
 // Enforces admin authentication via requireAdminSession (delegates to getAuthSession)
 if (typeof window !== 'undefined') {
@@ -380,33 +470,91 @@ export async function publishAdminModelCore({
 }): Promise<AdminMutationResult> {
   const session = await requireAdminSession(request)
   const input = publishAdminModelInputSchema.parse(rawInput)
-  const label = await findHistoricalModelLabel(input.modelId)
-  const [existing] = await db
-    .select()
-    .from(modelCatalog)
-    .where(eq(modelCatalog.routerModelId, input.modelId))
-    .limit(1)
-  if (!existing || label?.status === 'retired') {
-    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  let evidence: ReturnType<typeof loadEvaluation>
+  try {
+    evidence = loadEvaluation(input.run, input.modelId)
+  } catch {
+    throw new AppError(
+      'Bukti evaluasi tidak lengkap atau tidak valid',
+      422,
+      'ERR-MODEL-EVIDENCE',
+    )
   }
-
   const now = new Date()
-  await db.transaction(async (tx) => {
+  const evidenceRef = `${input.run}:${evidence.evidenceHash}`
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(modelCatalog)
+      .where(eq(modelCatalog.routerModelId, input.modelId))
+      .for('update')
+    const [setting] = existing
+      ? await tx
+          .select()
+          .from(modelSettings)
+          .where(eq(modelSettings.modelId, existing.id))
+          .for('update')
+      : []
+    if (!existing || existing.isVirtual || setting?.status === 'retired')
+      throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+    const status = setting?.status ?? 'active'
+    if (existing.evidenceRef === evidenceRef)
+      return {
+        success: true,
+        modelId: input.modelId,
+        status,
+        evaluationStatus: 'verified',
+      } as const
+    if (
+      existing.evaluationStatus === 'verified' &&
+      existing.lastEvaluated &&
+      evidence.observedAt <= existing.lastEvaluated
+    )
+      throw new AppError('Bukti evaluasi lebih lama', 409, 'ERR-MODEL-EVIDENCE')
+    const groups = evidence.categories
+    const core = groups.find((g) => g.category === 'coding')?.score ?? 0
+    const reason = groups.find((g) => g.category === 'reasoning')?.score ?? 0
     await tx
       .update(modelCatalog)
       .set({
-        intelligenceLevel: input.intelligenceLevel,
-        intelligenceScore: input.intelligenceScore,
-        intelligenceBars: input.intelligenceBars,
-        confidence: input.confidence,
-        creditCostMin: input.creditCostMin,
-        creditCostMax: input.creditCostMax,
-        creditTier: input.creditTier,
-        capabilities: input.capabilities,
-        evaluationStatus: input.evaluationStatus,
-        evaluationSuiteVersion: input.evaluationSuiteVersion,
-        evidenceRef: input.evidenceRef,
-        lastEvaluated: now.toISOString(),
+        intelligenceLevel: evidence.bars,
+        intelligenceScore: Math.round(evidence.score),
+        intelligenceBars: evidence.bars,
+        confidence: 'medium',
+        creditCostMin: evidence.credit,
+        creditCostMax: evidence.credit,
+        creditTier: evidence.tier,
+        capabilities: {
+          text: true,
+          vision: evidence.vision === 'supported',
+          files: false,
+          tools: false,
+          reasoning: false,
+          structuredOutput: false,
+        },
+        routingProfile:
+          evidence.bars === 2
+            ? 'lightweight'
+            : core > reason
+              ? 'coding'
+              : reason > core
+                ? 'reasoning'
+                : 'general',
+        evaluationStatus: 'verified',
+        evaluationSuiteVersion: evidence.suiteVersion,
+        evidenceRef,
+        visionStatus: evidence.vision,
+        visionEvidence: evidenceRef,
+        evaluationNotes: JSON.stringify({
+          score: evidence.score,
+          categories: groups,
+          suiteHash: evidence.suiteHash,
+          connectivity: 'valid',
+          exactRoute: input.modelId,
+        }),
+        provenance: evidence.runnerVersion,
+        lastEvaluated: evidence.observedAt,
+        observedAt: new Date(evidence.observedAt),
         updatedAt: now,
       })
       .where(eq(modelCatalog.id, existing.id))
@@ -418,21 +566,21 @@ export async function publishAdminModelCore({
       targetType: 'model',
       metadata: {
         modelId: input.modelId,
-        evaluationStatus: input.evaluationStatus,
-        evaluationSuiteVersion: input.evaluationSuiteVersion,
-        evidenceRef: input.evidenceRef,
+        evidenceRef,
+        previousCredit: existing.creditCostMax,
+        credit: evidence.credit,
       },
       createdAt: now,
     })
+    return {
+      success: true,
+      modelId: input.modelId,
+      status,
+      evaluationStatus: 'verified',
+    } as const
   })
-
   invalidateCatalogCache()
-  return {
-    success: true,
-    modelId: existing.routerModelId,
-    status: label?.status ?? 'active',
-    evaluationStatus: input.evaluationStatus,
-  }
+  return result
 }
 
 const PROBE_RATE_LIMIT = { limit: 10, windowMs: 60_000 } as const
