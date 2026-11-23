@@ -66,7 +66,6 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
       title: 'Pengguna Diblokir',
       value: formatNumber(data.bannedUsers),
       desc: data.bannedUsers > 0 ? 'Ditangguhkan' : 'Nihil',
-      isWarning: data.bannedUsers > 0,
       icon: UserRemove01Icon,
     },
     {
@@ -75,7 +74,6 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
       title: 'Feedback Baru',
       value: formatNumber(data.newFeedbackCount),
       desc: data.newFeedbackCount > 0 ? 'Perlu respon' : 'Nihil',
-      isAttention: data.newFeedbackCount > 0,
       icon: Message01Icon,
     },
     {
@@ -131,15 +129,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
                 {card.value}
               </span>
               {card.desc && (
-                <span
-                  className={`text-[10px] font-medium ${
-                    card.isWarning
-                      ? 'text-coral'
-                      : card.isAttention
-                        ? 'text-marigold'
-                        : 'text-stone/70'
-                  }`}
-                >
+                <span className="text-[10px] font-medium text-stone/70">
                   {card.desc}
                 </span>
               )}
@@ -192,7 +182,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
                         <span className="font-medium text-ink truncate">
                           {log.adminName || log.adminEmail}
                         </span>
-                        <span className="rounded bg-paper px-2 py-0.5 font-mono text-[11px] text-stone">
+                        <span className="font-mono text-[11px] text-stone">
                           {log.action}
                         </span>
                       </div>

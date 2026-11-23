@@ -15,7 +15,7 @@ export function formatUserRole(role: string | null | undefined): string {
   return role === 'admin' ? 'Admin' : 'Pengguna'
 }
 
-export function formatUserBlocked(banned: boolean): string {
+export function formatUserBlocked(banned: boolean | null | undefined): string {
   return banned ? 'Diblokir' : 'Tidak diblokir'
 }
 

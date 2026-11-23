@@ -16,6 +16,8 @@ describe('P4 admin status labels', () => {
   it('uses explicit account state instead of online-status colors', () => {
     expect(formatUserBlocked(false)).toBe('Tidak diblokir')
     expect(formatUserBlocked(true)).toBe('Diblokir')
+    expect(formatUserBlocked(null)).toBe('Tidak diblokir')
+    expect(formatUserBlocked(undefined)).toBe('Tidak diblokir')
   })
 
   it('maps feedback status to the approved sentence-case labels', () => {

@@ -216,13 +216,13 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="rounded bg-paper border border-hairline px-2 py-0.5 font-mono text-[11px] font-medium text-ink">
+                      <span className="font-mono text-[11px] text-stone">
                         {log.action}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-[12px]">
-                        <span className="font-semibold text-ink uppercase text-[10px] rounded bg-stone/10 px-1 py-0.5 mr-1.5">
+                        <span className="font-semibold text-ink text-[11px] mr-1.5">
                           {log.targetType}
                         </span>
                         <span className="font-mono text-stone text-[11px]">

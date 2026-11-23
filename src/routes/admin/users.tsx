@@ -16,7 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import { StatusText } from '../../components/ui/StatusText'
 import { UserAvatar } from '../../components/ui/UserAvatar'
+import { formatUserBlocked, formatUserRole } from '../../lib/admin/presentation'
 import { verifyAdminAccessFn } from '../../server/functions/admin-auth'
 import {
   banUserFn,
@@ -368,26 +370,12 @@ export function AdminUsersView({
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span
-                          className={`rounded px-2 py-0.5 text-[11px] font-medium uppercase ${
-                            user.role === 'admin'
-                              ? 'bg-sky-tint text-notion-blue border border-notion-blue/20'
-                              : 'bg-paper text-stone border border-hairline'
-                          }`}
-                        >
-                          {user.role}
-                        </span>
+                        <StatusText>{formatUserRole(user.role)}</StatusText>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {user.banned ? (
-                          <span className="rounded bg-danger-soft border border-coral/20 px-2 py-0.5 text-[11px] font-medium text-coral">
-                            Diblokir
-                          </span>
-                        ) : (
-                          <span className="rounded bg-success/10 border border-success/20 px-2 py-0.5 text-[11px] font-medium text-success">
-                            Aktif
-                          </span>
-                        )}
+                        <StatusText tone={user.banned ? 'danger' : 'neutral'}>
+                          {formatUserBlocked(user.banned)}
+                        </StatusText>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-ink">
                         {user.credits ?? 0}
@@ -424,7 +412,7 @@ export function AdminUsersView({
                               className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
                                 isSelfOrPrimary
                                   ? 'cursor-not-allowed border border-hairline bg-paper text-stone/50'
-                                  : 'border border-coral/30 bg-danger-soft text-coral hover:bg-coral/15'
+                                  : 'border border-hairline text-coral hover:bg-ink/5'
                               }`}
                             >
                               Blokir

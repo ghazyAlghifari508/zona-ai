@@ -17,7 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import { StatusText } from '../../components/ui/StatusText'
 import { UserAvatar } from '../../components/ui/UserAvatar'
+import { formatUserRole } from '../../lib/admin/presentation'
 import {
   adjustUserCreditsFn,
   listUserCreditsFn,
@@ -305,15 +307,7 @@ export function AdminCreditsView({ initialData }: AdminCreditsViewProps) {
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span
-                        className={`rounded px-2 py-0.5 text-[11px] font-medium uppercase ${
-                          user.role === 'admin'
-                            ? 'bg-sky-tint text-notion-blue border border-notion-blue/20'
-                            : 'bg-paper text-stone border border-hairline'
-                        }`}
-                      >
-                        {user.role}
-                      </span>
+                      <StatusText>{formatUserRole(user.role)}</StatusText>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap font-semibold text-[14px] text-ink">
                       <div className="flex items-center gap-1.5">

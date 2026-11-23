@@ -18,7 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import { StatusText } from '../../components/ui/StatusText'
 import { UserAvatar } from '../../components/ui/UserAvatar'
+import {
+  formatFeedbackCategory,
+  formatFeedbackStatus,
+} from '../../lib/admin/presentation'
 import {
   listFeedbackFn,
   updateFeedbackStatusFn,
@@ -190,61 +195,28 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
 
   const totalPages = Math.max(1, Math.ceil(total / limit))
 
-  const renderStatusBadge = (status: string) => {
-    switch (status) {
-      case 'new':
-        return (
-          <span className="rounded border border-marigold/30 bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-strong">
-            Baru
-          </span>
-        )
-      case 'in_progress':
-        return (
-          <span className="rounded border border-notion-blue/30 bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-notion-blue">
-            Diproses
-          </span>
-        )
-      case 'resolved':
-        return (
-          <span className="rounded border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-            Selesai
-          </span>
-        )
-      case 'rejected':
-        return (
-          <span className="rounded border border-coral/30 bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-coral">
-            Ditolak
-          </span>
-        )
-      default:
-        return null
-    }
-  }
+  const renderStatusText = (status: string) => (
+    <StatusText>{formatFeedbackStatus(status)}</StatusText>
+  )
 
-  const renderTypeBadge = (type: string) => {
-    switch (type) {
-      case 'bug':
-        return (
-          <span className="flex items-center gap-1 rounded bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-coral border border-coral/20">
-            <HugeiconsIcon icon={Bug01Icon} size={12} strokeWidth={1.75} />
-            <span>Bug</span>
-          </span>
-        )
-      case 'feature':
-        return (
-          <span className="flex items-center gap-1 rounded bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-notion-blue border border-notion-blue/20">
-            <HugeiconsIcon icon={Idea01Icon} size={12} strokeWidth={1.75} />
-            <span>Fitur</span>
-          </span>
-        )
-      default:
-        return (
-          <span className="flex items-center gap-1 rounded bg-paper px-2 py-0.5 text-[11px] font-medium text-stone border border-hairline">
-            <HugeiconsIcon icon={Message01Icon} size={12} strokeWidth={1.75} />
-            <span>Umum</span>
-          </span>
-        )
-    }
+  const renderCategoryText = (type: string) => {
+    const icon =
+      type === 'bug'
+        ? Bug01Icon
+        : type === 'feature'
+          ? Idea01Icon
+          : Message01Icon
+    return (
+      <StatusText className="inline-flex items-center gap-1">
+        <HugeiconsIcon
+          icon={icon}
+          size={12}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+        {formatFeedbackCategory(type)}
+      </StatusText>
+    )
   }
 
   return (
@@ -283,8 +255,8 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
             >
               <option value="all">Semua Status</option>
               <option value="new">Baru</option>
-              <option value="in_progress">Sedang Diproses</option>
-              <option value="resolved">Terselesaikan</option>
+              <option value="in_progress">Diproses</option>
+              <option value="resolved">Selesai</option>
               <option value="rejected">Ditolak</option>
             </select>
           </div>
@@ -301,8 +273,8 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
             >
               <option value="all">Semua Kategori</option>
               <option value="general">Umum</option>
-              <option value="feature">Saran Fitur</option>
-              <option value="bug">Laporan Bug</option>
+              <option value="feature">Saran fitur</option>
+              <option value="bug">Laporan bug</option>
             </select>
           </div>
         </div>
@@ -361,7 +333,7 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {renderTypeBadge(item.type)}
+                      {renderCategoryText(item.type)}
                     </td>
                     <td className="px-4 py-3 max-w-xs">
                       <p className="font-medium text-ink truncate">
@@ -388,7 +360,7 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {renderStatusBadge(item.status)}
+                      {renderStatusText(item.status)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-[12px] text-stone">
                       {formatDate(item.createdAt)}
@@ -452,7 +424,7 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
         >
           <DialogHeader>
             <div className="flex items-center gap-2">
-              {selectedItem && renderTypeBadge(selectedItem.type)}
+              {selectedItem && renderCategoryText(selectedItem.type)}
               <DialogTitle className="text-[18px] font-bold text-ink">
                 {selectedItem?.title}
               </DialogTitle>
@@ -564,12 +536,10 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
                       }
                       className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
                     >
-                      <option value="new">Baru (New)</option>
-                      <option value="in_progress">
-                        Sedang Diproses (In Progress)
-                      </option>
-                      <option value="resolved">Terselesaikan (Resolved)</option>
-                      <option value="rejected">Ditolak (Rejected)</option>
+                      <option value="new">Baru</option>
+                      <option value="in_progress">Diproses</option>
+                      <option value="resolved">Selesai</option>
+                      <option value="rejected">Ditolak</option>
                     </select>
                   </div>
                 </div>
