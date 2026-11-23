@@ -26,10 +26,12 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
 import { ProviderIcon } from '../../components/ui/ProviderIcons'
+import { StatusText } from '../../components/ui/StatusText'
 import type {
   ConnectionProbe,
   GatewayModelDiscovery,
 } from '../../lib/models/model-probe'
+import { formatContextWindowTokens } from '../../lib/models/presentation'
 import {
   discoverAdminGatewayModelsFn,
   getAdminModelsFn,
@@ -130,10 +132,6 @@ function errorMessage(error: unknown, fallback: string): string {
 
 function isEvaluated(status: EvaluationStatus | undefined): boolean {
   return status === undefined || status === 'legacy' || status === 'verified'
-}
-
-function formatContextWindow(contextWindow: number | null): string {
-  return contextWindow ? `${contextWindow.toLocaleString('id-ID')} token` : '—'
 }
 
 function outcomeLabel(outcome: ConnectionProbe['outcome']): string {
@@ -574,7 +572,7 @@ export function AdminModelsView({
               <tr>
                 <th className="px-4 py-3">Model</th>
                 <th className="px-4 py-3">Provider</th>
-                <th className="px-4 py-3">Kredit / Req</th>
+                <th className="px-4 py-3">Kredit / permintaan</th>
                 <th className="px-4 py-3">Kapasitas konteks</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Aksi</th>
@@ -622,36 +620,29 @@ export function AdminModelsView({
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="rounded bg-paper px-2 py-0.5 text-[11px] font-medium text-stone">
+                        <StatusText>
                           {model.vendor || model.provider}
-                        </span>
+                        </StatusText>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap font-medium text-ink">
                         {model.cost ?? '—'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-stone">
-                        {formatContextWindow(model.contextWindow)}
+                        {formatContextWindowTokens(model.contextWindow)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3">
                         {!evaluated ? (
-                          <span
-                            data-testid={`model-evaluation-${model.id}`}
-                            className="rounded border border-hairline bg-paper px-2 py-0.5 text-[11px] font-medium text-stone"
-                          >
-                            Belum dievaluasi
+                          <span data-testid={`model-evaluation-${model.id}`}>
+                            <StatusText>Belum dievaluasi</StatusText>
                           </span>
                         ) : active ? (
-                          <span className="rounded border border-success/20 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
-                            Aktif
-                          </span>
+                          <StatusText>Aktif</StatusText>
                         ) : (
-                          <div className="flex flex-col">
-                            <span className="w-fit rounded border border-coral/20 bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-coral">
-                              Nonaktif
-                            </span>
+                          <div className="flex flex-col gap-0.5">
+                            <StatusText tone="danger">Nonaktif</StatusText>
                             {reason && (
                               <span
-                                className="mt-0.5 max-w-[180px] truncate text-[11px] text-stone"
+                                className="max-w-[240px] text-[11px] leading-snug text-stone break-words"
                                 title={reason}
                               >
                                 {reason}
@@ -674,7 +665,9 @@ export function AdminModelsView({
                             }}
                             disabled={isSubmitting || !evaluated}
                             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-notion-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                              active && evaluated ? 'bg-success' : 'bg-stone/30'
+                              active && evaluated
+                                ? 'bg-accent'
+                                : 'bg-hairline-strong'
                             }`}
                           >
                             <span className="sr-only">
@@ -803,7 +796,9 @@ export function AdminModelsView({
                   )}
                   <p className="mt-1 text-[12px] text-stone">
                     Kapasitas konteks:{' '}
-                    {formatContextWindow(discovered?.contextWindow ?? null)}
+                    {formatContextWindowTokens(
+                      discovered?.contextWindow ?? null,
+                    )}
                   </p>
                   <p className="mt-1 text-[12px] text-stone">
                     Evaluasi: Belum dievaluasi (model belum tersedia di
