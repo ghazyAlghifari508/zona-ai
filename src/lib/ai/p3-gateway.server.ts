@@ -148,6 +148,13 @@ export async function evaluateGatewayJob(
         /* Non-JSON error body is not evidence. */
       }
     }
+    const errorText = APICallError.isInstance(error)
+      ? `${error.message}\n${error.responseBody ?? ''}`
+      : ''
+    const imageRejected =
+      /image\s+(?:media\s+type|input)\s+not\s+supported|unsupported_image|image_input_not_supported/i.test(
+        errorText,
+      )
     const state = signal.aborted
       ? 'aborted'
       : httpStatus === 429
@@ -159,7 +166,8 @@ export async function evaluateGatewayJob(
                 httpStatus === 415 ||
                 httpStatus === 422) &&
               (code === 'unsupported_image' ||
-                code === 'image_input_not_supported')
+                code === 'image_input_not_supported' ||
+                imageRejected)
             ? 'image-unsupported'
             : httpStatus !== null && httpStatus >= 200 && httpStatus < 300
               ? 'invalid-protocol'

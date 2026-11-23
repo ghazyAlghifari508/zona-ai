@@ -35,6 +35,7 @@ import {
   buildVisionSuite,
   summarizeVision,
   type VisionResult,
+  visionOutcome,
 } from '../../lib/models/p3-vision'
 
 const numeric = (fallback: number, min: number, max: number) =>
@@ -58,6 +59,7 @@ const rowSchema = z
     usage: z
       .object({ totalTokens: z.number().nonnegative().optional() })
       .nullable(),
+    raw: z.string().nullish(),
   })
   .passthrough()
 type Row = z.infer<typeof rowSchema>
@@ -431,13 +433,7 @@ async function main() {
         if (job.kind === 'vision')
           outcomes.set(
             job.id,
-            outcome.state === 'valid'
-              ? outcome.points === 1
-                ? 'correct'
-                : 'wrong'
-              : outcome.state === 'image-unsupported'
-                ? 'unsupported'
-                : 'inconclusive',
+            visionOutcome(outcome.state, outcome.raw, outcome.points),
           )
       }
       const scoring = summarizeText(text, points)

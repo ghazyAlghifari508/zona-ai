@@ -76,6 +76,32 @@ it('serializes the chat and compare attachment part in a streaming request', asy
   expect(await result.finishReason).toBe('stop')
 })
 
+it('classifies a 400 image media-type rejection as image-unsupported', async () => {
+  const job = planRun(['test/exact'], 12).find((row) => row.png)
+  if (!job?.png) throw new Error('Missing image fixture')
+  const transport = vi.fn<typeof fetch>(async () =>
+    Response.json(
+      {
+        error: {
+          message:
+            '[400]: {"error":{"message":"validating image item: image media type not supported","code":"invalid_request_body"}}',
+          type: 'invalid_request_error',
+          code: 'bad_request',
+        },
+      },
+      { status: 400 },
+    ),
+  )
+  const result = await evaluateGatewayJob(
+    job,
+    512,
+    AbortSignal.timeout(3000),
+    transport,
+  )
+  expect(result.state).toBe('image-unsupported')
+  expect(transport).toHaveBeenCalledTimes(1)
+})
+
 it('reports an invalid HTTP 200 response without recording its body or retrying', async () => {
   const job = planRun(['test/exact'], 12)[0]
   const transport = vi.fn<typeof fetch>(async () =>

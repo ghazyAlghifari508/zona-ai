@@ -153,6 +153,24 @@ export function buildVisionSuite(seed: number) {
 
 export type VisionCase = ReturnType<typeof buildVisionSuite>[number]
 export type VisionResult = 'correct' | 'wrong' | 'unsupported' | 'inconclusive'
+
+export function visionOutcome(
+  state: string,
+  raw: string | null | undefined,
+  points: number | null,
+): VisionResult {
+  if (state === 'valid') return points === 1 ? 'correct' : 'wrong'
+  if (
+    state === 'image-unsupported' ||
+    (state === 'http-rejected' &&
+      /image\s+(?:media\s+type|input)\s+not\s+supported|unsupported_image|image_input_not_supported/i.test(
+        raw ?? '',
+      ))
+  )
+    return 'unsupported'
+  return 'inconclusive'
+}
+
 export function summarizeVision(
   cases: readonly VisionCase[],
   results: ReadonlyMap<string, VisionResult>,
