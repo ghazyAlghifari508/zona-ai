@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: BLOCKED.** Discovery succeeded, but no live inference budget was authorized. No P3 catalog import, publication, retirement, or credit change was applied to the application database. The target remains 18 physical routes plus virtual Auto; zero of the 18 have verified P3 evidence. This is not a statement about the number of models currently selectable under the legacy policy.
+**Status: BLOCKED.** Preflight alone is authorized up to USD 1 with zero retries; a billing ceiling could not be verified on the configured gateway. No inference, P3 catalog import, publication, retirement, or credit change was applied. The target remains 18 physical routes plus virtual Auto; zero routes have verified P3 evidence. Current legacy selectability is a separate measure.
 
 ## Reproduce
 
@@ -41,6 +41,10 @@ Discovery-only snapshot: `2026-11-23T03:08:44.876Z`; suite hash `d6ff39f7e6031f6
 | `cc/claude-opus-5-5` | listed | not-tested | new |
 | `cc/claude-sonnet-5-5` | listed | not-tested | new |
 | `tokenharbor/mimo-v2.6-flash:free` | listed | not-tested | new |
+
+### USD 1 preflight readiness
+
+Dry run `p3-preflight-usd1` (2026-11-23T06:59:43.559Z), manifest hash `743c7ac9050f9dae9d4a95c1fee95c27af130709fd4d9a0c779300919d0da868`. `GET /models` returned HTTP 200 and listed 17/18 exact routes without pricing or quota fields. The documented model-info lookup returned HTTP 404 for the sampled route. The runner enforces call/token reservations, not USD. With no verified gateway/provider hard limit or tariff upper bound, it sent 0/18 inference requests. No retries, pilot, or cutover ran. Resume this checkpoint with `--live` only once the USD 1 ceiling is enforceable; keep `--stage preflight --retries 0 --concurrency 1 --max-calls 18 --max-tokens 18000 --max-output 512 --timeout 20000 --deadline 420000 --resume`.
 
 ## Admin and P4 handoff
 
