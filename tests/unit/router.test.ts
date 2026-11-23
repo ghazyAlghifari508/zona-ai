@@ -1,47 +1,95 @@
 import { describe, expect, it } from 'vitest'
 import { resolveAutoModel } from '../../src/lib/models/router'
+import type { AutoCandidate } from '../../src/lib/models/auto-policy'
 
-describe('resolveAutoModel', () => {
-  it('lightweight greeting -> ag/gemini-3.7-flash-low cost 1', () => {
-    expect(resolveAutoModel('halo')).toMatchObject({
+const candidates: AutoCandidate[] = [
+  {
+    id: 'fixture/light',
+    routerModelId: 'fixture/light',
+    credit: 1,
+    tier: 'economy',
+    profile: 'lightweight',
+    score: 70,
+    vision: false,
+    files: false,
+  },
+  {
+    id: 'fixture/code',
+    routerModelId: 'fixture/code',
+    credit: 15,
+    tier: 'premium',
+    profile: 'coding',
+    score: 96,
+    vision: true,
+    files: true,
+  },
+  {
+    id: 'fixture/reason',
+    routerModelId: 'fixture/reason',
+    credit: 6,
+    tier: 'balanced',
+    profile: 'reasoning',
+    score: 85,
+    vision: true,
+    files: false,
+  },
+  {
+    id: 'fixture/cheap-reason',
+    routerModelId: 'fixture/cheap-reason',
+    credit: 2,
+    tier: 'economy',
+    profile: 'reasoning',
+    score: 60,
+    vision: false,
+    files: false,
+  },
+]
+
+describe('resolveAutoModel catalog policy', () => {
+  it('picks the cheapest lightweight candidate for greetings', () => {
+    expect(resolveAutoModel('halo', { candidates })).toMatchObject({
+      id: 'fixture/light',
       cost: 1,
       reason: 'lightweight',
     })
   })
-  it('heavy reasoning -> ag/gemini-3.7-flash-high cost 6', () => {
-    expect(
-      resolveAutoModel('selesaikan persamaan x^2+3x=10 langkah demi langkah'),
-    ).toMatchObject({ routerModelId: 'ag/gemini-3.7-flash-high', cost: 6 })
-  })
-  it('code block -> cx/gpt-5.6-sol cost 15', () => {
-    expect(
-      resolveAutoModel('refactor this:\n```ts\nconst x=1\n```'),
-    ).toMatchObject({
-      routerModelId: 'cx/gpt-5.6-sol',
+
+  it('picks a coding candidate by classification', () => {
+    expect(resolveAutoModel('refactor code', { candidates })).toMatchObject({
+      id: 'fixture/code',
       cost: 15,
+      reason: 'coding',
     })
   })
-  it('SQL keyword -> coding tier', () => {
-    expect(resolveAutoModel('buatkan schema SQL untuk users')).toMatchObject({
-      cost: 15,
-    })
+
+  it('picks a reasoning candidate for multi-step prompts', () => {
+    expect(
+      resolveAutoModel('jelaskan langkah demi langkah', { candidates }),
+    ).toMatchObject({ id: 'fixture/reason', reason: 'reasoning' })
   })
-  it('low-credit fallback: coding but credits 2 -> 6', () => {
-    expect(resolveAutoModel('refactor code', { credits: 2 })).toMatchObject({
-      cost: 6,
+
+  it('respects the credit budget before choosing a profile', () => {
+    const resolved = resolveAutoModel('refactor code', {
+      candidates,
+      credits: 2,
     })
+    expect(resolved?.cost).toBeLessThanOrEqual(2)
   })
-  it('falls back to available model when primary candidates are unavailable', () => {
-    const result = resolveAutoModel('halo', {
-      isAvailable: (modelId) => modelId === 'ag/gemini-3.7-flash-high',
-    })
-    expect(result.routerModelId).toBe('ag/gemini-3.7-flash-high')
+
+  it('honours input capability requirements', () => {
+    expect(
+      resolveAutoModel('refactor code', { candidates, requireVision: true }),
+    ).toMatchObject({ id: 'fixture/code' })
+    expect(
+      resolveAutoModel('halo', { candidates, requireVision: true }),
+    ).toBeNull()
+    expect(
+      resolveAutoModel('halo', { candidates, requireFiles: true, credits: 2 }),
+    ).toBeNull()
   })
-  it('falls back to registry model when all rule candidates are unavailable', () => {
-    const result = resolveAutoModel('halo', {
-      isAvailable: (modelId) => modelId === 'bai/qwen3.8-flash',
-    })
-    expect(result.routerModelId).toBe('bai/qwen3.8-flash')
-    expect(result.reason).toBe('registry-fallback')
+
+  it('fails closed when no candidate is eligible', () => {
+    expect(resolveAutoModel('halo', { candidates: [] })).toBeNull()
+    expect(resolveAutoModel('halo', { candidates, credits: 0 })).toBeNull()
   })
 })
