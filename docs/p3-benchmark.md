@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: BLOCKED on full-suite budget.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria is in the 22-route retirement set with history preserved. Two authorized 17-call preflights ran without retry. Gateway provenance now verifies 15 exact routes from the streaming run; two routes timed out. The 60-case text suite, repeats, Vision cases, credit calibration, and cutover have not run. Provider cost for the streaming preflight is known; its value is in the local report.
+**Status: IN PROGRESS on full-suite evidence.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria is in the 22-route retirement set with history preserved. Gateway provenance verified all 17 exact routes from read-only usage correlation. Full suite `p3-full-v2` completed 1,940 calls but remained BLOCKED: 30-second streams timed out on several models, and image media-type rejections were initially misclassified. A TDD fix now classifies those rejections as `image-unsupported`, and an audited `--recheck` pass raised 15 of 17 routes to review-required. The two remaining routes timed out at 30 seconds; one needed ~50 seconds plus gateway provenance to accept its bare model ID. Rerun `p3-full-v4` uses a 120-second timeout. No catalog cutover has run.
 
 ## Reproduce
 
@@ -13,7 +13,8 @@ bun src/server/core/p3-benchmark.ts --run p3-discovery --resume --discover
 
 Without `--live`, the runner sends no inference. After approval, add `--live --max-calls N --max-tokens N` using the approved cumulative caps. Run `--stage preflight`, then `--stage pilot --resume`, then `--stage full --resume`. Use repeated `--route <exact-id>` flags for any subset or a future model, with a distinct `--run` name for each route list. Keep the same `--seed`, `--max-output`, and `--timeout` when resuming. `--deadline` is the wall-clock run limit in milliseconds; `--concurrency`, `--retries`, `--global-gap`, and `--provider-gap` bound requests. Exit 2 means blocked live coverage; exit 1 means invalid configuration or failed checkpoint. No fallback route is requested. An interrupted reservation still counts against both caps.
 
-`--enrich` re-reads an existing checkpoint, correlates the append-only journal with read-only gateway usage rows, and rewrites only the derived reports. It sends no inference and needs the original `--run`, `--resume`, `--stage`, `--max-output`, and `--timeout`. The correlation requires one completion per request within 2 seconds, gateway status `ok`, and a gateway model equal to the route after the first slash. A stream alias is accepted only with that provenance. `NINEROUTER_DB_PATH` overrides the default local gateway database path.
+
+`--recheck` re-evaluates jobs whose latest journal state is a final invalid state (`http-rejected`, `aborted`, `identity-mismatch`, and related transport outcomes); it never rechecks `valid` or `auth`. Repeat `--recheck-route <exact-id>` limits that pass to selected routes without changing the frozen route list. Each rechecked job gets a fresh reservation and a new append-only row; prior rows stay in the journal.
 
 Live runner v2 uses the same resolver while each request completes. An alias reported on the wire becomes a valid exact-route result only when the gateway usage row resolves that route; otherwise it stays `identity-mismatch`. Failed resolver lookups do not weaken the gate.
 
