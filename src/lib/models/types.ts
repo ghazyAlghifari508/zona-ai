@@ -60,6 +60,12 @@ export interface ModelCatalogEntry {
     | 'verified'
     | 'failed'
     | 'inconclusive'
+  visionStatus?:
+    | 'supported'
+    | 'unsupported'
+    | 'unverified'
+    | 'inconclusive'
+    | 'not-tested'
   aliasIds?: string[]
   searchAliases?: string[]
   metadata?: {
