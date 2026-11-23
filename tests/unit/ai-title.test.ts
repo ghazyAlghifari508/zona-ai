@@ -4,6 +4,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('../../src/server/core/model-catalog', () => ({
+  resolveTitleModel: vi.fn(async () => 'fixture/title-model'),
+}))
 vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai')
   return { ...actual, streamText: vi.fn() }
@@ -11,7 +14,7 @@ vi.mock('ai', async () => {
 
 import { streamText } from 'ai'
 import { generateAiTitle } from '../../src/lib/chat/title'
-import { modelRegistry } from '../../src/lib/models/registry'
+import { resolveTitleModel } from '../../src/server/core/model-catalog'
 
 type StreamTextResult = ReturnType<typeof streamText>
 
@@ -23,10 +26,7 @@ const mockStreamError = (message: string) =>
   ({ text: Promise.reject(new Error(message)) }) as unknown as StreamTextResult
 
 const mockedStreamText = vi.mocked(streamText)
-
-const lightweightRouterModelId = modelRegistry.find((m) => m.id === 'auto')
-  ?.routingRules?.lightweight
-
+const mockedResolveTitleModel = vi.mocked(resolveTitleModel)
 beforeEach(() => {
   mockedStreamText.mockReset()
 })
@@ -59,15 +59,20 @@ describe('generateAiTitle', () => {
     expect(title).toBeNull()
   })
 
-  it('routes through the registry lightweight model and includes the prompt', async () => {
+  it('routes through the catalog title model and includes the prompt', async () => {
     mockedStreamText.mockReturnValueOnce(mockStream('Judul'))
     await generateAiTitle({
       prompt: 'pertanyaan-sintetis-123',
     })
     expect(mockedStreamText).toHaveBeenCalledTimes(1)
     const call = mockedStreamText.mock.calls[0][0]
-    expect(lightweightRouterModelId).toBeTruthy()
-    expect(call.model).toHaveProperty('modelId', lightweightRouterModelId)
+    expect(call.model).toHaveProperty('modelId', 'fixture/title-model')
     expect(String(call.prompt)).toContain('pertanyaan-sintetis-123')
+  })
+
+  it('fails closed to no title when the catalog has no eligible model', async () => {
+    mockedResolveTitleModel.mockResolvedValueOnce(null)
+    expect(await generateAiTitle({ prompt: 'p' })).toBeNull()
+    expect(mockedStreamText).not.toHaveBeenCalled()
   })
 })

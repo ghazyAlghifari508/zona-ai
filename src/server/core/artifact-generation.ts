@@ -25,8 +25,6 @@ import {
   generationRuns,
   messages,
 } from '../../lib/db/schema'
-import { getModelById, isVisionCapable } from '../../lib/models/registry'
-import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import { RATE_LIMIT_WINDOW_MS } from '../../lib/utils/constants'
@@ -39,7 +37,6 @@ import type {
   ArtifactOperation,
   CompareArtifactInput,
 } from '../../lib/utils/validation'
-import { isModelAvailable } from './admin-models'
 import { finalizeArtifactVersion } from './artifact-finalization'
 import {
   buildMentionContext,
@@ -60,6 +57,7 @@ import {
 import { readArtifactVersionContentCore } from './artifact-workspace'
 import { autoTitleConversation, controllers } from './chat'
 import { buildModelHistory } from './history'
+import { requireVisionCapable, resolveInferenceModel } from './inference-model'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/artifact-generation.ts is server-only')
@@ -988,45 +986,20 @@ export async function generateArtifactsCore({
     })
   }
 
-  const modelEntry = getModelById(data.modelId)
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${userId}`,
   )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
 
-  let routerModelId = modelEntry.routerModelId
-  let cost: number
-  let routingReason: string | undefined
-  if (data.modelId === 'auto') {
-    const resolved = resolveAutoModel(data.content, {
-      credits: currentCredits,
-      isAvailable: isModelAvailable,
-    })
-    routerModelId = resolved.routerModelId
-    cost = resolved.cost
-    routingReason = resolved.reason
-  } else {
-    if (!isModelAvailable(data.modelId)) {
-      throw new AppError(
-        'Model ini sedang dinonaktifkan oleh administrator.',
-        400,
-        'ERR-MODEL-DISABLED',
-      )
-    }
-    cost =
-      typeof modelEntry.creditCost === 'number'
-        ? modelEntry.creditCost
-        : modelEntry.creditCost.max
-  }
-
-  if (!isModelAvailable(routerModelId)) {
-    throw new AppError(
-      'Model ini sedang dinonaktifkan oleh administrator.',
-      400,
-      'ERR-MODEL-DISABLED',
-    )
-  }
+  const resolvedModel = await resolveInferenceModel({
+    modelId: data.modelId,
+    prompt: data.content,
+    credits: currentCredits,
+  })
+  const routerModelId = resolvedModel.routerModelId
+  const cost = resolvedModel.cost
+  const routingReason = resolvedModel.reason
 
   const revisionCount = planned.filter((p) => p.type === 'revise').length
   const fanOut = planned.length
@@ -1139,13 +1112,7 @@ export async function generateArtifactsCore({
       }
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
-    if (hasImage && !isVisionCapable(data.modelId)) {
-      throw new AppError(
-        'Model tidak mendukung vision. Pilih model vision-capable.',
-        400,
-        'ERR-003',
-      )
-    }
+    if (hasImage) await requireVisionCapable(routerModelId)
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
       const { body } = await getObject({ bucket: a.r2Bucket, key: a.r2Key })
@@ -1559,28 +1526,25 @@ export async function generateCompareArtifactsCore({
     }
   }
 
-  const modelCosts = new Map<string, { cost: number; routerModelId: string }>()
-  for (const modelId of data.modelIds) {
-    const entry = getModelById(modelId)
-    if (!isModelAvailable(entry.routerModelId)) {
-      throw new AppError(
-        'Model ini sedang dinonaktifkan oleh administrator.',
-        400,
-        'ERR-MODEL-DISABLED',
-      )
-    }
-    const cost =
-      typeof entry.creditCost === 'number'
-        ? entry.creditCost
-        : entry.creditCost.max
-    modelCosts.set(modelId, { cost, routerModelId: entry.routerModelId })
-  }
-
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${userId}`,
   )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
+
+  const modelCosts = new Map<string, { cost: number; routerModelId: string }>()
+  for (const modelId of data.modelIds) {
+    const resolved = await resolveInferenceModel({
+      modelId,
+      prompt: data.content,
+      credits: currentCredits,
+    })
+    modelCosts.set(modelId, {
+      cost: resolved.cost,
+      routerModelId: resolved.routerModelId,
+    })
+  }
+
   const totalCost = comparePlan.generations.reduce(
     (sum, g) => sum + (modelCosts.get(g.modelId)?.cost ?? 0),
     0,
@@ -1701,14 +1665,8 @@ export async function generateCompareArtifactsCore({
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
     if (hasImage) {
-      for (const modelId of data.modelIds) {
-        if (!isVisionCapable(modelId)) {
-          throw new AppError(
-            'Model tidak mendukung vision. Pilih model vision-capable.',
-            400,
-            'ERR-003',
-          )
-        }
+      for (const { routerModelId } of modelCosts.values()) {
+        await requireVisionCapable(routerModelId)
       }
     }
     const { getObject } = await import('../../lib/r2/client')

@@ -1,6 +1,6 @@
 import { streamText } from 'ai'
+import { resolveTitleModel } from '../../server/core/model-catalog'
 import { nineRouter } from '../ai/9router'
-import { modelRegistry } from '../models/registry'
 import { CONVERSATION_TITLE_MAX_LENGTH } from '../utils/constants'
 
 const TITLE_SYSTEM = [
@@ -14,8 +14,7 @@ const TITLE_SYSTEM = [
 export async function generateAiTitle(input: {
   prompt: string
 }): Promise<string | null> {
-  const routerModelId = modelRegistry.find((m) => m.id === 'auto')?.routingRules
-    ?.lightweight
+  const routerModelId = await resolveTitleModel()
   if (!routerModelId) return null
   try {
     const result = streamText({

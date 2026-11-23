@@ -123,7 +123,7 @@ export async function getAdminDashboardMetricsCore(
     db
       .select({ value: count() })
       .from(modelSettings)
-      .where(eq(modelSettings.isActive, false)),
+      .where(eq(modelSettings.status, 'inactive')),
     db.select({ total: sum(users.credits) }).from(users),
     db.select({ value: count() }).from(creditTransactions),
     db

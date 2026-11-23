@@ -6,8 +6,6 @@ import { getAuthSession } from '../../lib/auth/session'
 import { artifactKindForSkill } from '../../lib/chat/skills'
 import { db } from '../../lib/db/index'
 import { conversations, generationRuns, messages } from '../../lib/db/schema'
-import { getModelById } from '../../lib/models/registry'
-import { resolveAutoModel } from '../../lib/models/router'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import {
   RATE_LIMIT_CHAT_PER_MINUTE,
@@ -27,6 +25,7 @@ import {
 } from './artifact-repository'
 import { readArtifactVersionContentCore } from './artifact-workspace'
 import { buildModelHistory } from './history'
+import { resolveInferenceModel } from './inference-model'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/artifacts.ts is server-only')
@@ -154,24 +153,18 @@ export async function retryArtifactGenerationCore({
     gen.requestMessageId,
   )
 
-  const modelEntry = getModelById(gen.modelId)
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${userId}`,
   )
   const rows = getRows<{ credits: number }>(creditRes)
   const cur = rows[0]?.credits ?? 0
-  let routerModelId = gen.routerModelId
-  let cost: number
-  if (gen.modelId === 'auto') {
-    const resolved = resolveAutoModel(instruction, { credits: cur })
-    routerModelId = resolved.routerModelId
-    cost = resolved.cost
-  } else {
-    cost =
-      typeof modelEntry.creditCost === 'number'
-        ? modelEntry.creditCost
-        : modelEntry.creditCost.max
-  }
+  const resolved = await resolveInferenceModel({
+    modelId: gen.modelId,
+    prompt: instruction,
+    credits: cur,
+  })
+  const routerModelId = resolved.routerModelId
+  const cost = resolved.cost
   if (cur < cost) throwZonaError('ERR-019')
 
   const isRevision = Boolean(gen.sourceArtifactId && gen.sourceVersionId)

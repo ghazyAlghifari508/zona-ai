@@ -27,8 +27,6 @@ import {
   usageRecords,
   webSources,
 } from '../../lib/db/schema'
-import { getModelById, isVisionCapable } from '../../lib/models/registry'
-import { resolveAutoModel } from '../../lib/models/router'
 import { retrieveContext } from '../../lib/rag/retrieve'
 import { enforceRateLimit } from '../../lib/security/rate-limit'
 import { searchProvider } from '../../lib/tavily/client'
@@ -45,7 +43,6 @@ import {
 } from '../../lib/utils/errors'
 import { generateTitle } from '../../lib/utils/title'
 import { type chatSchema, compareSchema } from '../../lib/utils/validation'
-import { getModelOverridesMap, isModelAvailable } from './admin-models'
 import { buildArtifactCatalogContext } from './artifact-catalog-context'
 import {
   type ArtifactMentionSource,
@@ -59,6 +56,7 @@ import { listConversationArtifactSummaries } from './artifact-repository'
 import { finalizeTerminalRun, retryArtifactGenerationCore } from './artifacts'
 import { validateCompareModelsAvailability } from './compare'
 import { buildModelHistory } from './history'
+import { requireVisionCapable, resolveInferenceModel } from './inference-model'
 
 export async function autoTitleConversation(
   convId: string,
@@ -154,15 +152,6 @@ export async function sendMessageCore({
   checkUserNotBanned(session.user)
   const userId = session.user.id
 
-  await getModelOverridesMap()
-  if (!isModelAvailable(data.modelId)) {
-    throw new AppError(
-      'Model ini sedang dinonaktifkan oleh administrator.',
-      400,
-      'ERR-MODEL-DISABLED',
-    )
-  }
-
   // Rate limit before any DB write / credit deduction (SECURITY.md §13)
   enforceRateLimit({
     key: `chat:${userId}`,
@@ -178,42 +167,21 @@ export async function sendMessageCore({
     )
   }
 
-  const modelEntry = getModelById(data.modelId)
-  const input = data
-
-  let routerModelId = modelEntry.routerModelId
-  let cost: number
-  let routingReason: string | undefined
-
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${userId}`,
   )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
 
-  if (input.modelId === 'auto') {
-    const resolved = resolveAutoModel(input.content, {
-      credits: currentCredits,
-      isAvailable: isModelAvailable,
-    })
-    routerModelId = resolved.routerModelId
-    cost = resolved.cost
-    routingReason = resolved.reason
-  } else {
-    cost =
-      typeof modelEntry.creditCost === 'number'
-        ? modelEntry.creditCost
-        : modelEntry.creditCost.max
-  }
-
-  if (!isModelAvailable(routerModelId)) {
-    throw new AppError(
-      'Model ini sedang dinonaktifkan oleh administrator.',
-      400,
-      'ERR-MODEL-DISABLED',
-    )
-  }
-
+  const resolvedModel = await resolveInferenceModel({
+    modelId: data.modelId,
+    prompt: data.content,
+    credits: currentCredits,
+  })
+  const input = data
+  const routerModelId = resolvedModel.routerModelId
+  const cost = resolvedModel.cost
+  const routingReason = resolvedModel.reason
   if (currentCredits < cost) {
     throwZonaError('ERR-019')
   }
@@ -322,15 +290,7 @@ export async function sendMessageCore({
       }
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
-    const targetModelForVision =
-      input.modelId === 'auto' ? routerModelId : input.modelId
-    if (hasImage && !isVisionCapable(targetModelForVision)) {
-      throw new AppError(
-        'Model tidak mendukung vision. Pilih model vision-capable.',
-        400,
-        'ERR-003',
-      )
-    }
+    if (hasImage) await requireVisionCapable(routerModelId)
     const { getObject } = await import('../../lib/r2/client')
     for (const a of atts.filter((x) => x.mimeType.startsWith('image/'))) {
       const { body } = await getObject({
@@ -669,29 +629,26 @@ export async function sendCompareMessageCore({
     )
   }
 
-  // Validate enabled and collect costs/routerIds
-  const costs: number[] = []
-  const routerModelIds: string[] = []
-  for (const mid of data.modelIds) {
-    try {
-      const entry = getModelById(mid)
-      costs.push(
-        typeof entry.creditCost === 'number'
-          ? entry.creditCost
-          : entry.creditCost.max,
-      )
-      routerModelIds.push(entry.routerModelId)
-    } catch {
-      throwZonaError('ERR-003', mid)
-    }
-  }
-  const total = costs.reduce((a, b) => a + b, 0)
-
+  // Validate catalog eligibility and collect costs/routerIds
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${userId}`,
   )
   const creditRows = getRows<{ credits: number }>(creditRes)
   const currentCredits = creditRows[0]?.credits ?? 0
+
+  const costs: number[] = []
+  const routerModelIds: string[] = []
+  for (const mid of data.modelIds) {
+    const resolved = await resolveInferenceModel({
+      modelId: mid,
+      prompt: data.content,
+      credits: currentCredits,
+    })
+    costs.push(resolved.cost)
+    routerModelIds.push(resolved.routerModelId)
+  }
+  const total = costs.reduce((a, b) => a + b, 0)
+
   if (currentCredits < total) {
     throw new AppError(
       `Kredit tidak mencukupi. Butuh ${total} (Sisa ${currentCredits})`,
@@ -800,16 +757,8 @@ export async function sendCompareMessageCore({
     }
     const hasImage = atts.some((a) => a.mimeType.startsWith('image/'))
     if (hasImage) {
-      for (let i = 0; i < data.modelIds.length; i++) {
-        const mid =
-          data.modelIds[i] === 'auto' ? routerModelIds[i] : data.modelIds[i]
-        if (!isVisionCapable(mid)) {
-          throw new AppError(
-            'Model tidak mendukung vision. Pilih model vision-capable.',
-            400,
-            'ERR-003',
-          )
-        }
+      for (const routerModelId of routerModelIds) {
+        await requireVisionCapable(routerModelId)
       }
     }
     const { getObject } = await import('../../lib/r2/client')
@@ -1453,27 +1402,21 @@ export async function retryGenerationCore({
     throw new AppError('Forbidden', 403, 'ERR-003')
   if (gen.status !== 'failed')
     throw new AppError('Only failed generations can be retried', 400, 'ERR-003')
-  await getModelOverridesMap()
-  if (!isModelAvailable(gen.modelId)) {
-    throw new AppError(
-      'Model ini sedang dinonaktifkan oleh administrator.',
-      400,
-      'ERR-MODEL-DISABLED',
-    )
-  }
   if (isArtifactSkill(gen.skillId ?? 'none')) {
     return retryArtifactGenerationCore({ generationId, request })
   }
-  const modelEntry = getModelById(gen.modelId)
-  const cost =
-    typeof modelEntry.creditCost === 'number'
-      ? modelEntry.creditCost
-      : modelEntry.creditCost.max
+
   const creditRes = await db.execute(
     sql`SELECT credits FROM users WHERE id=${session.user.id}`,
   )
   const rows = getRows<{ credits: number }>(creditRes)
   const cur = rows[0]?.credits ?? 0
+  const resolved = await resolveInferenceModel({
+    modelId: gen.modelId,
+    prompt: '',
+    credits: cur,
+  })
+  const cost = resolved.cost
   if (cur < cost) throwZonaError('ERR-019')
 
   const [msg] = await db
@@ -1695,26 +1638,16 @@ export async function stopGenerationCore({
   const totalUsage = usageRows
     .filter((row) => row.type === 'usage')
     .reduce((sum, row) => sum + Math.abs(row.amount), 0)
-  let cancelRefund: number
-  if (totalUsage > 0) {
-    cancelRefund = totalUsage
-  } else {
-    const modelEntry = getModelById(gen.modelId)
-    cancelRefund =
-      typeof modelEntry.creditCost === 'number'
-        ? modelEntry.creditCost
-        : modelEntry.creditCost.max
-  }
   const won = await finalizeTerminalRun({
     genId: generationId,
     status: 'cancelled',
   })
-  if (won) {
+  if (won && totalUsage > 0) {
     await refundCredits({
       userId: session.user.id,
       generationRunId: generationId,
       modelId: gen.modelId,
-      amount: cancelRefund,
+      amount: totalUsage,
     })
   }
   controllers.delete(generationId)
