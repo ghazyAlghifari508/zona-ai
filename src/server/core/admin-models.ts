@@ -8,6 +8,7 @@ import {
   createAdminModelInputSchema,
   type PublishAdminModelInput,
   publishAdminModelInputSchema,
+  RESERVED_MODEL_ID,
   type UpdateAdminModelInput,
   updateAdminModelInputSchema,
 } from '../../lib/models/admin-model-input'
@@ -309,10 +310,10 @@ export async function retireAdminModelCore({
   modelId: string
 }): Promise<AdminMutationResult> {
   const session = await requireAdminSession(request)
-  const modelId = adminModelIdSchema.parse(rawModelId)
-  if (modelId.toLowerCase() === 'auto') {
+  if (rawModelId.trim().toLowerCase() === RESERVED_MODEL_ID) {
     throw new AppError('Auto tidak dapat dihapus', 400, 'ERR-MODEL-RESERVED')
   }
+  const modelId = adminModelIdSchema.parse(rawModelId)
 
   const label = await findHistoricalModelLabel(modelId)
   const [existing] = await db
@@ -371,11 +372,14 @@ export async function retireAdminModelCore({
   }
 }
 
-export async function publishAdminModelCore(
-  params: PublishAdminModelInput & { request: Request },
-): Promise<AdminMutationResult> {
-  const session = await requireAdminSession(params.request)
-  const input = publishAdminModelInputSchema.parse(params)
+export async function publishAdminModelCore({
+  request,
+  ...rawInput
+}: PublishAdminModelInput & {
+  request: Request
+}): Promise<AdminMutationResult> {
+  const session = await requireAdminSession(request)
+  const input = publishAdminModelInputSchema.parse(rawInput)
   const label = await findHistoricalModelLabel(input.modelId)
   const [existing] = await db
     .select()
