@@ -87,6 +87,9 @@ export function ModelSelector({
     (m) =>
       m.status !== 'retired' &&
       m.isActive !== false &&
+      m.evaluationStatus !== 'pending' &&
+      m.evaluationStatus !== 'failed' &&
+      m.evaluationStatus !== 'inconclusive' &&
       (!compareEnabled || !m.isDefault),
   )
   const filteredSelectable = searchQuery.trim()
@@ -95,7 +98,7 @@ export function ModelSelector({
   const selected = findCatalogEntry(catalog, value)
 
   const costLabel = (m: {
-    creditCost?: number | { min: number; max: number }
+    creditCost?: number | { min: number; max: number } | null
   }) => {
     if (!m.creditCost) return ''
     return typeof m.creditCost === 'number'
@@ -107,7 +110,11 @@ export function ModelSelector({
     const m = findCatalogEntry(catalog, id)
     if (!m) return false
     const cost =
-      typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max
+      m.creditCost === null
+        ? 0
+        : typeof m.creditCost === 'number'
+          ? m.creditCost
+          : m.creditCost.max
     return credits < cost
   }
 
@@ -181,7 +188,7 @@ export function ModelSelector({
           isDisabled
             ? (m.disabledReason ?? 'Sedang tidak tersedia')
             : insufficient
-              ? `Butuh ${typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max} (Sisa ${credits})`
+              ? `Butuh ${m.creditCost === null ? 0 : typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max} (Sisa ${credits})`
               : undefined
         }
         className={cn(

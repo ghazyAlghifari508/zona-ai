@@ -54,6 +54,7 @@ const creditCostSchema = z.union([
       max: z.number().int().nonnegative(),
     })
     .strict(),
+  z.null(),
 ])
 export const catalogMetadataSchema = z
   .object({
@@ -194,9 +195,11 @@ export function toCatalogEntryDto(
     intelligenceBars: row.intelligenceBars,
     confidence: confidenceSchema.parse(row.confidence),
     creditCost:
-      row.creditCostMin === row.creditCostMax
-        ? row.creditCostMin
-        : { min: row.creditCostMin, max: row.creditCostMax },
+      row.evaluationStatus === 'legacy' || row.evaluationStatus === 'verified'
+        ? row.creditCostMin === row.creditCostMax
+          ? row.creditCostMin
+          : { min: row.creditCostMin, max: row.creditCostMax }
+        : null,
     creditTier: row.creditTier,
     capabilities: row.capabilities,
     searchAliases: row.searchAliases,

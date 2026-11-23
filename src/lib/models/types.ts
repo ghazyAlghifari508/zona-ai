@@ -49,13 +49,19 @@ export interface ModelCatalogEntry {
   description: string
   isDefault: boolean
   creditTier: ModelRegistryEntry['creditTier']
-  creditCost: ModelRegistryEntry['creditCost']
+  creditCost: ModelRegistryEntry['creditCost'] | null
   capabilities: ModelRegistryEntry['capabilities']
   isActive?: boolean
   disabledReason?: string | null
   status?: 'active' | 'inactive' | 'retired'
-  searchAliases?: string[]
+  evaluationStatus?:
+    | 'legacy'
+    | 'pending'
+    | 'verified'
+    | 'failed'
+    | 'inconclusive'
   aliasIds?: string[]
+  searchAliases?: string[]
   metadata?: {
     contextWindow: number | null
     maxOutput: number | null

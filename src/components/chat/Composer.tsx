@@ -272,7 +272,11 @@ export function Composer({
     const m = catalog.find((x) => x.id === id)
     if (!m) return sum
     const cost =
-      typeof m.creditCost === 'number' ? m.creditCost : m.creditCost.max
+      m.creditCost === null
+        ? 0
+        : typeof m.creditCost === 'number'
+          ? m.creditCost
+          : m.creditCost.max
     return sum + cost
   }, 0)
   const compareInsufficient = credits < compareTotal

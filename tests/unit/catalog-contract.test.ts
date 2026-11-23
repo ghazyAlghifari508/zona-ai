@@ -53,6 +53,12 @@ const seedRow: CatalogSeedRow = {
 }
 
 describe('catalog DTO boundary', () => {
+  it('omits credit cost for unevaluated models', () => {
+    const pending = toCatalogEntryDto({ ...seedRow, evaluationStatus: 'pending' })
+    expect(catalogEntryDtoSchema.safeParse(pending).success).toBe(true)
+    expect(pending.creditCost).toBeNull()
+  })
+
   it('maps a catalog row to a safe DTO without secrets or internal notes', () => {
     const dto = toCatalogEntryDto(seedRow)
     expect(catalogEntryDtoSchema.safeParse(dto).success).toBe(true)

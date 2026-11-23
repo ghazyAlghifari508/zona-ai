@@ -59,6 +59,9 @@ export async function resolveInferenceModel(
     throw new AppError('Model tidak ditemukan', 400, 'ERR-003')
   }
 
+  if (entry.creditCost === null) {
+    throw new AppError('Model belum dievaluasi', 400, 'ERR-MODEL-UNVERIFIED')
+  }
   const cost =
     typeof entry.creditCost === 'number'
       ? entry.creditCost
