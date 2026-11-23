@@ -90,7 +90,7 @@ function PlanCard({
       )}
     >
       {plan.popular && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-white">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-medium text-notion-blue">
           Populer
         </span>
       )}
@@ -100,7 +100,7 @@ function PlanCard({
           {plan.name}
         </h3>
         {isCurrent && (
-          <span className="rounded-full border border-hairline bg-paper px-2 py-0.5 text-[11px] font-medium text-graphite">
+          <span className="text-[11px] font-medium text-graphite">
             Paket saat ini
           </span>
         )}
@@ -267,14 +267,7 @@ function PricingSwitch({
         )}
       >
         Tahunan
-        <span
-          className={cn(
-            'rounded-full px-2 py-0.5 text-[11px] font-medium',
-            yearly ? 'bg-sky-tint text-notion-blue' : 'bg-ink/5 text-ink/60',
-          )}
-        >
-          Hemat 20%
-        </span>
+        <span className="text-[11px] font-medium">Hemat 20%</span>
       </button>
     </div>
   )
