@@ -703,7 +703,7 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
         request,
         p3Manifest.version,
       )
-      expect(cutover.final).toHaveLength(19)
+      expect(cutover.final).toHaveLength(18)
       expect(new Set(cutover.retired)).toEqual(
         new Set(p3Manifest.retire.map((row) => row.routerModelId)),
       )
@@ -713,6 +713,8 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
           routerModelId: id,
         })
       expect(await catalog.getEligibleModel('gpt-5.6-sol')).toBeNull()
+      expect(await catalog.getEligibleModel('atria/Atria-Dawn-Preview')).toBeNull()
+      expect(await catalog.findHistoricalModelLabel('atria/Atria-Dawn-Preview')).toMatchObject({ status: 'retired' })
       expect(
         await catalog.findHistoricalModelLabel('gpt-5.6-sol'),
       ).toMatchObject({ status: 'retired' })

@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: BLOCKED.** Preflight alone is authorized up to USD 1 with zero retries; a billing ceiling could not be verified on the configured gateway. No inference, P3 catalog import, publication, retirement, or credit change was applied. The target remains 18 physical routes plus virtual Auto; zero routes have verified P3 evidence. Current legacy selectability is a separate measure.
+**Status: BLOCKED.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. It adds Atria Dawn Preview to the 22-route retirement set without deleting its history. Preflight alone is authorized up to USD 1 with zero retries; a billing ceiling could not be verified. No inference, catalog import, publication, retirement, or credit change was applied to the application database.
 
 ## Reproduce
 
@@ -44,11 +44,15 @@ Discovery-only snapshot: `2026-11-23T03:08:44.876Z`; suite hash `d6ff39f7e6031f6
 
 ### USD 1 preflight readiness
 
-Dry run `p3-preflight-usd1` (2026-11-23T06:59:43.559Z), manifest hash `743c7ac9050f9dae9d4a95c1fee95c27af130709fd4d9a0c779300919d0da868`. `GET /models` returned HTTP 200 and listed 17/18 exact routes without pricing or quota fields. The documented model-info lookup returned HTTP 404 for the sampled route. The runner enforces call/token reservations, not USD. With no verified gateway/provider hard limit or tariff upper bound, it sent 0/18 inference requests. No retries, pilot, or cutover ran. Resume this checkpoint with `--live` only once the USD 1 ceiling is enforceable; keep `--stage preflight --retries 0 --concurrency 1 --max-calls 18 --max-tokens 18000 --max-output 512 --timeout 20000 --deadline 420000 --resume`.
+Dry run `p3-preflight-v2-usd1` (2026-11-23T08:38:29.725Z), manifest hash `5882a65401d7bb522e389914ec2027c2bf35285885768676beb723d117de065d`. Discovery listed 17/17 current targets. The authenticated 9Router dashboard exposes Pricing Settings for cost tracking and a Quota Tracker. No hard USD cap was verified in Settings, Pricing Settings, or Quota Tracker. The runner sent 0/17 inference requests and the full plan is 1,717 calls before retries. The older `p3-preflight-usd1` checkpoint reflects the superseded route list. Resume the v2 checkpoint with `--live` only once the USD 1 ceiling is enforceable:
+
+```bash
+bun src/server/core/p3-benchmark.ts --run p3-preflight-v2-usd1 --stage preflight --retries 0 --concurrency 1 --max-calls 17 --max-tokens 18000 --max-output 512 --timeout 20000 --deadline 420000 --resume --live
+```
 
 ## Admin and P4 handoff
 
-Use authenticated server operations in `src/server/functions/admin-models.ts`: `stageP3CatalogFn` uses P2 import for new pending entries, `publishAdminModelFn({data:{modelId,run}})` reads the trusted checkpoint on the server, `cutoverP3CatalogFn({data:'p3-catalog-v1'})` retires only the locked set in one transaction. Keep the report directory writable only by trusted operators; never accept report uploads. Stage/import does not make pending entries selectable. Publication recomputes scores and price from evidence, never accepts a browser-supplied rating, preserves inactive state, and is idempotent for the same run evidence. Review each retained model’s prior price in the audit metadata. Unknown capability does not enable a feature. Keep both DeepSeek route IDs separate; `cbai/deepseek-v4.1-flash` is a retirement target, not a fallback.
+Use the authenticated operations in `src/server/functions/admin-models.ts`: `stageP3CatalogFn` imports new pending entries, `publishAdminModelFn({data:{modelId,run}})` validates the trusted server checkpoint, and `cutoverP3CatalogFn({data:'p3-catalog-v2'})` retires only the manifest set in one transaction. Keep the report directory writable only by trusted operators; never accept report uploads. Pending entries are not selectable. Publication derives scores and prices from evidence, preserves inactive state, and is idempotent for the same evidence. Review prior prices in the audit metadata. Unknown capabilities stay disabled. Keep the two new DeepSeek routes separate; the old DeepSeek route and Atria remain resolvable for history after retirement.
 
 ```mermaid
 flowchart TD

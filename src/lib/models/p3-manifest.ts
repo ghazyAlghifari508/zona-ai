@@ -4,11 +4,10 @@ const retained: readonly string[] = [
   'gh/gpt-4.1',
   'gh/gpt-4o',
   'ag/gemini-3.8-flash-high',
-  'atria/Atria-Dawn-Preview',
 ]
 
 export const p3Manifest = {
-  version: 'p3-catalog-v1',
+  version: 'p3-catalog-v2',
   retained,
   retire: [
     ['cx/gpt-5.6-terra'],
@@ -32,6 +31,7 @@ export const p3Manifest = {
     ['oc/muse-spark-1.2-contributor-free'],
     ['oc/muse-spark-1.3-contributor-free'],
     ['cbai/deepseek-v4.1-flash'],
+    ['atria/Atria-Dawn-Preview'],
   ].map(([routerModelId, legacyId = routerModelId]) => ({
     routerModelId,
     legacyId,

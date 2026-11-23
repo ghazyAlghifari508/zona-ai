@@ -409,7 +409,7 @@ async function main() {
       protocol:
         'Flag ceiling/floor if all retained score ≥95 or ≤5; flag limited separation if range <5. Keep 65/85 unless user approves change.',
       saturation:
-        completeValues.length === 4
+        completeValues.length === retained.length
           ? completeValues.every((s) => s >= 95) ||
             completeValues.every((s) => s <= 5) ||
             Math.max(...completeValues) - Math.min(...completeValues) < 5

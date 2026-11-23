@@ -15,8 +15,12 @@ const final = [
 
 describe('P3 exact catalog scope', () => {
   it('partitions all legacy physical routes without changing canonical identity', () => {
-    expect(p3Manifest.retained).toHaveLength(4)
-    expect(p3Manifest.retire).toHaveLength(21)
+    expect(p3Manifest.retained).toHaveLength(3)
+    expect(p3Manifest.retire).toHaveLength(22)
+    expect(p3Manifest.retire).toContainEqual({
+      legacyId: 'atria/Atria-Dawn-Preview',
+      routerModelId: 'atria/Atria-Dawn-Preview',
+    })
     expect(
       new Set([
         ...p3Manifest.retained,
@@ -36,7 +40,7 @@ describe('P3 exact catalog scope', () => {
   })
 
   it('rejects missing and substituted routes, reports unrelated additions separately', () => {
-    expect(final).toHaveLength(19)
+    expect(final).toHaveLength(18)
     expect(inspectP3Scope(final)).toEqual({
       missing: [],
       drift: [],
