@@ -156,7 +156,7 @@ describe.sequential('sendCompareMessage integration', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         content: 'jelaskan AI',
         skillId: 'none',
       },
@@ -205,7 +205,7 @@ describe.sequential('sendCompareMessage integration', () => {
     await expect(
       sendCompareMessageCore({
         data: {
-          modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+          modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
           content: 'insufficient',
           skillId: 'none',
         },
@@ -236,7 +236,7 @@ describe.sequential('sendCompareMessage integration', () => {
     await expect(
       sendCompareMessageCore({
         data: {
-          modelIds: ['auto', 'gemini-3.7-flash-high'],
+          modelIds: ['auto', 'ag/gemini-3.7-flash-high'],
           content: 'hi',
           skillId: 'none',
         } as never,
@@ -246,7 +246,7 @@ describe.sequential('sendCompareMessage integration', () => {
     await expect(
       sendCompareMessageCore({
         data: {
-          modelIds: ['gemini-3.7-flash-high', 'gemini-3.7-flash-high'],
+          modelIds: ['ag/gemini-3.7-flash-high', 'ag/gemini-3.7-flash-high'],
           content: 'hi',
           skillId: 'none',
         } as never,
@@ -256,7 +256,7 @@ describe.sequential('sendCompareMessage integration', () => {
     await expect(
       sendCompareMessageCore({
         data: {
-          modelIds: ['gemini-3.7-flash-high'],
+          modelIds: ['ag/gemini-3.7-flash-high'],
           content: 'hi',
           skillId: 'none',
         } as never,
@@ -273,7 +273,7 @@ describe.sequential('sendCompareMessage integration', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         content: 'partial fail',
         skillId: 'none',
       },
@@ -291,7 +291,7 @@ describe.sequential('sendCompareMessage integration', () => {
       .where(eq(conversations.userId, compareUserId))
     const gens = gensJoined.map((row) => row.generation_runs)
     const target =
-      gens.find((g) => g.modelId === 'gpt-5.6-sol') ?? gens[gens.length - 1]
+      gens.find((g) => g.modelId === 'cx/gpt-5.6-sol') ?? gens[gens.length - 1]
     // simulate failure: update status failed and refund
     await db
       .update(generationRuns)
@@ -343,7 +343,7 @@ describe.sequential('sendCompareMessage integration', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         content: 'retry test',
         skillId: 'none',
       },
@@ -361,7 +361,7 @@ describe.sequential('sendCompareMessage integration', () => {
       .where(eq(conversations.userId, compareUserId))
     const gensBefore = gensBeforeJoined
       .map((row) => row.generation_runs)
-      .filter((g) => g.modelId === 'gpt-5.6-sol')
+      .filter((g) => g.modelId === 'cx/gpt-5.6-sol')
     const target = gensBefore[gensBefore.length - 1]
     // force failed status
     await db
@@ -405,7 +405,7 @@ describe.sequential('sendCompareMessage integration', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         content: 'persist test',
         skillId: 'none',
       },
@@ -443,7 +443,7 @@ describe.sequential('sendCompareMessage integration', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         content: 'cancel test',
         skillId: 'none',
       },
@@ -509,12 +509,12 @@ describe.sequential('sendCompareMessage integration', () => {
       .values({
         conversationId: conv.id,
         userMessageId: userMsg.id,
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         status: 'running',
       })
       .returning()
     const genIds: string[] = []
-    for (const modelId of ['gemini-3.7-flash-high', 'gpt-5.6-sol']) {
+    for (const modelId of ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol']) {
       const [assistantMsg] = await db
         .insert(messages)
         .values({ conversationId: conv.id, role: 'assistant', content: '' })
@@ -575,7 +575,7 @@ describe.sequential('sendCompareMessage integration', () => {
       .values({
         conversationId: conv.id,
         userMessageId: userMsg.id,
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         status: 'running',
       })
       .returning()
@@ -623,7 +623,7 @@ describe.sequential('sendCompareMessage integration', () => {
       .values({
         conversationId: conv.id,
         userMessageId: userMsg.id,
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
         status: 'running',
       })
       .returning()
