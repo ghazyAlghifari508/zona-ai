@@ -38,7 +38,7 @@ Discovery performed before P4 UI changes on 2026-11-24. No browser QA, no Playwr
 | `admin/index.tsx` metric cards | `Ditangguhkan` red / `Perlu respon` marigold text | Neutral secondary text; value itself is the salient number | Numeric counts kept (genuine salience). |
 | `admin/index.tsx` recent audit feed | Boxed action label | Plain text | P6 owns action copy mapping; P4 only removes redundant container. |
 | `admin/audit-log.tsx` | Boxed action and boxed uppercase target type | Plain text; IDs keep monospace | P6 owns copy and detail formatting; semantic mapping untouched. |
-| `admin/credits.tsx` | Colored status banner, boxed role | Plain status text; role as plain text | Credit mutations and error banner unchanged; errors remain visible. |
+| `admin/credits.tsx` | Boxed role; tinted action banner | Role as plain text; success/error banner kept because it confirms or surfaces a completed credit mutation | Credit mutations, retry and error visibility unchanged. |
 | `ModelSelector` option row | Vendor pill, Premium pill, warning "Sedang tidak tersedia" pill, truncated name, metadata in same flex row | Vendor only as group heading; name wraps to 2 lines; secondary line with vision/route/cost; inactive/pending shown disabled with honest text | Credits derived from `creditCost`; no hardcoded `1 kredit`; two DeepSeek routes remain separate with `cor-prod` / `zro-prod` route labels. |
 | `ModelSelector` trigger | Name + hidden-on-mobile warning pill + cost pill | Compact name/selection only; disabled selection explained inline with an actionable hint | Preserves checkmark, compare count, search, keyboard and mobile behavior. |
 | `CompareGrid` disabled column banner | Uppercase amber tinted banner, truncated reason | Plain text line with icon, sentence case, reason wraps and keeps full accessible text | Important warning stays visible; retry stays disabled for inactive routes. |
@@ -50,6 +50,28 @@ Discovery performed before P4 UI changes on 2026-11-24. No browser QA, no Playwr
 | `pricing` | `Populer` / `Paket saat ini` pills | Plain text; billing action button unchanged | No price/billing semantics changed. |
 | `GlobalNav` / `ProfileMenu` / `Sidebar` | Plan link, avatar, nav icons | Unchanged | Interactive controls and navigation, not status badges. |
 | `UserAvatar`, `ProviderIcon` | Circular/avatar shapes | Unchanged | Identity/iconography, not status pills. |
+
+## Implemented P4 outcome
+
+- `src/lib/models/presentation.ts` derives credit text, full Indonesian context-window counts, availability, vision verification and duplicate-route labels from registry/DTO data. No hardcoded model prices or capability claims.
+- `src/lib/admin/presentation.ts` maps roles, blocked state, feedback status and category to approved sentence-case labels with fallbacks for unknown values.
+- `src/components/ui/StatusText.tsx` is the shared plain-text status primitive; it has no background, border or decorative dot.
+- `ModelSelector`, admin tables, compare, attachments, artifact progress and pricing now use plain secondary text for routine metadata. Selected-model unavailability is explained inline before submit.
+- Filters, dialogs, ban/unban, feedback updates, credit mutations, retry controls, compare limits, search, vendor grouping, selection checkmarks, keyboard and touch behavior are unchanged.
+
+## Verification evidence
+
+- `bun x tsc --noEmit` — exit 0 after widening `formatUserBlocked` to accept `boolean | null | undefined` from the user DTO.
+- `bun x vitest run` — 143 passed / 11 failed / 2 skipped files, 1117 passed / 32 failed / 28 skipped tests before the final contract updates. 30 failures are pre-existing integration failures (`ERR-003 Model tidak ditemukan`, reproduced at baseline commit `6345644` in a detached worktree); one was an admin-route timeout under full-suite load that passes in isolation. The two P4 failures were outdated expectations for the new plain status text and disabled-model visibility, both updated without weakening assertions.
+- Affected UI suite after the updates — 11 files, 51 tests passed; deterministic assertions only.
+- Type-bypass scan (`as never`, `as any`, `: any`, `@ts-ignore`, `@ts-expect-error`, `as unknown as` in `src`, excluding generated router) — clean.
+- `bun run build` — production build succeeded in 7.13s.
+- Browser QA was not run in P4 by design; visual confirmation belongs to P9.
+
+## Handoff to P5 and P9
+
+- P5: remaining `rounded-full` elements are functional buttons/nav/citation counters and need no badge normalization. Uppercase text is limited to section/column/field labels. Check any new select-like control against the same plain-metadata rule before adding it.
+- P9: verify light and dark contrast for plain status text, long model names wrapping, two DeepSeek route labels (`cor-prod` / `zro-prod`), disabled/pending model explanation, compare disabled column, feedback filters/status updates, admin ban/unban and pricing billing toggle. Do not reintroduce status pills during visual fixes.
 
 ## Expected visual verification (P9 only)
 
