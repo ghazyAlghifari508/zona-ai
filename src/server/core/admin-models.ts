@@ -1,108 +1,15 @@
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
 import { auditLogs, modelSettings } from '../../lib/db/schema'
-import { getModelById } from '../../lib/models/registry'
+import { AppError } from '../../lib/utils/errors'
+import {
+  findHistoricalModelLabel,
+  invalidateCatalogCache,
+} from './model-catalog'
 
 // Enforces admin authentication via requireAdminSession (delegates to getAuthSession)
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/admin-models.ts is server-only')
-}
-
-export interface ModelOverride {
-  isActive: boolean
-  disabledReason: string | null
-}
-
-const CACHE_TTL_MS = 60_000
-const overridesCache = new Map<string, ModelOverride>()
-let cacheExpiresAt = 0
-
-function getCanonicalModelIds(modelId: string): string[] {
-  const ids = new Set<string>([modelId])
-  try {
-    const entry = getModelById(modelId)
-    ids.add(entry.id)
-    ids.add(entry.routerModelId)
-  } catch {
-    // Model may be external or unknown, keep original modelId
-  }
-  return Array.from(ids)
-}
-
-function findOverride(modelId: string): ModelOverride | undefined {
-  const possibleIds = getCanonicalModelIds(modelId)
-  for (const id of possibleIds) {
-    const override = overridesCache.get(id)
-    if (override !== undefined) {
-      return override
-    }
-  }
-
-  for (const [key, value] of overridesCache.entries()) {
-    if (
-      key === modelId ||
-      key.endsWith(`/${modelId}`) ||
-      modelId.endsWith(`/${key}`)
-    ) {
-      return value
-    }
-  }
-
-  return undefined
-}
-
-export function isModelAvailable(modelId: string): boolean {
-  const override = findOverride(modelId)
-  if (override !== undefined) {
-    return override.isActive
-  }
-  return true
-}
-
-export async function getModelOverridesMap(): Promise<
-  Map<string, ModelOverride>
-> {
-  const now = Date.now()
-  if (overridesCache.size > 0 && cacheExpiresAt > now) {
-    return new Map(overridesCache)
-  }
-
-  try {
-    const rows = await db.select().from(modelSettings)
-    overridesCache.clear()
-    for (const row of rows) {
-      overridesCache.set(row.modelId, {
-        isActive: row.isActive,
-        disabledReason: row.disabledReason,
-      })
-    }
-    cacheExpiresAt = now + CACHE_TTL_MS
-  } catch {
-    // DB unavailable in some test runs; retain memory cache
-  }
-
-  return new Map(overridesCache)
-}
-
-export function updateModelOverrideInMemory(
-  modelId: string,
-  isActive: boolean,
-  disabledReason?: string | null,
-): void {
-  overridesCache.set(modelId, {
-    isActive,
-    disabledReason: disabledReason ?? null,
-  })
-  cacheExpiresAt = Date.now() + CACHE_TTL_MS
-}
-
-export function resetModelOverridesInMemory(): void {
-  overridesCache.clear()
-  cacheExpiresAt = 0
-}
-
-export function invalidateModelOverridesCache(): void {
-  cacheExpiresAt = 0
 }
 
 export async function getModelSettingsCore({
@@ -126,15 +33,22 @@ export async function updateModelAvailabilityCore(params: {
   disabledReason: string | null
 }> {
   const session = await requireAdminSession(params.request)
+  const label = await findHistoricalModelLabel(params.modelId)
+  if (!label || label.status === 'retired') {
+    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+
   const now = new Date()
   const disabledReason = params.disabledReason ?? null
+  const status = params.isActive ? ('active' as const) : ('inactive' as const)
 
   await db.transaction(async (tx) => {
     await tx
       .insert(modelSettings)
       .values({
-        modelId: params.modelId,
+        modelId: label.id,
         isActive: params.isActive,
+        status,
         disabledReason,
         updatedBy: session.user.id,
         createdAt: now,
@@ -144,6 +58,7 @@ export async function updateModelAvailabilityCore(params: {
         target: modelSettings.modelId,
         set: {
           isActive: params.isActive,
+          status,
           disabledReason,
           updatedBy: session.user.id,
           updatedAt: now,
@@ -154,7 +69,7 @@ export async function updateModelAvailabilityCore(params: {
       adminId: session.user.id,
       adminEmail: session.user.email,
       action: params.isActive ? 'model.enable' : 'model.disable',
-      targetId: params.modelId,
+      targetId: label.id,
       targetType: 'model',
       metadata: {
         disabledReason,
@@ -163,11 +78,11 @@ export async function updateModelAvailabilityCore(params: {
     })
   })
 
-  updateModelOverrideInMemory(params.modelId, params.isActive, disabledReason)
+  invalidateCatalogCache()
 
   return {
     success: true,
-    modelId: params.modelId,
+    modelId: label.id,
     isActive: params.isActive,
     disabledReason,
   }

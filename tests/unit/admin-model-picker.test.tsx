@@ -8,11 +8,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CompareGrid } from '../../src/components/chat/CompareGrid'
 import { ModelSelector } from '../../src/components/chat/ModelSelector'
-import {
-  clearModelCatalogCache,
-  loadModelCatalog,
-  mergeModelSettings,
-} from '../../src/components/chat/useModelCatalog'
+
 import type { ModelCatalogEntry } from '../../src/lib/models/types'
 
 const mockCatalog: ModelCatalogEntry[] = [
@@ -128,7 +124,7 @@ vi.mock('../../src/components/chat/useModelCatalog', async (importOriginal) => {
   }
 })
 
-describe('Model Catalog Entry & mergeModelSettings', () => {
+describe('Model catalog entry status', () => {
   it('supports isActive and disabledReason in ModelCatalogEntry', () => {
     const entry: ModelCatalogEntry = {
       id: 'test-model',
@@ -159,100 +155,13 @@ describe('Model Catalog Entry & mergeModelSettings', () => {
     expect(entry.disabledReason).toBe('Under maintenance')
   })
 
-  it('merges model settings into catalog entries and defaults isActive to true', () => {
-    const rawEntries: ModelCatalogEntry[] = [
-      {
-        id: 'cx/gpt-5.6-sol',
-        displayName: 'GPT 5.6 Sol',
-        provider: 'codex',
-        vendor: 'OpenAI',
-        intelligenceLevel: 4,
-        intelligenceScore: 96,
-        intelligenceBars: 4,
-        confidence: 'high',
-        description: 'OpenAI model',
-        isDefault: false,
-        creditTier: 'premium',
-        creditCost: 4,
-        capabilities: {
-          text: true,
-          vision: true,
-          files: true,
-          tools: true,
-          reasoning: true,
-          structuredOutput: true,
-        },
-      },
-      {
-        id: 'ag/gemini-3.7-flash-high',
-        displayName: 'Gemini 3.7 Flash',
-        provider: 'antigravity',
-        vendor: 'Google',
-        intelligenceLevel: 3,
-        intelligenceScore: 88,
-        intelligenceBars: 3,
-        confidence: 'high',
-        description: 'Google model',
-        isDefault: false,
-        creditTier: 'balanced',
-        creditCost: 2,
-        capabilities: {
-          text: true,
-          vision: true,
-          files: true,
-          tools: true,
-          reasoning: true,
-          structuredOutput: true,
-        },
-      },
-    ]
 
-    const settings = [
-      {
-        modelId: 'gpt-5.6-sol',
-        isActive: false,
-        disabledReason: 'Sedang offline untuk perbaikan',
-      },
-    ]
-
-    const merged = mergeModelSettings(rawEntries, settings)
-
-    const gpt = merged.find((m) => m.id === 'cx/gpt-5.6-sol')
-    expect(gpt).toBeDefined()
-    expect(gpt?.isActive).toBe(false)
-    expect(gpt?.disabledReason).toBe('Sedang offline untuk perbaikan')
-
-    const gemini = merged.find((m) => m.id === 'ag/gemini-3.7-flash-high')
-    expect(gemini).toBeDefined()
-    expect(gemini?.isActive).toBe(true)
-    expect(gemini?.disabledReason).toBeNull()
-  })
-
-  it('loadModelCatalog fetches dynamic availability overrides via settingsFetcher and merges them', async () => {
-    clearModelCatalogCache()
-    const mockSettingsFetcher = vi.fn(async () => [
-      {
-        modelId: 'cx/gpt-5.6-sol',
-        isActive: false,
-        disabledReason: 'Maintenance in progress',
-      },
-    ])
-
-    const catalog = await loadModelCatalog(mockSettingsFetcher)
-    expect(mockSettingsFetcher).toHaveBeenCalledTimes(1)
-    const gpt = catalog.find(
-      (m) => m.id === 'cx/gpt-5.6-sol' || m.id === 'gpt-5.6-sol',
-    )
-    expect(gpt).toBeDefined()
-    expect(gpt?.isActive).toBe(false)
-    expect(gpt?.disabledReason).toBe('Maintenance in progress')
-  })
 })
 
 describe('ModelSelector disabled state', () => {
   afterEach(cleanup)
 
-  it('renders "Sedang tidak tersedia" badge and disabled attribute for inactive model', async () => {
+  it('does not offer an inactive model for new selections', async () => {
     render(
       <ModelSelector
         value="auto"
@@ -270,69 +179,10 @@ describe('ModelSelector disabled state', () => {
       expect(screen.getByTestId('model-search-input')).toBeTruthy()
     })
 
-    const disabledOption = screen.getByTestId('model-option-cx/gpt-5.6-sol')
-    expect(disabledOption).toBeTruthy()
-    expect(disabledOption.hasAttribute('disabled')).toBe(true)
-    expect(disabledOption.getAttribute('title')).toContain(
-      'Pemeliharaan sistem OpenAI',
-    )
-
     expect(
-      screen.getByTestId('model-disabled-badge-cx/gpt-5.6-sol'),
-    ).toBeTruthy()
-    expect(
-      screen.getByTestId('model-disabled-badge-cx/gpt-5.6-sol').textContent,
-    ).toContain('Sedang tidak tersedia')
-  })
-
-  it('prevents selection when clicking a disabled model in single mode', async () => {
-    const onChange = vi.fn()
-    render(
-      <ModelSelector
-        value="auto"
-        onChange={onChange}
-        compareEnabled={false}
-        onCompareEnabledChange={vi.fn()}
-        compareModelIds={[]}
-        onCompareModelIdsChange={vi.fn()}
-      />,
-    )
-
-    fireEvent.click(screen.getByTestId('model-selector-trigger'))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('model-search-input')).toBeTruthy()
-    })
-
-    const disabledOption = screen.getByTestId('model-option-cx/gpt-5.6-sol')
-    fireEvent.click(disabledOption)
-
-    expect(onChange).not.toHaveBeenCalled()
-  })
-
-  it('prevents selection when clicking a disabled model in compare mode', async () => {
-    const onCompareModelIdsChange = vi.fn()
-    render(
-      <ModelSelector
-        value="auto"
-        onChange={vi.fn()}
-        compareEnabled={true}
-        onCompareEnabledChange={vi.fn()}
-        compareModelIds={['ag/gemini-3.7-flash-high']}
-        onCompareModelIdsChange={onCompareModelIdsChange}
-      />,
-    )
-
-    fireEvent.click(screen.getByTestId('model-selector-trigger'))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('model-search-input')).toBeTruthy()
-    })
-
-    const disabledOption = screen.getByTestId('model-option-cx/gpt-5.6-sol')
-    fireEvent.click(disabledOption)
-
-    expect(onCompareModelIdsChange).not.toHaveBeenCalled()
+      screen.queryByTestId('model-option-cx/gpt-5.6-sol'),
+    ).toBeNull()
+    expect(screen.getByTestId('model-option-auto')).toBeTruthy()
   })
 })
 
