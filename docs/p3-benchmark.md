@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: BLOCKED.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. It adds Atria Dawn Preview to the 22-route retirement set without deleting its history. Preflight alone is authorized up to USD 1 with zero retries; a billing ceiling could not be verified. No inference, catalog import, publication, retirement, or credit change was applied to the application database.
+**Status: BLOCKED.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. It adds Atria Dawn Preview to the 22-route retirement set without deleting its history. The authorized preflight ran once per route without retry; no route passed the exact-identity gate. Provider cost is unknown. No full benchmark, catalog import, publication, retirement, or credit change was applied.
 
 ## Reproduce
 
@@ -42,9 +42,33 @@ Discovery-only snapshot: `2026-11-23T03:08:44.876Z`; suite hash `d6ff39f7e6031f6
 | `cc/claude-sonnet-5-5` | listed | not-tested | new |
 | `tokenharbor/mimo-v2.6-flash:free` | listed | not-tested | new |
 
-### USD 1 preflight readiness
+### Live preflight
 
-Dry run `p3-preflight-v2-usd1` (2026-11-23T08:38:29.725Z), manifest hash `5882a65401d7bb522e389914ec2027c2bf35285885768676beb723d117de065d`. Discovery listed 17/17 current targets. The authenticated 9Router dashboard exposes Pricing Settings for cost tracking and a Quota Tracker. No hard USD cap was verified in Settings, Pricing Settings, or Quota Tracker. The runner sent 0/17 inference requests and the full plan is 1,717 calls before retries. The older `p3-preflight-usd1` checkpoint reflects the superseded route list. Resume the v2 checkpoint with `--live` only once the USD 1 ceiling is enforceable:
+Run `p3-preflight-v2-usd1` completed at `2026-11-23T09:12:08.858Z`, manifest hash `5882a65401d7bb522e389914ec2027c2bf35285885768676beb723d117de065d`. The checkpoint name predates the authorization to run preflight with unknown USD cost. Discovery had listed all 17 targets. The runner made 17 requests with no retries, reserved 15,028 tokens, and observed 5,569 reported tokens across five calls. The other 12 did not report usage to the runner. Cost remains unknown. Exit 2 indicates missing full-suite coverage; no text benchmark, repeats, or Vision cases ran.
+
+| Exact route | Preflight outcome | Reported model | Latency (ms) |
+|---|---|---|---:|
+| `gh/gpt-4.1` | SDK rejected response (HTTP 200) | unknown | 1655 |
+| `gh/gpt-4o` | SDK rejected response (HTTP 200) | unknown | 1189 |
+| `ag/gemini-3.8-flash-high` | SDK rejected response (HTTP 200) | unknown | 4322 |
+| `nous/tencent/hy4-flash:free` | SDK rejected response (HTTP 200) | unknown | 4397 |
+| `cor-prod/deepseek-v4-1-flash-1017` | SDK rejected response (HTTP 200) | unknown | 971 |
+| `cent-ai/qwen3.8-flash` | SDK rejected response (HTTP 200) | unknown | 2250 |
+| `ic-prod/mercury-3` | SDK rejected response (HTTP 200) | unknown | 861 |
+| `zro-prod/zro/deepseek-v4.1-flash` | SDK rejected response (HTTP 200) | unknown | 1973 |
+| `nvidia/minimaxai/minimax-m3.1-flash` | SDK rejected response (HTTP 200) | unknown | 1509 |
+| `cx/gpt-6.2-sol` | Correct answer; identity mismatch | `gpt-6.2-sol` | 1750 |
+| `cx/gpt-6.1-sol` | Correct answer; identity mismatch | `gpt-6.1-sol` | 1706 |
+| `cx/gpt-6.1-terra` | Correct answer; identity mismatch | `gpt-6.1-terra` | 1846 |
+| `cx/gpt-6-luna` | Correct answer; identity mismatch | `gpt-6-luna` | 2585 |
+| `gcli/grok-4.7` | Correct answer; identity mismatch | `grok-4.7` | 19355 |
+| `cc/claude-opus-5-5` | SDK rejected response (HTTP 200) | unknown | 1730 |
+| `cc/claude-sonnet-5-5` | SDK rejected response (HTTP 200) | unknown | 1360 |
+| `tokenharbor/mimo-v2.6-flash:free` | SDK rejected response (HTTP 200) | unknown | 12060 |
+
+The five correct answers returned bare model IDs, not the requested exact routes. The other responses were recorded as `http-rejected` with status 200; the journal did not retain their body, so the cause is unknown. Request IDs were recorded for five calls; none reported a gateway version. Inspect gateway logs for the rejected responses and verify the bare ID mapping before requesting approval for any additional inference.
+
+Executed command (historical; do not rerun without separate authorization):
 
 ```bash
 bun src/server/core/p3-benchmark.ts --run p3-preflight-v2-usd1 --stage preflight --retries 0 --concurrency 1 --max-calls 17 --max-tokens 18000 --max-output 512 --timeout 20000 --deadline 420000 --resume --live
