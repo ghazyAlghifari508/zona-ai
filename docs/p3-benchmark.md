@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: BLOCKED.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. It adds Atria Dawn Preview to the 22-route retirement set without deleting its history. The authorized preflight ran once per route without retry; no route passed the exact-identity gate. Provider cost is unknown. No full benchmark, catalog import, publication, retirement, or credit change was applied.
+**Status: BLOCKED.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria Dawn Preview is in the 22-route retirement set, with history preserved. Both authorized preflights ran once per route without retry; neither verified an exact route. Provider cost is unknown. No full benchmark or production catalog changes ran.
 
 ## Reproduce
 
@@ -78,7 +78,31 @@ bun src/server/core/p3-benchmark.ts --run p3-preflight-v2-usd1 --stage preflight
 
 Two additional diagnostic calls ran without retry. `gh/gpt-4.1` returned HTTP 200 with `Content-Type: text/event-stream` and a non-JSON body to the non-streaming SDK request. This explains the SDK rejection for this probe only. `cx/gpt-6.2-sol` returned valid JSON with a bare model ID again, so exact-route provenance remains unverified. Sanitized wire metadata is local at `test-results/p3/diagnostics-two/`. No full-suite cases ran. The two probes reported 781 tokens for one call; remaining usage and USD cost are unknown.
 
-Runner v2 uses the production streaming adapter. It scores only a complete stream that reports the requested model on the wire, not an SDK default or an unqualified model ID. Start a new checkpoint with v2; v1 remains historical evidence. No v2 live calls have been authorized.
+### Streaming preflight (runner v2)
+
+Run `p3-stream-check` completed at `2026-11-23T14:33:03.650Z`, manifest hash `f1aecb056fcab08bf18af216bbb2263618b097e12021e4ce1a856333bd197cee`. Discovery listed 17/17 targets. Exactly 17 inference requests ran, with zero retries. No route passed verification: 15 streams finished with a different reported model ID and two hit the 20-second timeout. Different IDs do not by themselves establish fallback. The runner requires exact identity on the wire and does not infer it from a model name.
+
+| Requested route | Reported model ID | Outcome | Latency (ms) |
+|---|---|---|---:|
+| `gh/gpt-4.1` | `gpt-4.1-2025-04-14` | Identity mismatch | 1657 |
+| `gh/gpt-4o` | `gpt-4o-2024-11-20` | Identity mismatch | 1042 |
+| `ag/gemini-3.8-flash-high` | `gemini-3.8-flash-n` | Identity mismatch | 3553 |
+| `nous/tencent/hy4-flash:free` | `tencent/hy4-flash:free` | Identity mismatch | 3380 |
+| `cor-prod/deepseek-v4-1-flash-1017` | `deepseek-v4-1-flash-1017` | Identity mismatch | 1083 |
+| `cent-ai/qwen3.8-flash` | Unknown | Timeout | 20028 |
+| `ic-prod/mercury-3` | `mercury-3` | Identity mismatch | 1050 |
+| `zro-prod/zro/deepseek-v4.1-flash` | `zro/deepseek-v4.1-flash` | Identity mismatch | 1418 |
+| `nvidia/minimaxai/minimax-m3.1-flash` | `minimaxai/minimax-m3.1-flash` | Identity mismatch | 16051 |
+| `cx/gpt-6.2-sol` | `gpt-6.2-sol` | Identity mismatch | 1655 |
+| `cx/gpt-6.1-sol` | `gpt-6.1-sol` | Identity mismatch | 1509 |
+| `cx/gpt-6.1-terra` | `gpt-6.1-terra` | Identity mismatch | 2648 |
+| `cx/gpt-6-luna` | `gpt-6-luna` | Identity mismatch | 2569 |
+| `gcli/grok-4.7` | Unknown | Timeout | 20021 |
+| `cc/claude-opus-5-5` | `claude-opus-5-5` | Identity mismatch | 1010 |
+| `cc/claude-sonnet-5-5` | `claude-sonnet-5-5` | Identity mismatch | 2596 |
+| `tokenharbor/mimo-v2.6-flash:free` | `mimo-v2.6-flash` | Identity mismatch | 9296 |
+
+The gateway reported 43,474 tokens across 15 calls, above the 15,028-token reservation. Two calls reported no usage. Reservation is not a bound on actual provider tokens. USD cost is unknown. The journal retained 13 request IDs. Raw evidence and JSON/CSV/Markdown reports are local at `test-results/p3/p3-stream-check/` and excluded from Git. Exit 2 indicates incomplete full-suite coverage. No pilot, text benchmark, Vision cases, or cutover ran.
 
 ## Admin and P4 handoff
 
