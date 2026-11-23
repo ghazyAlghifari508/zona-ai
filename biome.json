@@ -51,6 +51,18 @@
       "assist": {
         "enabled": false
       }
+    },
+    {
+      "includes": ["src/lib/db/migrations/meta/**"],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
+      }
     }
   ]
 }
