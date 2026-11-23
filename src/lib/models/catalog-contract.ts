@@ -55,6 +55,21 @@ const creditCostSchema = z.union([
     })
     .strict(),
 ])
+export const catalogMetadataSchema = z
+  .object({
+    contextWindow: z.number().int().nullable(),
+    maxOutput: z.number().int().nullable(),
+    pricing: z
+      .object({
+        inputPerMillion: z.number().nullable(),
+        outputPerMillion: z.number().nullable(),
+      })
+      .strict()
+      .nullable(),
+    category: z.string(),
+    speedClass: z.string(),
+  })
+  .strict()
 
 export const catalogEntryDtoSchema = z
   .object({
@@ -64,18 +79,22 @@ export const catalogEntryDtoSchema = z
     provider: z.string().min(1),
     vendor: z.string().min(1),
     description: z.string(),
-    intelligenceLevel: z.number().int().min(1).max(4),
+    intelligenceLevel: intelligenceLevelSchema,
     intelligenceScore: z.number().int(),
-    intelligenceBars: z.number().int().min(1).max(4),
+    intelligenceBars: intelligenceLevelSchema,
+    confidence: confidenceSchema,
     creditCost: creditCostSchema,
     creditTier: creditTierSchema,
     capabilities: catalogCapabilitiesSchema,
     searchAliases: z.array(z.string()),
+    aliasIds: z.array(z.string()),
     evaluationStatus: evaluationStatusSchema,
     visionStatus: visionStatusSchema,
     isDefault: z.boolean(),
     isActive: z.boolean(),
+    status: catalogStatusSchema,
     disabledReason: z.string().nullable(),
+    metadata: catalogMetadataSchema,
   })
   .strict()
 
@@ -88,6 +107,23 @@ export const catalogHistoryLabelSchema = z
   })
   .strict()
 
+export const catalogListQuerySchema = z
+  .object({
+    limit: z.number().int().min(1).max(100).optional(),
+    offset: z.number().int().min(0).optional(),
+    includeRetired: z.boolean().optional(),
+  })
+  .strict()
+
+export const catalogListPageSchema = z
+  .object({
+    items: catalogEntryDtoSchema.array(),
+    nextOffset: z.number().int().nullable(),
+  })
+  .strict()
+
+export type CatalogListQuery = z.infer<typeof catalogListQuerySchema>
+export type CatalogListPage = z.infer<typeof catalogListPageSchema>
 export type CatalogEntryDto = z.infer<typeof catalogEntryDtoSchema>
 export type CatalogHistoryLabelDto = z.infer<typeof catalogHistoryLabelSchema>
 export type CatalogCapabilities = z.infer<typeof catalogCapabilitiesSchema>
@@ -141,7 +177,11 @@ export interface CatalogSeedRow {
   retiredAt: string | null
 }
 
-export function toCatalogEntryDto(row: CatalogSeedRow): CatalogEntryDto {
+export function toCatalogEntryDto(
+  row: CatalogSeedRow,
+  aliasIds: readonly string[] = [],
+): CatalogEntryDto {
+  const hasPricing = row.pricingInput !== null || row.pricingOutput !== null
   return {
     id: row.id,
     routerModelId: row.routerModelId,
@@ -152,6 +192,7 @@ export function toCatalogEntryDto(row: CatalogSeedRow): CatalogEntryDto {
     intelligenceLevel: row.intelligenceLevel,
     intelligenceScore: row.intelligenceScore,
     intelligenceBars: row.intelligenceBars,
+    confidence: confidenceSchema.parse(row.confidence),
     creditCost:
       row.creditCostMin === row.creditCostMax
         ? row.creditCostMin
@@ -159,10 +200,24 @@ export function toCatalogEntryDto(row: CatalogSeedRow): CatalogEntryDto {
     creditTier: row.creditTier,
     capabilities: row.capabilities,
     searchAliases: row.searchAliases,
+    aliasIds: [...aliasIds],
     evaluationStatus: row.evaluationStatus,
     visionStatus: row.visionStatus,
-    isDefault: row.id === 'auto',
+    isDefault: row.isVirtual && row.routingProfile === 'router',
     isActive: row.status === 'active',
+    status: row.status,
     disabledReason: row.disabledReason,
+    metadata: {
+      contextWindow: row.contextWindow,
+      maxOutput: row.maxOutput,
+      pricing: hasPricing
+        ? {
+            inputPerMillion: row.pricingInput,
+            outputPerMillion: row.pricingOutput,
+          }
+        : null,
+      category: row.category,
+      speedClass: row.speedClass,
+    },
   }
 }

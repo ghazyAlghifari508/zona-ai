@@ -58,7 +58,9 @@ describe('catalog DTO boundary', () => {
     expect(catalogEntryDtoSchema.safeParse(dto).success).toBe(true)
     expect(Object.keys(dto).sort()).toEqual(
       [
+        'aliasIds',
         'capabilities',
+        'confidence',
         'creditCost',
         'creditTier',
         'description',
@@ -71,9 +73,11 @@ describe('catalog DTO boundary', () => {
         'intelligenceScore',
         'isActive',
         'isDefault',
+        'metadata',
         'provider',
         'routerModelId',
         'searchAliases',
+        'status',
         'vendor',
         'visionStatus',
       ].sort(),

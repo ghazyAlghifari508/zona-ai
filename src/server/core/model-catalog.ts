@@ -183,15 +183,39 @@ export async function loadCatalogSnapshot(
 
 export async function getPublicCatalog(
   database?: CatalogDatabase,
+  includeRetired = false,
 ): Promise<CatalogEntryDto[]> {
   const snapshot = await loadCatalogSnapshot(database)
+  const aliasesByModel = new Map<string, string[]>()
+  for (const [alias, modelId] of snapshot.aliases) {
+    const current = aliasesByModel.get(modelId) ?? []
+    current.push(alias)
+    aliasesByModel.set(modelId, current)
+  }
+
   return catalogEntryDtoSchema
     .array()
     .parse(
       snapshot.rows
-        .filter((row) => row.status !== 'retired')
-        .map((row) => toCatalogEntryDto(row)),
+        .filter((row) => includeRetired || row.status !== 'retired')
+        .map((row) => toCatalogEntryDto(row, aliasesByModel.get(row.id) ?? [])),
     )
+}
+
+export async function findOrphanModelSettings(
+  database: CatalogDatabase = db,
+): Promise<string[]> {
+  const snapshot = await loadCatalogSnapshot(database)
+  const known = new Set<string>([
+    ...snapshot.rows.map((row) => row.id),
+    ...snapshot.aliases.keys(),
+  ])
+  const settings = await database
+    .select({ modelId: modelSettings.modelId })
+    .from(modelSettings)
+  return settings
+    .map((row) => row.modelId)
+    .filter((modelId) => !known.has(modelId))
 }
 
 export async function findHistoricalModelLabel(
