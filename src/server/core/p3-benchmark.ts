@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { evaluateGatewayJob } from '../../lib/ai/p3-gateway.server'
 import { discoverGatewayModels } from '../../lib/models/model-probe'
 import { p3Manifest, p3Routes } from '../../lib/models/p3-manifest'
-import { admission, planRun } from '../../lib/models/p3-runner'
+import { admission, planRun, runnerVersion } from '../../lib/models/p3-runner'
 import {
   buildTextSuite,
   defaultSeed,
@@ -28,7 +28,6 @@ import {
   type VisionResult,
 } from '../../lib/models/p3-vision'
 
-const runnerVersion = 'zona-p3-runner-v1'
 const numeric = (fallback: number, min: number, max: number) =>
   z.coerce.number().int().min(min).max(max).default(fallback)
 const isRetryable = (state: string) =>

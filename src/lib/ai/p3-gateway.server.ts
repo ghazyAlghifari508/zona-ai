@@ -1,4 +1,4 @@
-import { APICallError, generateText } from 'ai'
+import { APICallError, type LanguageModelUsage, streamText } from 'ai'
 import { z } from 'zod'
 import type { Job } from '../models/p3-runner'
 import { classifyAttempt, retryAfterMs } from '../models/p3-runner'
@@ -16,16 +16,35 @@ export async function evaluateGatewayJob(
   signal: AbortSignal,
   transport: typeof fetch = fetch,
 ) {
-  const model = createNineRouter((request, init) =>
-    transport(request, { ...init, redirect: 'error' }),
-  )(job.route)
+  const model = createNineRouter(async (request, init) => {
+    const response = await transport(request, { ...init, redirect: 'error' })
+    if (
+      response.ok &&
+      response.headers
+        .get('content-type')
+        ?.split(';')[0]
+        ?.trim()
+        .toLowerCase() !== 'text/event-stream'
+    ) {
+      await response.body?.cancel()
+      throw new APICallError({
+        message: 'Expected a gateway event stream',
+        url: response.url,
+        requestBodyValues: undefined,
+        statusCode: response.status,
+        responseHeaders: Object.fromEntries(response.headers),
+        isRetryable: false,
+      })
+    }
+    return response
+  })(job.route)
   const start = Date.now()
   try {
-    const result = await generateText({
+    const result = streamText({
       model,
       maxOutputTokens,
       maxRetries: 0,
-      include: { responseBody: true },
+      include: { rawChunks: true },
       abortSignal: signal,
       system: neutralSystem,
       messages: [
@@ -40,16 +59,39 @@ export async function evaluateGatewayJob(
         },
       ],
     })
-    const body = identitySchema.safeParse(result.response.body)
-    const identity = body.success ? (body.data.model ?? null) : null
-    const state = classifyAttempt(
-      job.route,
-      identity,
-      result.finishReason,
-      result.text,
-    )
-    const points =
-      state === 'valid' ? scoreAnswer(result.text, job.expected) : null
+    let identity: string | null = null
+    let mismatch = false
+    let text = ''
+    let finishReason: string | undefined
+    let finish: string | undefined
+    let usage: LanguageModelUsage | null = null
+    let requestId: string | null = null
+    let gatewayVersion: string | null = null
+    for await (const event of result.fullStream) {
+      if (event.type === 'error') throw event.error
+      if (event.type === 'abort') throw new Error('Gateway stream aborted')
+      if (event.type === 'raw') {
+        const frame = identitySchema.safeParse(event.rawValue)
+        const reported = frame.success ? frame.data.model : null
+        if (reported) {
+          if (reported !== job.route) mismatch = true
+          if (identity === null || reported !== job.route) identity = reported
+        }
+      } else if (event.type === 'text-delta') text += event.text
+      else if (event.type === 'finish-step') {
+        requestId =
+          event.response.headers?.['x-request-id'] ?? event.response.id ?? null
+        gatewayVersion = event.response.headers?.['x-9router-version'] ?? null
+      } else if (event.type === 'finish') {
+        finishReason = event.finishReason
+        finish = event.rawFinishReason
+        usage = event.totalUsage
+      }
+    }
+    const state = mismatch
+      ? 'identity-mismatch'
+      : classifyAttempt(job.route, identity, finishReason, text)
+    const points = state === 'valid' ? scoreAnswer(text, job.expected) : null
     return {
       state:
         job.kind === 'preflight' && state === 'valid' && points !== 1
@@ -57,12 +99,11 @@ export async function evaluateGatewayJob(
           : state,
       points,
       identity,
-      requestId:
-        result.response.headers?.['x-request-id'] ?? result.response.id ?? null,
-      gatewayVersion: result.response.headers?.['x-9router-version'] ?? null,
-      finish: result.rawFinishReason ?? null,
-      raw: result.text,
-      usage: result.usage,
+      requestId,
+      gatewayVersion,
+      finish: finish ?? null,
+      raw: text,
+      usage,
       retryMs: 0,
       httpStatus: 200,
       latencyMs: Date.now() - start,

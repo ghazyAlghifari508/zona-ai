@@ -19,7 +19,7 @@ import {
 } from 'vitest'
 import * as schema from '../../src/lib/db/schema'
 import { p3Manifest } from '../../src/lib/models/p3-manifest'
-import { planRun } from '../../src/lib/models/p3-runner'
+import { planRun, runnerVersion } from '../../src/lib/models/p3-runner'
 import { suiteVersion } from '../../src/lib/models/p3-suite'
 import { AppError } from '../../src/lib/utils/errors'
 
@@ -577,7 +577,7 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
       adminModels.publishAdminModelCore(input),
     ).rejects.toMatchObject({ code: 'ERR-MODEL-EVIDENCE' })
     const frozen = {
-      runnerVersion: 'zona-p3-runner-v1',
+      runnerVersion,
       suiteVersion,
       seed: 12,
       routes: [modelId],
@@ -659,7 +659,7 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
     const run = `fixture-${randomUUID()}`
     const dir = path.join('test-results', 'p3', run)
     const frozen = {
-      runnerVersion: 'zona-p3-runner-v1',
+      runnerVersion,
       suiteVersion,
       seed: 12,
       routes: [pending],

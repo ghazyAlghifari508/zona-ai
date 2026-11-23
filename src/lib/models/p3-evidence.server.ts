@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { z } from 'zod'
 import { evaluationRunSchema } from './admin-model-input'
-import { planRun } from './p3-runner'
+import { planRun, runnerVersion } from './p3-runner'
 import {
   buildTextSuite,
   scoreAnswer,
@@ -92,7 +92,7 @@ export function loadEvaluation(run: string, route: string) {
   const { hash, ...manifest } = z
     .looseObject({
       hash: z.string().regex(/^[a-f0-9]{64}$/),
-      runnerVersion: z.literal('zona-p3-runner-v1'),
+      runnerVersion: z.literal(runnerVersion),
       suiteVersion: z.literal(suiteVersion),
       seed: z.number().int().min(0).max(0xffffffff),
       routes: z.array(z.string()),

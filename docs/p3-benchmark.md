@@ -78,6 +78,8 @@ bun src/server/core/p3-benchmark.ts --run p3-preflight-v2-usd1 --stage preflight
 
 Two additional diagnostic calls ran without retry. `gh/gpt-4.1` returned HTTP 200 with `Content-Type: text/event-stream` and a non-JSON body to the non-streaming SDK request. This explains the SDK rejection for this probe only. `cx/gpt-6.2-sol` returned valid JSON with a bare model ID again, so exact-route provenance remains unverified. Sanitized wire metadata is local at `test-results/p3/diagnostics-two/`. No full-suite cases ran. The two probes reported 781 tokens for one call; remaining usage and USD cost are unknown.
 
+Runner v2 uses the production streaming adapter. It scores only a complete stream that reports the requested model on the wire, not an SDK default or an unqualified model ID. Start a new checkpoint with v2; v1 remains historical evidence. No v2 live calls have been authorized.
+
 ## Admin and P4 handoff
 
 Use the authenticated operations in `src/server/functions/admin-models.ts`: `stageP3CatalogFn` imports new pending entries, `publishAdminModelFn({data:{modelId,run}})` validates the trusted server checkpoint, and `cutoverP3CatalogFn({data:'p3-catalog-v2'})` retires only the manifest set in one transaction. Keep the report directory writable only by trusted operators; never accept report uploads. Pending entries are not selectable. Publication derives scores and prices from evidence, preserves inactive state, and is idempotent for the same evidence. Review prior prices in the audit metadata. Unknown capabilities stay disabled. Keep the two new DeepSeek routes separate; the old DeepSeek route and Atria remain resolvable for history after retirement.

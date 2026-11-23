@@ -2,6 +2,8 @@ import { validateExactRoutes } from './p3-manifest'
 import { buildTextSuite, repetitions } from './p3-suite'
 import { buildVisionSuite } from './p3-vision'
 
+export const runnerVersion = 'zona-p3-runner-v2'
+
 export function planRun(routes: readonly string[], seed: number) {
   const exact = validateExactRoutes(routes)
   const text = buildTextSuite(seed)

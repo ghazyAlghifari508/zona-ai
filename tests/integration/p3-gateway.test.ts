@@ -29,15 +29,7 @@ it('sends actual PNG data only for the requested route and rejects substituted r
         },
       ],
     })
-    return Response.json({
-      model: 'test/substituted',
-      choices: [
-        {
-          message: { content: JSON.stringify(job.expected) },
-          finish_reason: 'stop',
-        },
-      ],
-    })
+    return sse('test/substituted', JSON.stringify(job.expected))
   })
   expect(
     await evaluateGatewayJob(job, 4096, AbortSignal.timeout(3000), transport),
@@ -113,3 +105,34 @@ it('reports an invalid HTTP 200 response without recording its body or retrying'
   })
   expect(transport).toHaveBeenCalledTimes(1)
 })
+
+function sse(model: string, content: string) {
+  const frame = {
+    model,
+    choices: [{ index: 0, delta: { content }, finish_reason: 'stop' }],
+  }
+  return new Response(`data: ${JSON.stringify(frame)}\n\ndata: [DONE]\n\n`, {
+    headers: { 'content-type': 'text/event-stream' },
+  })
+}
+
+it.each([
+  ['test/exact', 'valid', 1],
+  ['exact', 'identity-mismatch', null],
+])(
+  'classifies reported stream identity %s',
+  async (identity, state, points) => {
+    const job = planRun(['test/exact'], 12)[0]
+    const transport = vi.fn<typeof fetch>(async (_url, init) => {
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        stream: true,
+        model: job.route,
+      })
+      return sse(identity, JSON.stringify(job.expected))
+    })
+    expect(
+      await evaluateGatewayJob(job, 512, AbortSignal.timeout(3000), transport),
+    ).toMatchObject({ state, points, identity })
+    expect(transport).toHaveBeenCalledTimes(1)
+  },
+)
