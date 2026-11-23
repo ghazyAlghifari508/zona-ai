@@ -1,5 +1,9 @@
 import { APICallError, type LanguageModelUsage, streamText } from 'ai'
 import { z } from 'zod'
+import {
+  type Provenance,
+  verifyRouteProvenance,
+} from '../models/p3-provenance.server'
 import type { Job } from '../models/p3-runner'
 import { classifyAttempt, retryAfterMs } from '../models/p3-runner'
 import { neutralSystem, scoreAnswer } from '../models/p3-suite'
@@ -9,6 +13,7 @@ export type RouteProvenanceResolver = (input: {
   route: string
   finishedAt: Date
 }) => Promise<Provenance | null>
+
 import { imagePart } from './image-part'
 
 const identitySchema = z.object({ model: z.string().nullish() })
@@ -66,7 +71,6 @@ export async function evaluateGatewayJob(
       ],
     })
     let identity: string | null = null
-    let mismatch = false
     let text = ''
     let finishReason: string | undefined
     let finish: string | undefined

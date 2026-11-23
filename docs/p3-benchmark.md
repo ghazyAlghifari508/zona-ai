@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: BLOCKED.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria Dawn Preview is in the 22-route retirement set, with history preserved. Both authorized preflights ran once per route without retry; neither verified an exact route. Provider cost is unknown. No full benchmark or production catalog changes ran.
+**Status: BLOCKED on full-suite budget.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria is in the 22-route retirement set with history preserved. Two authorized 17-call preflights ran without retry. Gateway provenance now verifies 15 exact routes from the streaming run; two routes timed out. The 60-case text suite, repeats, Vision cases, credit calibration, and cutover have not run. Provider cost for the streaming preflight is known; its value is in the local report.
 
 ## Reproduce
 
@@ -13,7 +13,11 @@ bun src/server/core/p3-benchmark.ts --run p3-discovery --resume --discover
 
 Without `--live`, the runner sends no inference. After approval, add `--live --max-calls N --max-tokens N` using the approved cumulative caps. Run `--stage preflight`, then `--stage pilot --resume`, then `--stage full --resume`. Use repeated `--route <exact-id>` flags for any subset or a future model, with a distinct `--run` name for each route list. Keep the same `--seed`, `--max-output`, and `--timeout` when resuming. `--deadline` is the wall-clock run limit in milliseconds; `--concurrency`, `--retries`, `--global-gap`, and `--provider-gap` bound requests. Exit 2 means blocked live coverage; exit 1 means invalid configuration or failed checkpoint. No fallback route is requested. An interrupted reservation still counts against both caps.
 
-`test-results/p3/<run>/` contains the frozen manifest, append-only attempt journal, and JSON/CSV/Markdown reports. Keep this directory private and outside commits. Output and input reservation is a planning bound, not a verified billing measure. The gateway reports actual usage when available; pricing and routing provenance can remain unknown. A matching model field is gateway-reported identity, not independent upstream attestation.
+`--enrich` re-reads an existing checkpoint, correlates the append-only journal with read-only gateway usage rows, and rewrites only the derived reports. It sends no inference and needs the original `--run`, `--resume`, `--stage`, `--max-output`, and `--timeout`. The correlation requires one completion per request within 2 seconds, gateway status `ok`, and a gateway model equal to the route after the first slash. A stream alias is accepted only with that provenance. `NINEROUTER_DB_PATH` overrides the default local gateway database path.
+
+Live runner v2 uses the same resolver while each request completes. An alias reported on the wire becomes a valid exact-route result only when the gateway usage row resolves that route; otherwise it stays `identity-mismatch`. Failed resolver lookups do not weaken the gate.
+
+`test-results/p3/<run>/` contains the frozen manifest, append-only attempt journal, JSON/CSV/Markdown reports, and `provenance.json` with correlated gateway rows. Keep this directory private and outside commits. Output and input reservation is a planning bound, not a verified billing measure. A matching response model alone is not proof; gateway-reported provenance is the evidence used for exact-route verification and is still not independent upstream attestation.
 
 Suite `zona-p3-v1`: 60 text cases per model (15/15/9/9/6/6), 24 additional text calls, 8 PNG cases, 4 visual repeats, 4 no-image controls, 1 preflight. No tools, shared transcript, or user data. Coding uses static checkable answers, not executable model code. Category scores weight each case equally; overall score weights categories by case count. Reports display two decimals; tier thresholds use raw scores (65/85), and catalog score is rounded to an integer. Credits are 3/6/15 from `CREDIT_COST_BY_BARS`. Retained calibration flags floor/ceiling or a range below five points; no threshold changes without approval. Repetition mean/range/agreement measure instability, not universal intelligence. Methods: [OpenAI eval practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices), [Lighteval](https://huggingface.co/docs/lighteval/), [image input](https://developers.openai.com/api/docs/guides/images-vision).
 
@@ -80,31 +84,29 @@ Two additional diagnostic calls ran without retry. `gh/gpt-4.1` returned HTTP 20
 
 ### Streaming preflight (runner v2)
 
-Run `p3-stream-check` completed at `2026-11-23T14:33:03.650Z`, manifest hash `f1aecb056fcab08bf18af216bbb2263618b097e12021e4ce1a856333bd197cee`. Discovery listed 17/17 targets. Exactly 17 inference requests ran, with zero retries. No route passed verification: 15 streams finished with a different reported model ID and two hit the 20-second timeout. Different IDs do not by themselves establish fallback. The runner requires exact identity on the wire and does not infer it from a model name.
+Run `p3-stream-check` completed at `2026-11-23T14:33:03.650Z`, manifest hash `f1aecb056fcab08bf18af216bbb2263618b097e12021e4ce1a856333bd197cee`. Discovery listed 17/17 targets. Exactly 17 inference requests ran, with zero retries. Fifteen streams finished and two hit the 20-second timeout. The reported model IDs are upstream aliases, not exact routes. A read-only enrichment pass at `2026-11-23T14:51:48.747Z` correlated all 15 completions one-to-one with gateway usage rows. Each correlated row resolved the same model as the requested route after the first slash, with status `ok`. Those 15 routes are exact-route verified. `cent-ai/qwen3.8-flash` and `gcli/grok-4.7` remain inconclusive.
 
-| Requested route | Reported model ID | Outcome | Latency (ms) |
-|---|---|---|---:|
-| `gh/gpt-4.1` | `gpt-4.1-2025-04-14` | Identity mismatch | 1657 |
-| `gh/gpt-4o` | `gpt-4o-2024-11-20` | Identity mismatch | 1042 |
-| `ag/gemini-3.8-flash-high` | `gemini-3.8-flash-n` | Identity mismatch | 3553 |
-| `nous/tencent/hy4-flash:free` | `tencent/hy4-flash:free` | Identity mismatch | 3380 |
-| `cor-prod/deepseek-v4-1-flash-1017` | `deepseek-v4-1-flash-1017` | Identity mismatch | 1083 |
-| `cent-ai/qwen3.8-flash` | Unknown | Timeout | 20028 |
-| `ic-prod/mercury-3` | `mercury-3` | Identity mismatch | 1050 |
-| `zro-prod/zro/deepseek-v4.1-flash` | `zro/deepseek-v4.1-flash` | Identity mismatch | 1418 |
-| `nvidia/minimaxai/minimax-m3.1-flash` | `minimaxai/minimax-m3.1-flash` | Identity mismatch | 16051 |
-| `cx/gpt-6.2-sol` | `gpt-6.2-sol` | Identity mismatch | 1655 |
-| `cx/gpt-6.1-sol` | `gpt-6.1-sol` | Identity mismatch | 1509 |
-| `cx/gpt-6.1-terra` | `gpt-6.1-terra` | Identity mismatch | 2648 |
-| `cx/gpt-6-luna` | `gpt-6-luna` | Identity mismatch | 2569 |
-| `gcli/grok-4.7` | Unknown | Timeout | 20021 |
-| `cc/claude-opus-5-5` | `claude-opus-5-5` | Identity mismatch | 1010 |
-| `cc/claude-sonnet-5-5` | `claude-sonnet-5-5` | Identity mismatch | 2596 |
-| `tokenharbor/mimo-v2.6-flash:free` | `mimo-v2.6-flash` | Identity mismatch | 9296 |
+| Requested route | Reported model ID | Gateway resolved model | Stream outcome | Latency (ms) |
+|---|---|---|---|---:|
+| `gh/gpt-4.1` | `gpt-4.1-2025-04-14` | `gpt-4.1` (github) | Verified | 1657 |
+| `gh/gpt-4o` | `gpt-4o-2024-11-20` | `gpt-4o` (github) | Verified | 1042 |
+| `ag/gemini-3.8-flash-high` | `gemini-3.8-flash-n` | `gemini-3.8-flash-high` (antigravity) | Verified | 3553 |
+| `nous/tencent/hy4-flash:free` | `tencent/hy4-flash:free` | `tencent/hy4-flash:free` (nous) | Verified | 3380 |
+| `cor-prod/deepseek-v4-1-flash-1017` | `deepseek-v4-1-flash-1017` | `deepseek-v4-1-flash-1017` (custom provider) | Verified | 1083 |
+| `cent-ai/qwen3.8-flash` | Unknown | None | Timeout, inconclusive | 20028 |
+| `ic-prod/mercury-3` | `mercury-3` | `mercury-3` (custom provider) | Verified | 1050 |
+| `zro-prod/zro/deepseek-v4.1-flash` | `zro/deepseek-v4.1-flash` | `zro/deepseek-v4.1-flash` (custom provider) | Verified | 1418 |
+| `nvidia/minimaxai/minimax-m3.1-flash` | `minimaxai/minimax-m3.1-flash` | `minimaxai/minimax-m3.1-flash` (nvidia) | Verified | 16051 |
+| `cx/gpt-6.2-sol` | `gpt-6.2-sol` | `gpt-6.2-sol` (codex) | Verified | 1655 |
+| `cx/gpt-6.1-sol` | `gpt-6.1-sol` | `gpt-6.1-sol` (codex) | Verified | 1509 |
+| `cx/gpt-6.1-terra` | `gpt-6.1-terra` | `gpt-6.1-terra` (codex) | Verified | 2648 |
+| `cx/gpt-6-luna` | `gpt-6-luna` | `gpt-6-luna` (codex) | Verified | 2569 |
+| `gcli/grok-4.7` | Unknown | None | Timeout, inconclusive | 20021 |
+| `cc/claude-opus-5-5` | `claude-opus-5-5` | `claude-opus-5-5` (claude) | Verified | 1010 |
+| `cc/claude-sonnet-5-5` | `claude-sonnet-5-5` | `claude-sonnet-5-5` (claude) | Verified | 2596 |
+| `tokenharbor/mimo-v2.6-flash:free` | `mimo-v2.6-flash` | `mimo-v2.6-flash:free` (tokenharbor) | Verified | 9296 |
 
-The gateway reported 43,474 tokens across 15 calls, above the 15,028-token reservation. Two calls reported no usage. Reservation is not a bound on actual provider tokens. USD cost is unknown. The journal retained 13 request IDs. Raw evidence and JSON/CSV/Markdown reports are local at `test-results/p3/p3-stream-check/` and excluded from Git. Exit 2 indicates incomplete full-suite coverage. No pilot, text benchmark, Vision cases, or cutover ran.
-
-Read-only gateway log check: 15 successful usage rows matched the application key and run window. No request-detail rows were retained in that window, so none of the 13 recorded request IDs could be matched to a routing record. The usage rows support provider-level correlation, not exact-route verification. Before a new live run, capture request-level gateway evidence that links the requested route, resolved upstream model, and fallback status. Do not retry under the spent preflight authorization.
+The gateway reported 43,474 tokens across 15 calls, above the 15,028-token reservation. Two calls reported no usage. Reservation is not a bound on actual provider tokens. The 15 correlated gateway rows reported a combined cost of $0.02788696; no cost was null. No request-detail rows were retained, so request IDs cannot be matched to routing records. Exact-route verification rests on the correlated usage rows, not on those IDs. Raw evidence and JSON/CSV/Markdown reports are local at `test-results/p3/p3-stream-check/` and excluded from Git. Exit 2 indicates incomplete full-suite coverage. No pilot, text benchmark, Vision cases, or cutover ran.
 
 ## Admin and P4 handoff
 

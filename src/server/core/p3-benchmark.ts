@@ -13,6 +13,15 @@ import { z } from 'zod'
 import { evaluateGatewayJob } from '../../lib/ai/p3-gateway.server'
 import { discoverGatewayModels } from '../../lib/models/model-probe'
 import { p3Manifest, p3Routes } from '../../lib/models/p3-manifest'
+import {
+  correlateProvenance,
+  type GatewayUsage,
+  type Provenance,
+  provenanceKey,
+  readGatewayUsage,
+  totalGatewayCost,
+  verifyRouteProvenance,
+} from '../../lib/models/p3-provenance.server'
 import { admission, planRun, runnerVersion } from '../../lib/models/p3-runner'
 import {
   buildTextSuite,
@@ -101,6 +110,10 @@ async function main() {
   if (values.live && (!values.run || !cap.maxCalls || !cap.maxTokens))
     throw new Error(
       'Live requires --run, --max-calls and --max-tokens authorized by the operator',
+    )
+  if (enrich && (!values.run || !values.resume))
+    throw new Error(
+      'Enrichment requires --run and --resume of an existing checkpoint',
     )
   const text = buildTextSuite(seed)
   const vision = buildVisionSuite(seed)
@@ -194,7 +207,8 @@ async function main() {
     const listed = new Set(listing?.map((entry) => entry.id))
     const latest = (key: string) => history.get(key)?.at(-1)
     const reasons = new Set<string>()
-    if (!values.live) reasons.add('Dry run: inference not authorized')
+    if (!values.live && !enrich)
+      reasons.add('Dry run: inference not authorized')
     const stop = new AbortController()
     const cancel = () => stop.abort()
     process.on('SIGINT', cancel)
@@ -350,6 +364,50 @@ async function main() {
       process.off('SIGINT', cancel)
       process.off('SIGTERM', cancel)
     }
+    const completed = [...history.values()]
+      .flat()
+      .filter((row) => row.state !== 'reserved' && row.state !== 'interrupted')
+    const times = completed.map((row) => row.at).sort()
+    const apiKey = process.env.NINE_ROUTER_API_KEY
+    let gatewayUsage: GatewayUsage[] = []
+    if (times.length > 0 && apiKey) {
+      try {
+        gatewayUsage = await readGatewayUsage({
+          apiKey,
+          from: new Date(Date.parse(times[0]) - 2000).toISOString(),
+          to: new Date(
+            Date.parse(times[times.length - 1]) + 1000,
+          ).toISOString(),
+        })
+      } catch {
+        gatewayUsage = []
+      }
+    }
+    const attempts = completed.map((row) => ({
+      route: typeof row.route === 'string' ? row.route : '',
+      at: row.at,
+    }))
+    const correlated = correlateProvenance(attempts, gatewayUsage)
+    type RouteEvidence = {
+      verified: boolean
+      reason: string
+      reportedModel: string | null
+      gateway: Provenance | null
+    }
+    const verifications = new Map<string, RouteEvidence>()
+    for (const row of completed) {
+      const value: unknown = row.route
+      const route = typeof value === 'string' ? value : ''
+      const gateway = correlated.get(provenanceKey(route, row.at))
+      if (!route || !gateway) continue
+      const identity: unknown = row.identity
+      const reportedModel = typeof identity === 'string' ? identity : null
+      verifications.set(provenanceKey(route, row.at), {
+        ...verifyRouteProvenance(route, reportedModel, gateway),
+        reportedModel,
+        gateway,
+      })
+    }
     const summary = routes.map((route) => {
       const probe = latest(`${route}|preflight`)
       const reported = probe
@@ -498,7 +556,11 @@ async function main() {
       usage: {
         knownTotal: usage.reduce<number>((n, v) => n + (v ?? 0), 0),
         unknownAttempts: usage.filter((v) => v === undefined).length,
-        providerCost: null,
+        providerCost:
+          gatewayUsage.length > 0 ? totalGatewayCost(gatewayUsage) : null,
+        costUnknownCalls: gatewayUsage.filter((row) => row.cost === null)
+          .length,
+        provenanceRows: gatewayUsage.length,
       },
       calibration,
       blockers: [...reasons],
