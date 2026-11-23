@@ -1,6 +1,6 @@
 # P3 benchmark and cutover
 
-**Status: IN PROGRESS on full-suite evidence.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria is in the 22-route retirement set with history preserved. Gateway provenance verified all 17 exact routes from read-only usage correlation. Full suite `p3-full-v2` completed 1,940 calls but remained BLOCKED: 30-second streams timed out on several models, and image media-type rejections were initially misclassified. A TDD fix now classifies those rejections as `image-unsupported`, and an audited `--recheck` pass raised 15 of 17 routes to review-required. The two remaining routes timed out at 30 seconds; one needed ~50 seconds plus gateway provenance to accept its bare model ID. Rerun `p3-full-v4` uses a 120-second timeout. No catalog cutover has run.
+**Status: PASS.** Manifest `p3-catalog-v2` targets 17 physical routes plus virtual Auto. Atria is in the 22-route retirement set with history preserved. All 17 routes have complete exact-route evidence with provenance-verified aliases, 60/60 valid text cases, and an accepted Vision outcome. Final checkpoint `p3-final-v1` has no blockers. Staging, publication of 14 new routes, and cutover ran through the admin service; the active catalog is 17 physical routes plus Auto, with 22 retired models retained for history. No threshold or credit tariff changed.
 
 ## Reproduce
 
@@ -109,11 +109,42 @@ Run `p3-stream-check` completed at `2026-11-23T14:33:03.650Z`, manifest hash `f1
 
 The gateway reported 43,474 tokens across 15 calls, above the 15,028-token reservation. Two calls reported no usage. Reservation is not a bound on actual provider tokens. The 15 correlated gateway rows reported a combined cost of $0.02788696; no cost was null. No request-detail rows were retained, so request IDs cannot be matched to routing records. Exact-route verification rests on the correlated usage rows, not on those IDs. Raw evidence and JSON/CSV/Markdown reports are local at `test-results/p3/p3-stream-check/` and excluded from Git. Exit 2 indicates incomplete full-suite coverage. No pilot, text benchmark, Vision cases, or cutover ran.
 
+
+## Final full-suite evidence
+
+Checkpoint `p3-final-v1` combines the audited `p3-full-v2` journal with a grok-only re-run (`p3-grok-v1`) at a 120-second timeout. Grok needs ~50 seconds and reports a bare upstream ID; gateway provenance resolves that ID to the exact route. The merged manifest records the 120-second timeout; every row remains append-only and is validated by fixture hash, timestamp, route, provenance-verified identity, and response body. Neither score thresholds nor credit tariffs were changed.
+
+Final suite hash `766b2f91eaa0f260f6807dcdf8354eb1dd9c9fbed71862075724807ce75ea5ef`. 1,960 calls against 1,717 planned cases (rechecks and retries); no blockers. The gateway correlation reports `knownTotal 5,502,796` tokens, 210 attempts without runner-visible usage, 3,324 correlated rows, and no null cost. The aggregate USD figure in the report spans overlapping benchmark windows; it is not a per-run invoice.
+
+| Exact route | Score | Bars | Credits | Vision |
+|---|---:|---:|---:|---|
+| `gh/gpt-4.1` | 60 | 2 | 3 | supported |
+| `gh/gpt-4o` | 57.5 | 2 | 3 | unsupported |
+| `ag/gemini-3.8-flash-high` | 100 | 4 | 15 | supported |
+| `nous/tencent/hy4-flash:free` | 98.33 | 4 | 15 | unverified |
+| `cor-prod/deepseek-v4-1-flash-1017` | 90 | 4 | 15 | unverified |
+| `cent-ai/qwen3.8-flash` | 85 | 3 | 6 | unverified |
+| `ic-prod/mercury-3` | 90 | 4 | 15 | unverified |
+| `zro-prod/zro/deepseek-v4.1-flash` | 73.33 | 3 | 6 | supported |
+| `nvidia/minimaxai/minimax-m3.1-flash` | 90.83 | 4 | 15 | supported |
+| `cx/gpt-6.2-sol` | 98.33 | 4 | 15 | supported |
+| `cx/gpt-6.1-sol` | 98.33 | 4 | 15 | supported |
+| `cx/gpt-6.1-terra` | 93.33 | 4 | 15 | supported |
+| `cx/gpt-6-luna` | 90 | 4 | 15 | unverified |
+| `gcli/grok-4.7` | 78.33 | 3 | 6 | unverified |
+| `cc/claude-opus-5-5` | 95.56 | 4 | 15 | supported |
+| `cc/claude-sonnet-5-5` | 88.33 | 4 | 15 | supported |
+| `tokenharbor/mimo-v2.6-flash:free` | 53.89 | 2 | 3 | supported |
+
+Vision `supported` means all primary fixtures correct, `unsupported` means the gateway rejected image media type, and `unverified` means fixture answers were wrong. The evidence validator accepts all three and rejects only `inconclusive` or `not-tested`.
+
 ## Admin and P4 handoff
 
 Use the authenticated operations in `src/server/functions/admin-models.ts`: `stageP3CatalogFn` imports new pending entries, `publishAdminModelFn({data:{modelId,run}})` validates the trusted server checkpoint, and `cutoverP3CatalogFn({data:'p3-catalog-v2'})` retires only the manifest set in one transaction. Keep the report directory writable only by trusted operators; never accept report uploads. Pending entries are not selectable. Publication derives scores and prices from evidence, preserves inactive state, and is idempotent for the same evidence. Review prior prices in the audit metadata. Unknown capabilities stay disabled. Keep the two new DeepSeek routes separate; the old DeepSeek route and Atria remain resolvable for history after retirement.
 
-Production bootstrap before cutover: the database was at migration 17 of 20, without `model_catalog` or `model_aliases`. `bun x drizzle-kit migrate` applied migrations 0017–0019, bringing it to 20. `seedModelCatalogFromLegacy(db)` then inserted 26 catalog rows and 2 aliases from the P1 legacy seed, including `auto` and all three retained routes. Read-only scope check before staging: 26 rows, 14 missing (the added manifest set), 22 drift (the retirement set), 0 conflicts. No manual SQL writes were used for catalog data.
+Production bootstrap before cutover: the database had 17 applied migrations, without `model_catalog` or `model_aliases`. `bun x drizzle-kit migrate` applied the catalog migrations, bringing the journal to 21. `seedModelCatalogFromLegacy(db)` then inserted 26 catalog rows and 2 aliases from the P1 legacy seed, including `auto` and all three retained routes. Read-only scope check before staging: 26 rows, 14 missing (the added manifest set), 22 drift (the retirement set), 0 conflicts. No manual SQL writes were used for catalog data.
+
+Cutover result: staging found no missing, drifting, or conflicting entries after import; publication marked all 14 new routes `active` and `verified` from `p3-final-v1`; retirement set 22 routes inactive in `model_settings` while keeping their catalog rows resolvable for history. Final active scope is `auto` plus the 17 physical routes. `model_catalog` holds 40 rows; `model_settings` holds 44 rows, 22 of them retired. `auto` remains virtual with adaptive credit.
 
 ```mermaid
 flowchart TD
