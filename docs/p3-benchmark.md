@@ -112,6 +112,8 @@ The gateway reported 43,474 tokens across 15 calls, above the 15,028-token reser
 
 Use the authenticated operations in `src/server/functions/admin-models.ts`: `stageP3CatalogFn` imports new pending entries, `publishAdminModelFn({data:{modelId,run}})` validates the trusted server checkpoint, and `cutoverP3CatalogFn({data:'p3-catalog-v2'})` retires only the manifest set in one transaction. Keep the report directory writable only by trusted operators; never accept report uploads. Pending entries are not selectable. Publication derives scores and prices from evidence, preserves inactive state, and is idempotent for the same evidence. Review prior prices in the audit metadata. Unknown capabilities stay disabled. Keep the two new DeepSeek routes separate; the old DeepSeek route and Atria remain resolvable for history after retirement.
 
+Production bootstrap before cutover: the database was at migration 17 of 20, without `model_catalog` or `model_aliases`. `bun x drizzle-kit migrate` applied migrations 0017–0019, bringing it to 20. `seedModelCatalogFromLegacy(db)` then inserted 26 catalog rows and 2 aliases from the P1 legacy seed, including `auto` and all three retained routes. Read-only scope check before staging: 26 rows, 14 missing (the added manifest set), 22 drift (the retirement set), 0 conflicts. No manual SQL writes were used for catalog data.
+
 ```mermaid
 flowchart TD
   A[Exact route pending import] --> B[Preflight and pilot]
