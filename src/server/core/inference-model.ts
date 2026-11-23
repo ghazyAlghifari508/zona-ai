@@ -80,7 +80,7 @@ export async function requireVisionCapable(
   database?: CatalogDatabase,
 ): Promise<void> {
   const entry = await getEligibleModel(modelId, database)
-  if (!entry?.capabilities.vision) {
+  if (entry?.visionStatus !== 'supported' || !entry.capabilities.vision) {
     throw new AppError('Model tidak mendukung gambar', 400, 'ERR-003')
   }
 }

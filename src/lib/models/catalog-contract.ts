@@ -201,7 +201,10 @@ export function toCatalogEntryDto(
           : { min: row.creditCostMin, max: row.creditCostMax }
         : null,
     creditTier: row.creditTier,
-    capabilities: row.capabilities,
+    capabilities: {
+      ...row.capabilities,
+      vision: row.visionStatus === 'supported' && row.capabilities.vision,
+    },
     searchAliases: row.searchAliases,
     aliasIds: [...aliasIds],
     evaluationStatus: row.evaluationStatus,

@@ -8,6 +8,7 @@ import {
   deductCredits,
   refundCredits,
 } from '../../lib/ai/credits'
+import { imagePart } from '../../lib/ai/image-part'
 import { createMultiplexStream, type StreamEvent } from '../../lib/ai/multiplex'
 import { buildSystemPrompt } from '../../lib/ai/system-prompt'
 import { checkUserNotBanned } from '../../lib/auth/admin-guard'
@@ -297,11 +298,7 @@ export async function sendMessageCore({
         bucket: a.r2Bucket,
         key: a.r2Key,
       })
-      fileParts.push({
-        type: 'file',
-        data: (body as Buffer).toString('base64'),
-        mediaType: a.mimeType,
-      })
+      fileParts.push(imagePart(body, a.mimeType))
     }
     for (const id of input.attachmentIds) {
       await db
@@ -767,11 +764,7 @@ export async function sendCompareMessageCore({
         bucket: a.r2Bucket,
         key: a.r2Key,
       })
-      fileParts.push({
-        type: 'file',
-        data: (body as Buffer).toString('base64'),
-        mediaType: a.mimeType,
-      })
+      fileParts.push(imagePart(body, a.mimeType))
     }
     for (const id of data.attachmentIds) {
       await db

@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { parseArgs } from 'node:util'
 import { z } from 'zod'
+import { evaluateGatewayJob } from '../../lib/ai/p3-gateway.server'
 import { discoverGatewayModels } from '../../lib/models/model-probe'
 import { p3Manifest, p3Routes } from '../../lib/models/p3-manifest'
 import { admission, planRun } from '../../lib/models/p3-runner'
@@ -26,7 +27,6 @@ import {
   summarizeVision,
   type VisionResult,
 } from '../../lib/models/p3-vision'
-import { evaluateGatewayJob } from './p3-gateway'
 
 const runnerVersion = 'zona-p3-runner-v1'
 const numeric = (fallback: number, min: number, max: number) =>

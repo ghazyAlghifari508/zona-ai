@@ -1,9 +1,10 @@
 import { APICallError, generateText } from 'ai'
 import { z } from 'zod'
-import { createNineRouter } from '../../lib/ai/9router'
-import type { Job } from '../../lib/models/p3-runner'
-import { classifyAttempt, retryAfterMs } from '../../lib/models/p3-runner'
-import { neutralSystem, scoreAnswer } from '../../lib/models/p3-suite'
+import type { Job } from '../models/p3-runner'
+import { classifyAttempt, retryAfterMs } from '../models/p3-runner'
+import { neutralSystem, scoreAnswer } from '../models/p3-suite'
+import { createNineRouter } from './9router'
+import { imagePart } from './image-part'
 
 const identitySchema = z.object({ model: z.string().nullish() })
 const errorSchema = z.object({
@@ -24,6 +25,7 @@ export async function evaluateGatewayJob(
       model,
       maxOutputTokens,
       maxRetries: 0,
+      include: { responseBody: true },
       abortSignal: signal,
       system: neutralSystem,
       messages: [
@@ -32,11 +34,7 @@ export async function evaluateGatewayJob(
           content: job.png
             ? [
                 { type: 'text', text: job.prompt },
-                {
-                  type: 'file',
-                  data: job.png.toString('base64'),
-                  mediaType: 'image/png',
-                },
+                imagePart(job.png, 'image/png'),
               ]
             : job.prompt,
         },
