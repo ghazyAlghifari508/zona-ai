@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,9 +23,14 @@ vi.mock('../../src/server/functions/admin-users', () => ({
 
 vi.mock('../../src/server/functions/admin-models', () => ({
   getModelSettingsFn: vi.fn(),
+  getAdminModelsFn: vi.fn(),
+  discoverAdminGatewayModelsFn: vi.fn(),
+  importAdminModelFn: vi.fn(),
+  probeAdminModelFn: vi.fn(),
+  retireAdminModelFn: vi.fn(),
+  updateAdminModelFn: vi.fn(),
   updateModelAvailabilityFn: vi.fn(),
 }))
-
 vi.mock('../../src/server/functions/feedback', () => ({
   listFeedbackFn: vi.fn(),
   updateFeedbackStatusFn: vi.fn(),
@@ -441,11 +447,18 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
         },
       ]
 
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
       render(
-        React.createElement(AdminModelsView, {
-          catalog: mockCatalog,
-          initialSettings: mockSettings,
-        }),
+        React.createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          React.createElement(AdminModelsView, {
+            catalog: mockCatalog,
+            initialSettings: mockSettings,
+          }),
+        ),
       )
 
       expect(screen.getByTestId('admin-models-table')).toBeDefined()
