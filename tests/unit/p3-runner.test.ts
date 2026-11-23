@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import {
   admission,
   classifyAttempt,
+  matchesRecheckRoute,
   planRun,
   retryAfterMs,
   shouldRecheckState,
@@ -59,4 +60,10 @@ it('rechecks final invalid states but never rechecks valid or auth failures', ()
   expect(shouldRecheckState('identity-mismatch')).toBe(true)
   expect(shouldRecheckState('valid')).toBe(false)
   expect(shouldRecheckState('auth')).toBe(false)
+})
+
+it('limits rechecks to selected routes when filters are present', () => {
+  expect(matchesRecheckRoute('a/model', [])).toBe(true)
+  expect(matchesRecheckRoute('a/model', ['b/model'])).toBe(false)
+  expect(matchesRecheckRoute('a/model', ['a/model'])).toBe(true)
 })

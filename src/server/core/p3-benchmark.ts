@@ -24,6 +24,7 @@ import {
 } from '../../lib/models/p3-provenance.server'
 import {
   admission,
+  matchesRecheckRoute,
   planRun,
   runnerVersion,
   shouldRecheckState,
@@ -83,6 +84,7 @@ async function main() {
       discover: { type: 'boolean' },
       enrich: { type: 'boolean' },
       recheck: { type: 'boolean' },
+      'recheck-route': { type: 'string', multiple: true },
       'max-calls': { type: 'string' },
       'max-tokens': { type: 'string' },
       'max-output': { type: 'string' },
@@ -254,7 +256,10 @@ async function main() {
           const previous = history.get(job.key) ?? []
           const last = previous.at(-1)
           const recheck =
-            values.recheck === true && !!last && shouldRecheckState(last.state)
+            values.recheck === true &&
+            matchesRecheckRoute(job.route, values['recheck-route'] ?? []) &&
+            !!last &&
+            shouldRecheckState(last.state)
           if (
             last &&
             !isRetryable(last.state) &&

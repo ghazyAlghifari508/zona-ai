@@ -116,3 +116,7 @@ const recheckStates: Record<string, true> = {
 export function shouldRecheckState(state: string) {
   return recheckStates[state] === true
 }
+
+export function matchesRecheckRoute(route: string, filters: readonly string[]) {
+  return filters.length === 0 || filters.includes(route)
+}
