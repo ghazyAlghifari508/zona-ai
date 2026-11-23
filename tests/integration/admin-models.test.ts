@@ -274,4 +274,218 @@ describeDb('Admin model availability on isolated PostgreSQL', () => {
     })
     expect(await catalog.getEligibleModel('cx/gpt-5.6-terra', database)).toBeNull()
   })
+
+  it('imports an exact route as a pending draft without inventing credit or eligibility', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const result = await adminModels.importAdminModelCore({
+      request: new Request('http://localhost:3000/api/admin/models'),
+      input: {
+        modelId: 'custom/route:free',
+        displayName: 'Custom Route',
+        vendor: 'Custom',
+        provider: 'custom',
+        description: 'Route available on the configured gateway',
+        searchAliases: ['custom'],
+        contextWindow: null,
+      },
+    })
+
+    expect(result).toMatchObject({
+      success: true,
+      modelId: 'custom/route:free',
+      status: 'active',
+      evaluationStatus: 'pending',
+    })
+    const entry = (await catalog.getPublicCatalog(undefined, true)).find(
+      (item) => item.id === 'custom/route:free',
+    )
+    expect(entry?.creditCost).toBeNull()
+    expect(entry?.metadata.contextWindow).toBeNull()
+    expect(await catalog.getEligibleModel('custom/route:free')).toBeNull()
+    const auditRows = await database.select().from(schema.auditLogs)
+    expect(auditRows).toMatchObject([
+      {
+        action: 'model.create',
+        targetId: 'custom/route:free',
+        adminId: 'user-admin',
+      },
+    ])
+  })
+
+  it('rejects duplicate exact routes and keeps same-basename routes distinct', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    const input = {
+      displayName: 'DeepSeek Route',
+      vendor: 'DeepSeek',
+      provider: 'cx',
+      description: 'Route on the gateway',
+      searchAliases: [],
+    }
+    await adminModels.importAdminModelCore({
+      request,
+      input: { ...input, modelId: 'cx/deepseek-chat' },
+    })
+    await adminModels.importAdminModelCore({
+      request,
+      input: { ...input, modelId: 'cx/deepseek-reasoner' },
+    })
+
+    await expect(
+      adminModels.importAdminModelCore({
+        request,
+        input: { ...input, modelId: ' cx/deepseek-chat ' },
+      }),
+    ).rejects.toMatchObject({ code: 'ERR-MODEL-DUPLICATE' })
+    expect(
+      (await catalog.getPublicCatalog(undefined, true)).filter((item) =>
+        item.id.startsWith('cx/deepseek'),
+      ),
+    ).toHaveLength(2)
+    const auditRows = await database.select().from(schema.auditLogs)
+    expect(auditRows).toHaveLength(2)
+  })
+
+  it('denies every admin mutation for non-admin sessions', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('user'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    await expect(
+      adminModels.importAdminModelCore({
+        request,
+        input: {
+          modelId: 'custom/route:free',
+          displayName: 'Custom',
+          vendor: 'Custom',
+          provider: 'custom',
+          description: '',
+          searchAliases: [],
+        },
+      }),
+    ).rejects.toBeInstanceOf(AppError)
+    await expect(
+      adminModels.updateAdminModelCore({
+        request,
+        input: {
+          modelId: 'cx/gpt-5.6-sol',
+          displayName: 'Renamed',
+          vendor: 'OpenAI',
+          provider: 'codex',
+          description: '',
+          searchAliases: [],
+        },
+      }),
+    ).rejects.toBeInstanceOf(AppError)
+    await expect(
+      adminModels.retireAdminModelCore({
+        request,
+        modelId: 'cx/gpt-5.6-sol',
+      }),
+    ).rejects.toBeInstanceOf(AppError)
+    expect(await database.select().from(schema.auditLogs)).toHaveLength(0)
+  })
+
+  it('retires a model without deleting history, and reimports it without duplication', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    const retired = await adminModels.retireAdminModelCore({
+      request,
+      modelId: 'cx/gpt-5.6-sol',
+    })
+    expect(retired.status).toBe('retired')
+    expect(
+      (await catalog.getPublicCatalog()).some((item) => item.id === 'cx/gpt-5.6-sol'),
+    ).toBe(false)
+    expect(
+      await catalog.findHistoricalModelLabel('cx/gpt-5.6-sol'),
+    ).toMatchObject({ status: 'retired' })
+    expect(await catalog.getEligibleModel('cx/gpt-5.6-sol')).toBeNull()
+
+    await expect(
+      adminModels.retireAdminModelCore({ request, modelId: 'auto' }),
+    ).rejects.toMatchObject({ code: 'ERR-MODEL-RESERVED' })
+
+    const restored = await adminModels.importAdminModelCore({
+      request,
+      input: {
+        modelId: 'cx/gpt-5.6-sol',
+        displayName: 'GPT 5.6 Sol',
+        vendor: 'OpenAI',
+        provider: 'codex',
+        description: 'Restored route',
+        searchAliases: [],
+        reimport: true,
+      },
+    })
+    expect(restored.modelId).toBe('cx/gpt-5.6-sol')
+    expect(
+      (await catalog.getPublicCatalog(undefined, true)).filter(
+        (item) => item.id === 'cx/gpt-5.6-sol',
+      ),
+    ).toHaveLength(1)
+  })
+
+  it('updates editable metadata only and audits both before and after', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    await adminModels.updateAdminModelCore({
+      request: new Request('http://localhost:3000/api/admin/models'),
+      input: {
+        modelId: 'cx/gpt-5.6-sol',
+        displayName: 'Sol renamed',
+        vendor: 'OpenAI',
+        provider: 'codex',
+        description: 'Updated by admin',
+        searchAliases: ['sol'],
+      },
+    })
+    const entry = (await catalog.getPublicCatalog()).find(
+      (item) => item.id === 'cx/gpt-5.6-sol',
+    )
+    expect(entry).toMatchObject({
+      displayName: 'Sol renamed',
+      routerModelId: 'cx/gpt-5.6-sol',
+      evaluationStatus: 'legacy',
+    })
+    const [auditRow] = await database.select().from(schema.auditLogs)
+    expect(auditRow).toMatchObject({ action: 'model.update' })
+    const metadata = auditRow?.metadata
+    expect(metadata && typeof metadata === 'object' && 'before' in metadata).toBe(true)
+  })
+
+  it('records an honest connection test without changing availability or rating', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (String(input).endsWith('/models')) {
+        return new Response(
+          JSON.stringify({ data: [{ id: 'cx/gpt-5.6-sol', owned_by: 'codex' }] }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+      }
+      return new Response(
+        JSON.stringify({
+          model: 'cx/gpt-5.6-sol',
+          choices: [{ message: { role: 'assistant', content: 'ok' } }],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    })
+
+    const result = await adminModels.probeAdminModelCore({
+      request: new Request('http://localhost:3000/api/admin/models'),
+      modelId: 'cx/gpt-5.6-sol',
+    })
+    expect(result.outcome).toBe('valid')
+    expect(result.listed).toBe(true)
+    const [auditRow] = await database.select().from(schema.auditLogs)
+    expect(auditRow).toMatchObject({
+      action: 'model.connection_test',
+      targetId: 'cx/gpt-5.6-sol',
+    })
+    expect(JSON.stringify(auditRow?.metadata ?? {})).not.toContain('apiKey')
+    expect(await catalog.getEligibleModel('cx/gpt-5.6-sol')).not.toBeNull()
+    expect(
+      (await catalog.getPublicCatalog()).find(
+        (item) => item.id === 'cx/gpt-5.6-sol',
+      )?.evaluationStatus,
+    ).toBe('legacy')
+  })
 })

@@ -1,9 +1,27 @@
+import { eq } from 'drizzle-orm'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
-import { auditLogs, modelSettings } from '../../lib/db/schema'
+import { auditLogs, modelCatalog, modelSettings } from '../../lib/db/schema'
+import {
+  adminModelIdSchema,
+  type CreateAdminModelInput,
+  createAdminModelInputSchema,
+  type UpdateAdminModelInput,
+  updateAdminModelInputSchema,
+} from '../../lib/models/admin-model-input'
+import type { CatalogEntryDto } from '../../lib/models/catalog-contract'
+import {
+  type ConnectionProbe,
+  discoverGatewayModels,
+  type GatewayModelDiscovery,
+  getGatewayProbeConfig,
+  probeModelConnection,
+} from '../../lib/models/model-probe'
+import { checkRateLimit } from '../../lib/security/rate-limit'
 import { AppError } from '../../lib/utils/errors'
 import {
   findHistoricalModelLabel,
+  getPublicCatalog,
   invalidateCatalogCache,
 } from './model-catalog'
 
@@ -12,6 +30,69 @@ if (typeof window !== 'undefined') {
   throw new Error('src/server/core/admin-models.ts is server-only')
 }
 
+const UNEVALUATED_CATALOG_VALUES = {
+  intelligenceLevel: 1,
+  intelligenceScore: 0,
+  intelligenceBars: 1,
+  confidence: 'low',
+  creditCostMin: 0,
+  creditCostMax: 0,
+  creditTier: 'adaptive',
+  capabilities: {
+    text: true,
+    vision: false,
+    files: false,
+    tools: false,
+    reasoning: false,
+    structuredOutput: false,
+  },
+  category: 'general',
+  speedClass: 'unknown',
+  routingProfile: 'general',
+  routingPriority: 0,
+  isVirtual: false,
+  evaluationStatus: 'pending',
+  visionStatus: 'not-tested',
+  provenance: 'admin-import',
+} as const
+
+type AdminCatalogEntry = CatalogEntryDto & { lastCheckedAt: string | null }
+
+type AdminMutationResult = {
+  success: true
+  modelId: string
+  status: string
+  evaluationStatus: string
+}
+
+type CatalogRow = typeof modelCatalog.$inferSelect
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23505'
+  )
+}
+
+function editableSnapshot(
+  row: Pick<CatalogRow, keyof EditableFields>,
+): EditableFields {
+  return {
+    displayName: row.displayName,
+    vendor: row.vendor,
+    provider: row.provider,
+    description: row.description,
+    searchAliases: row.searchAliases,
+  }
+}
+
+type EditableFields = Pick<
+  CreateAdminModelInput,
+  'displayName' | 'vendor' | 'provider' | 'description' | 'searchAliases'
+>
+
 export async function getModelSettingsCore({
   request,
 }: {
@@ -19,6 +100,342 @@ export async function getModelSettingsCore({
 }): Promise<Array<typeof modelSettings.$inferSelect>> {
   await requireAdminSession(request)
   return db.select().from(modelSettings)
+}
+
+export async function listAdminModelsCore({
+  request,
+}: {
+  request: Request
+}): Promise<AdminCatalogEntry[]> {
+  await requireAdminSession(request)
+  const [entries, settings] = await Promise.all([
+    getPublicCatalog(undefined, true),
+    db.select().from(modelSettings),
+  ])
+  const byModelId = new Map(settings.map((row) => [row.modelId, row]))
+  return entries.map((entry) => ({
+    ...entry,
+    lastCheckedAt:
+      byModelId.get(entry.id)?.lastCheckedAt?.toISOString() ?? null,
+  }))
+}
+
+export async function discoverAdminGatewayModelsCore({
+  request,
+}: {
+  request: Request
+}): Promise<GatewayModelDiscovery[]> {
+  await requireAdminSession(request)
+  return discoverGatewayModels()
+}
+
+export async function importAdminModelCore({
+  request,
+  input,
+}: {
+  request: Request
+  input: CreateAdminModelInput
+}): Promise<AdminMutationResult> {
+  const session = await requireAdminSession(request)
+  const data = createAdminModelInputSchema.parse(input)
+  const modelId = data.modelId
+
+  const label = await findHistoricalModelLabel(modelId)
+  const [existing] = await db
+    .select()
+    .from(modelCatalog)
+    .where(eq(modelCatalog.routerModelId, modelId))
+    .limit(1)
+
+  if (existing && (label?.status !== 'retired' || !data.reimport)) {
+    throw new AppError(
+      'Route model sudah terdaftar',
+      409,
+      'ERR-MODEL-DUPLICATE',
+    )
+  }
+
+  const now = new Date()
+  try {
+    await db.transaction(async (tx) => {
+      if (existing) {
+        await tx
+          .update(modelCatalog)
+          .set({
+            displayName: data.displayName,
+            vendor: data.vendor,
+            provider: data.provider,
+            description: data.description,
+            searchAliases: data.searchAliases,
+            contextWindow: data.contextWindow ?? null,
+            evaluationStatus: 'pending',
+            updatedAt: now,
+          })
+          .where(eq(modelCatalog.id, existing.id))
+      } else {
+        await tx.insert(modelCatalog).values({
+          id: modelId,
+          routerModelId: modelId,
+          displayName: data.displayName,
+          vendor: data.vendor,
+          provider: data.provider,
+          description: data.description,
+          searchAliases: data.searchAliases,
+          contextWindow: data.contextWindow ?? null,
+          ...UNEVALUATED_CATALOG_VALUES,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+
+      await tx
+        .insert(modelSettings)
+        .values({
+          modelId: existing?.id ?? modelId,
+          isActive: true,
+          status: 'active',
+          disabledReason: null,
+          updatedBy: session.user.id,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: modelSettings.modelId,
+          set: {
+            isActive: true,
+            status: 'active',
+            disabledReason: null,
+            updatedBy: session.user.id,
+            updatedAt: now,
+          },
+        })
+
+      await tx.insert(auditLogs).values({
+        adminId: session.user.id,
+        adminEmail: session.user.email,
+        action: 'model.create',
+        targetId: existing?.id ?? modelId,
+        targetType: 'model',
+        metadata: {
+          modelId,
+          reimport: existing !== undefined,
+          evaluationStatus: 'pending',
+        },
+        createdAt: now,
+      })
+    })
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(
+        'Route model sudah terdaftar',
+        409,
+        'ERR-MODEL-DUPLICATE',
+      )
+    }
+    throw error
+  }
+
+  invalidateCatalogCache()
+  return {
+    success: true,
+    modelId,
+    status: 'active',
+    evaluationStatus: 'pending',
+  }
+}
+
+export async function updateAdminModelCore({
+  request,
+  input,
+}: {
+  request: Request
+  input: UpdateAdminModelInput
+}): Promise<AdminMutationResult> {
+  const session = await requireAdminSession(request)
+  const data = updateAdminModelInputSchema.parse(input)
+
+  const [existing] = await db
+    .select()
+    .from(modelCatalog)
+    .where(eq(modelCatalog.routerModelId, data.modelId))
+    .limit(1)
+  const label = await findHistoricalModelLabel(data.modelId)
+  if (!existing || label?.status === 'retired') {
+    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+
+  const before = editableSnapshot(existing)
+  const after: EditableFields = {
+    displayName: data.displayName,
+    vendor: data.vendor,
+    provider: data.provider,
+    description: data.description,
+    searchAliases: data.searchAliases,
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(modelCatalog)
+      .set({ ...after, updatedAt: new Date() })
+      .where(eq(modelCatalog.id, existing.id))
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'model.update',
+      targetId: existing.id,
+      targetType: 'model',
+      metadata: { modelId: data.modelId, before, after },
+      createdAt: new Date(),
+    })
+  })
+
+  invalidateCatalogCache()
+  return {
+    success: true,
+    modelId: existing.routerModelId,
+    status: label?.status ?? 'active',
+    evaluationStatus: existing.evaluationStatus,
+  }
+}
+
+export async function retireAdminModelCore({
+  request,
+  modelId: rawModelId,
+}: {
+  request: Request
+  modelId: string
+}): Promise<AdminMutationResult> {
+  const session = await requireAdminSession(request)
+  const modelId = adminModelIdSchema.parse(rawModelId)
+  if (modelId.toLowerCase() === 'auto') {
+    throw new AppError('Auto tidak dapat dihapus', 400, 'ERR-MODEL-RESERVED')
+  }
+
+  const label = await findHistoricalModelLabel(modelId)
+  const [existing] = await db
+    .select()
+    .from(modelCatalog)
+    .where(eq(modelCatalog.routerModelId, modelId))
+    .limit(1)
+  if (!existing || label?.status === 'retired') {
+    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+
+  const now = new Date()
+  await db.transaction(async (tx) => {
+    await tx
+      .update(modelCatalog)
+      .set({ updatedAt: now })
+      .where(eq(modelCatalog.id, existing.id))
+    await tx
+      .insert(modelSettings)
+      .values({
+        modelId: existing.id,
+        isActive: false,
+        status: 'retired',
+        disabledReason: null,
+        updatedBy: session.user.id,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: modelSettings.modelId,
+        set: {
+          isActive: false,
+          status: 'retired',
+          disabledReason: null,
+          updatedBy: session.user.id,
+          updatedAt: now,
+        },
+      })
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'model.delete',
+      targetId: existing.id,
+      targetType: 'model',
+      metadata: { modelId, evaluationStatus: existing.evaluationStatus },
+      createdAt: now,
+    })
+  })
+
+  invalidateCatalogCache()
+  return {
+    success: true,
+    modelId: existing.routerModelId,
+    status: 'retired',
+    evaluationStatus: existing.evaluationStatus,
+  }
+}
+
+const PROBE_RATE_LIMIT = { limit: 10, windowMs: 60_000 } as const
+
+export async function probeAdminModelCore({
+  request,
+  modelId: rawModelId,
+}: {
+  request: Request
+  modelId: string
+}): Promise<ConnectionProbe> {
+  const session = await requireAdminSession(request)
+  const modelId = adminModelIdSchema.parse(rawModelId)
+  const limit = checkRateLimit({
+    key: `admin-probe:${session.user.id}`,
+    ...PROBE_RATE_LIMIT,
+  })
+  if (!limit.allowed) {
+    throw new AppError('Terlalu banyak uji koneksi', 429, 'ERR-017')
+  }
+
+  const label = await findHistoricalModelLabel(modelId)
+  if (!label || label.status === 'retired') {
+    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+
+  const result = await probeModelConnection(modelId, getGatewayProbeConfig())
+  await db.transaction(async (tx) => {
+    const now = new Date()
+    await tx
+      .insert(modelSettings)
+      .values({
+        modelId: label.id,
+        isActive: true,
+        status: 'active',
+        disabledReason: null,
+        updatedBy: session.user.id,
+        lastCheckedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: modelSettings.modelId,
+        set: {
+          lastCheckedAt: now,
+          updatedBy: session.user.id,
+          updatedAt: now,
+        },
+      })
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'model.connection_test',
+      targetId: label.id,
+      targetType: 'model',
+      metadata: {
+        modelId,
+        outcome: result.outcome,
+        listed: result.listed,
+        httpStatus: result.httpStatus,
+        provenanceVerified: result.provenanceVerified,
+        durationMs: result.durationMs,
+        checkedAt: result.checkedAt,
+      },
+      createdAt: now,
+    })
+  })
+
+  invalidateCatalogCache()
+  return result
 }
 
 export async function updateModelAvailabilityCore(params: {
@@ -71,9 +488,7 @@ export async function updateModelAvailabilityCore(params: {
       action: params.isActive ? 'model.enable' : 'model.disable',
       targetId: label.id,
       targetType: 'model',
-      metadata: {
-        disabledReason,
-      },
+      metadata: { disabledReason },
       createdAt: now,
     })
   })
