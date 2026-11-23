@@ -93,9 +93,11 @@ export async function evaluateGatewayJob(
               (code === 'unsupported_image' ||
                 code === 'image_input_not_supported')
             ? 'image-unsupported'
-            : httpStatus !== null && httpStatus < 500
-              ? 'http-rejected'
-              : 'gateway-error'
+            : httpStatus !== null && httpStatus >= 200 && httpStatus < 300
+              ? 'invalid-protocol'
+              : httpStatus !== null && httpStatus < 500
+                ? 'http-rejected'
+                : 'gateway-error'
     return {
       state,
       points: null,
@@ -103,7 +105,9 @@ export async function evaluateGatewayJob(
       requestId: APICallError.isInstance(error)
         ? (error.responseHeaders?.['x-request-id'] ?? null)
         : null,
-      gatewayVersion: null,
+      gatewayVersion: APICallError.isInstance(error)
+        ? (error.responseHeaders?.['x-9router-version'] ?? null)
+        : null,
       finish: null,
       raw: null,
       usage: null,

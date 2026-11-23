@@ -83,3 +83,33 @@ it('serializes the chat and compare attachment part in a streaming request', asy
   expect(transport).toHaveBeenCalledTimes(1)
   expect(await result.finishReason).toBe('stop')
 })
+
+it('reports an invalid HTTP 200 response without recording its body or retrying', async () => {
+  const job = planRun(['test/exact'], 12)[0]
+  const transport = vi.fn<typeof fetch>(async () =>
+    Response.json(
+      { unexpected: 'private diagnostic fixture' },
+      {
+        headers: {
+          'x-request-id': 'test-request',
+          'x-9router-version': 'test-version',
+        },
+      },
+    ),
+  )
+  const result = await evaluateGatewayJob(
+    job,
+    512,
+    AbortSignal.timeout(3000),
+    transport,
+  )
+  expect(result).toMatchObject({
+    state: 'invalid-protocol',
+    httpStatus: 200,
+    requestId: 'test-request',
+    gatewayVersion: 'test-version',
+    raw: null,
+    points: null,
+  })
+  expect(transport).toHaveBeenCalledTimes(1)
+})
