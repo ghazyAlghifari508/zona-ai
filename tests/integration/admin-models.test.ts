@@ -1,394 +1,277 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { auth } from '../../src/lib/auth/auth'
-import { db } from '../../src/lib/db/index'
-import { auditLogs, modelSettings } from '../../src/lib/db/schema'
-import { resolveAutoModel } from '../../src/lib/models/router'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import postgres, { type Sql } from 'postgres'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as schema from '../../src/lib/db/schema'
 import { AppError } from '../../src/lib/utils/errors'
-import {
-  getModelOverridesMap,
-  isModelAvailable,
-  resetModelOverridesInMemory,
-  updateModelAvailabilityCore,
-  updateModelOverrideInMemory,
-} from '../../src/server/core/admin-models'
-import {
-  sendCompareMessageCore,
-  sendMessageCore,
-} from '../../src/server/core/chat'
 
-describe('Admin Model Availability Enforcement', () => {
-  beforeEach(() => {
-    resetModelOverridesInMemory()
+const connectionString = process.env.ZONA_P1_TEST_DATABASE_URL ?? ''
+const describeDb = connectionString ? describe : describe.skip
+
+const session = (role: 'user' | 'admin') => ({
+  session: {
+    id: `sess-${role}`,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    userId: `user-${role}`,
+    expiresAt: new Date(Date.now() + 86_400_000),
+    token: `tok-${role}`,
+  },
+  user: {
+    id: `user-${role}`,
+    email: `${role}@example.com`,
+    name: role,
+    emailVerified: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    role,
+    banned: false,
+  },
+})
+const databaseName = 'zona_p1_admin_test'
+
+const rootConnectionString = () => {
+  const url = new URL(connectionString)
+  url.pathname = '/postgres'
+  return url.toString()
+}
+
+const isolatedConnectionString = () => {
+  const url = new URL(connectionString)
+  url.pathname = `/${databaseName}`
+  return url.toString()
+}
+
+describeDb('Admin model availability on isolated PostgreSQL', () => {
+  let sql: Sql
+  let database: ReturnType<typeof drizzle<typeof schema>>
+  let auth: typeof import('../../src/lib/auth/auth')
+  let adminModels: typeof import('../../src/server/core/admin-models')
+  let catalog: typeof import('../../src/server/core/model-catalog')
+  let compareCore: typeof import('../../src/server/core/compare')
+  let functionsModule: typeof import('../../src/server/functions/admin-models')
+
+  beforeAll(async () => {
+    const root = postgres(rootConnectionString(), { max: 1 })
+    try {
+      await root`DROP DATABASE IF EXISTS zona_p1_admin_test WITH (FORCE)`
+      await root`CREATE DATABASE zona_p1_admin_test`
+    } finally {
+      await root.end()
+    }
+    process.env.DATABASE_URL = isolatedConnectionString().replace(
+      /^postgres:\/\//,
+      'postgresql://',
+    )
+    sql = postgres(isolatedConnectionString(), { max: 1 })
+    database = drizzle(sql, { schema })
+    await migrate(database, {
+      migrationsFolder: path.resolve(process.cwd(), 'src/lib/db/migrations'),
+    })
+
+    auth = await import('../../src/lib/auth/auth')
+    adminModels = await import('../../src/server/core/admin-models')
+    catalog = await import('../../src/server/core/model-catalog')
+    compareCore = await import('../../src/server/core/compare')
+    functionsModule = await import('../../src/server/functions/admin-models')
+  }, 30_000)
+
+  beforeEach(async () => {
+    await sql`TRUNCATE audit_logs, model_aliases, model_catalog, model_settings CASCADE`
+    await catalog.seedModelCatalogFromLegacy(database)
+    await database
+      .insert(schema.users)
+      .values([
+        {
+          id: 'user-admin',
+          email: 'admin@example.com',
+          name: 'admin',
+          role: 'admin',
+        },
+        {
+          id: 'user-user',
+          email: 'user@example.com',
+          name: 'user',
+          role: 'user',
+        },
+      ])
+      .onConflictDoNothing()
     vi.restoreAllMocks()
   })
 
-  it('should report model as active by default', () => {
-    expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(true)
+  afterAll(async () => {
+    await sql?.end()
+    const root = postgres(rootConnectionString(), { max: 1 })
+    try {
+      await root`DROP DATABASE IF EXISTS zona_p1_admin_test WITH (FORCE)`
+    } finally {
+      await root.end()
+    }
   })
 
-  it('should report model as inactive after being disabled', () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-terra', false, 'Maintenance')
-    expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(false)
-  })
-
-  it('should resolve model availability across canonical and short model IDs', () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-terra', false, 'Maintenance')
-    expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(false)
-    expect(isModelAvailable('gpt-5.6-terra')).toBe(false)
-  })
-
-  it('should return cached overrides map from getModelOverridesMap', async () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-luna', false, 'Overload')
-    const map = await getModelOverridesMap()
-    expect(map.get('cx/gpt-5.6-luna')).toEqual({
-      isActive: false,
-      disabledReason: 'Overload',
-    })
-  })
-
-  it('should avoid disabled models in resolveAutoModel when isAvailable is supplied', () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-sol', false, 'Outage')
-    const resolved = resolveAutoModel(
-      'refactor code:\n```ts\nconst a = 1\n```',
-      {
-        isAvailable: isModelAvailable,
-      },
+  it('reports catalog status from the database, not a process cache', async () => {
+    expect((await catalog.getEligibleModel('cx/gpt-5.6-terra'))?.id).toBe(
+      'cx/gpt-5.6-terra',
     )
-    expect(resolved.routerModelId).not.toBe('cx/gpt-5.6-sol')
-    expect(resolved.routerModelId).toBe('ag/gemini-3.7-flash-high')
+
+    await database
+      .update(schema.modelSettings)
+      .set({ isActive: false, status: 'inactive', disabledReason: 'Maintenance' })
+      .where(eq(schema.modelSettings.modelId, 'cx/gpt-5.6-terra'))
+    catalog.invalidateCatalogCache()
+
+    expect(await catalog.getEligibleModel('cx/gpt-5.6-terra')).toBeNull()
+    expect(await catalog.getEligibleModel('gpt-5.6-terra')).toBeNull()
+    expect(
+      (await catalog.getPublicCatalog()).find(
+        (entry) => entry.id === 'cx/gpt-5.6-terra',
+      )?.disabledReason,
+    ).toBe('Maintenance')
   })
 
-  it('should reject sendMessageCore with 400 ERR-MODEL-DISABLED if requested model is disabled', async () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-terra', false, 'Maintenance')
-
-    vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
-      session: {
-        id: 'sess-chat',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'user-chat-1',
-        expiresAt: new Date(Date.now() + 86400000),
-        token: 'tok-chat',
-      },
-      user: {
-        id: 'user-chat-1',
-        email: 'user1@example.com',
-        name: 'User One',
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        role: 'user',
-        banned: false,
-      },
-    })
-
-    const request = new Request('http://localhost:3000/api/chat')
-
-    try {
-      await sendMessageCore({
-        data: {
-          modelId: 'cx/gpt-5.6-terra',
-          content: 'Hello world',
-        },
-        request,
-      })
-      expect.fail('sendMessageCore should have thrown')
-    } catch (e) {
-      const err = e as AppError
-      expect(err).toBeInstanceOf(AppError)
-      expect(err.status).toBe(400)
-      expect(err.code).toBe('ERR-MODEL-DISABLED')
-      expect(err.message).toBe(
-        'Model ini sedang dinonaktifkan oleh administrator.',
-      )
-    }
-  })
-
-  it('should reject sendCompareMessageCore with 400 ERR-MODEL-DISABLED if any model is disabled', async () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-terra', false, 'Maintenance')
-
-    vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
-      session: {
-        id: 'sess-compare',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'user-compare-1',
-        expiresAt: new Date(Date.now() + 86400000),
-        token: 'tok-compare',
-      },
-      user: {
-        id: 'user-compare-1',
-        email: 'compare@example.com',
-        name: 'Compare User',
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        role: 'user',
-        banned: false,
-      },
-    })
-
-    const request = new Request('http://localhost:3000/api/compare')
-
-    try {
-      await sendCompareMessageCore({
-        data: {
-          modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-terra'],
-          content: 'Bandingkan dua model',
-        },
-        request,
-      })
-      expect.fail('sendCompareMessageCore should have thrown')
-    } catch (e) {
-      const err = e as AppError
-      expect(err).toBeInstanceOf(AppError)
-      expect(err.status).toBe(400)
-      expect(err.code).toBe('ERR-MODEL-DISABLED')
-      expect(err.message).toBe(
-        'Model ini sedang dinonaktifkan oleh administrator.',
-      )
-    }
-  })
-
-  it('should require admin session in updateModelAvailabilityCore and persist overrides and audit logs', async () => {
-    vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
-      session: {
-        id: 'sess-non-admin',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'user-regular',
-        expiresAt: new Date(Date.now() + 86400000),
-        token: 'tok-reg',
-      },
-      user: {
-        id: 'user-regular',
-        email: 'regular@example.com',
-        name: 'Regular User',
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        role: 'user',
-        banned: false,
-      },
-    })
-
+  it('rejects non-admin updates before touching the catalog', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValueOnce(
+      session('user'),
+    )
     const request = new Request('http://localhost:3000/api/admin/models')
 
     await expect(
-      updateModelAvailabilityCore({
+      adminModels.updateModelAvailabilityCore({
         modelId: 'cx/gpt-5.6-terra',
         isActive: false,
-        disabledReason: 'Emergency maintenance',
         request,
       }),
-    ).rejects.toThrowError(AppError)
+    ).rejects.toBeInstanceOf(AppError)
 
-    vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
-      session: {
-        id: 'sess-admin',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'admin-1',
-        expiresAt: new Date(Date.now() + 86400000),
-        token: 'tok-adm',
-      },
-      user: {
-        id: 'admin-1',
-        email: 'admin@zona.ai',
-        name: 'Admin User',
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        role: 'admin',
-        banned: false,
-      },
-    })
+    expect(await catalog.getEligibleModel('cx/gpt-5.6-terra')).not.toBeNull()
+  })
 
-    const inserts: Array<{ table: unknown; value: unknown }> = []
-    const mockInsert = (table: unknown) => ({
-      values: (val: unknown) => {
-        inserts.push({ table, value: val })
-        return {
-          onConflictDoUpdate: vi.fn().mockResolvedValue({}),
-        }
-      },
-    })
-    vi.spyOn(db, 'transaction').mockImplementation(async (cb: unknown) => {
-      return (cb as (tx: unknown) => Promise<unknown>)({
-        insert: mockInsert,
-      })
-    })
-    vi.spyOn(db, 'insert').mockImplementation(
-      mockInsert as unknown as typeof db.insert,
-    )
+  it('persists admin disable/enable with audit rows and invalidates the catalog', async () => {
+    const request = new Request('http://localhost:3000/api/admin/models')
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
 
-    const result = await updateModelAvailabilityCore({
+    const disabled = await adminModels.updateModelAvailabilityCore({
       modelId: 'cx/gpt-5.6-terra',
       isActive: false,
       disabledReason: 'Emergency maintenance',
       request,
     })
-
-    expect(result.success).toBe(true)
-    expect(result.isActive).toBe(false)
-    expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(false)
-
-    expect(inserts).toHaveLength(2)
-    expect(inserts[0].table).toBe(modelSettings)
-    expect(inserts[0].value).toMatchObject({
+    expect(disabled).toMatchObject({
+      success: true,
       modelId: 'cx/gpt-5.6-terra',
       isActive: false,
-      disabledReason: 'Emergency maintenance',
-      updatedBy: 'admin-1',
     })
-    expect(inserts[1].table).toBe(auditLogs)
-    expect(inserts[1].value).toMatchObject({
-      adminId: 'admin-1',
-      adminEmail: 'admin@zona.ai',
-      action: 'model.disable',
-      targetId: 'cx/gpt-5.6-terra',
-      targetType: 'model',
-      metadata: {
-        disabledReason: 'Emergency maintenance',
-      },
-    })
+    expect(await catalog.getEligibleModel('cx/gpt-5.6-terra')).toBeNull()
 
-    // Enable model again
-    vi.spyOn(auth.api, 'getSession').mockResolvedValueOnce({
-      session: {
-        id: 'sess-admin-2',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: 'admin-1',
-        expiresAt: new Date(Date.now() + 86400000),
-        token: 'tok-adm-2',
+    const auditRows = await database.select().from(schema.auditLogs)
+    expect(auditRows).toMatchObject([
+      {
+        adminId: 'user-admin',
+        action: 'model.disable',
+        targetId: 'cx/gpt-5.6-terra',
+        targetType: 'model',
       },
-      user: {
-        id: 'admin-1',
-        email: 'admin@zona.ai',
-        name: 'Admin User',
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        role: 'admin',
-        banned: false,
-      },
-    })
+    ])
 
-    const enableResult = await updateModelAvailabilityCore({
-      modelId: 'cx/gpt-5.6-terra',
+    const enabled = await adminModels.updateModelAvailabilityCore({
+      modelId: 'cx/gpt-5.6-sol',
       isActive: true,
       request,
     })
-
-    expect(enableResult.success).toBe(true)
-    expect(enableResult.isActive).toBe(true)
-    expect(isModelAvailable('cx/gpt-5.6-terra')).toBe(true)
-    expect(inserts).toHaveLength(4)
-    expect(inserts[2].table).toBe(modelSettings)
-    expect(inserts[2].value).toMatchObject({
-      modelId: 'cx/gpt-5.6-terra',
-      isActive: true,
-      disabledReason: null,
-      updatedBy: 'admin-1',
-    })
-    expect(inserts[3].table).toBe(auditLogs)
-    expect(inserts[3].value).toMatchObject({
-      adminId: 'admin-1',
-      adminEmail: 'admin@zona.ai',
-      action: 'model.enable',
-      targetId: 'cx/gpt-5.6-terra',
-      targetType: 'model',
-      metadata: {
-        disabledReason: null,
-      },
-    })
+    expect(enabled.isActive).toBe(true)
+    expect(await catalog.getEligibleModel('gpt-5.6-sol')).not.toBeNull()
   })
 
-  it('should load overrides from DB on cold boot and clear stale cache', async () => {
-    resetModelOverridesInMemory()
-    vi.spyOn(db, 'select').mockReturnValue({
-      from: vi.fn().mockResolvedValue([
-        {
-          modelId: 'cx/gpt-5.6-luna',
-          isActive: false,
-          disabledReason: 'Cold boot loaded',
-        },
-      ]),
-    } as unknown as ReturnType<typeof db.select>)
-
-    const map = await getModelOverridesMap()
-    expect(map.get('cx/gpt-5.6-luna')).toEqual({
+  it('fails Compare validation when an admin-disabled model is selected', async () => {
+    vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
+    const request = new Request('http://localhost:3000/api/admin/models')
+    await adminModels.updateModelAvailabilityCore({
+      modelId: 'cx/gpt-5.6-sol',
       isActive: false,
-      disabledReason: 'Cold boot loaded',
+      disabledReason: 'Maintenance',
+      request,
     })
-    expect(isModelAvailable('cx/gpt-5.6-luna')).toBe(false)
-  })
 
-  it('should reflect disabled status in getModelCatalog and support short ID overrides', async () => {
-    updateModelOverrideInMemory('cx/gpt-5.6-terra', false, 'Routine Upgrade')
-    const overrides = await getModelOverridesMap()
-    const { getModelCatalog } = await import('../../src/lib/models/registry')
-    const catalog = getModelCatalog(overrides)
-
-    const entry = catalog.find((c) => c.id === 'cx/gpt-5.6-terra')
-    expect(entry).toBeDefined()
-    expect(entry?.isActive).toBe(false)
-    expect(entry?.disabledReason).toBe('Routine Upgrade')
-
-    const activeEntry = catalog.find((c) => c.id === 'auto')
-    expect(activeEntry).toBeDefined()
-    expect(activeEntry?.isActive).toBe(true)
-
-    // Short ID override resolution
-    resetModelOverridesInMemory()
-    updateModelOverrideInMemory('gpt-5.6-terra', false, 'Short ID Upgrade')
-    const overrides2 = await getModelOverridesMap()
-    const catalog2 = getModelCatalog(overrides2)
-    const entry2 = catalog2.find((c) => c.id === 'cx/gpt-5.6-terra')
-    expect(entry2).toBeDefined()
-    expect(entry2?.isActive).toBe(false)
-    expect(entry2?.disabledReason).toBe('Short ID Upgrade')
-  })
-
-  it('should validate compare models availability with validateCompareModelsAvailability', async () => {
-    const { validateCompareModelsAvailability } = await import(
-      '../../src/server/core/compare'
-    )
     await expect(
-      validateCompareModelsAvailability([
+      compareCore.validateCompareModelsAvailability([
         'ag/gemini-3.7-flash-high',
         'cx/gpt-5.6-sol',
       ]),
-    ).resolves.not.toThrow()
-
-    updateModelOverrideInMemory('cx/gpt-5.6-sol', false, 'Maintenance')
-    await expect(
-      validateCompareModelsAvailability([
-        'ag/gemini-3.7-flash-high',
-        'cx/gpt-5.6-sol',
-      ]),
-    ).rejects.toThrowError(AppError)
+    ).rejects.toMatchObject({ code: 'ERR-MODEL-DISABLED' })
   })
 
-  it('should validate updateModelAvailabilitySchema properly', async () => {
-    const { updateModelAvailabilitySchema } = await import(
-      '../../src/server/functions/admin-models'
-    )
-    const valid = updateModelAvailabilitySchema.safeParse({
+  it('validates the admin update schema at the server boundary', () => {
+    const valid = functionsModule.updateModelAvailabilitySchema.safeParse({
       modelId: 'cx/gpt-5.6-sol',
       isActive: false,
       disabledReason: 'Upgrading cluster',
     })
     expect(valid.success).toBe(true)
 
-    const invalid = updateModelAvailabilitySchema.safeParse({
+    const invalid = functionsModule.updateModelAvailabilitySchema.safeParse({
       modelId: '',
       isActive: 'not-a-boolean',
     })
     expect(invalid.success).toBe(false)
+  })
+
+  it('migration 0019 preserves legacy data and backfills admin status', async () => {
+    await sql`DROP TABLE IF EXISTS model_aliases CASCADE`
+    await sql`DROP TABLE IF EXISTS model_catalog CASCADE`
+    await sql`ALTER TABLE model_settings DROP COLUMN IF EXISTS status CASCADE`
+    await sql`ALTER TABLE model_settings DROP COLUMN IF EXISTS retired_at`
+    await sql`ALTER TABLE model_settings DROP COLUMN IF EXISTS last_checked_at`
+
+    await sql`UPDATE users SET credits = 777 WHERE id = 'user-admin'`
+    await sql`UPDATE model_settings SET is_active = false, disabled_reason = 'legacy maintenance', updated_by = 'user-admin' WHERE model_id = 'cx/gpt-5.6-terra'`
+    const [conversation] = await sql<{ id: string }>`INSERT INTO conversations (user_id, title, model_id) VALUES ('user-admin', 'Legacy chat', 'cx/gpt-5.6-terra') RETURNING id`
+    await sql`INSERT INTO messages (conversation_id, role, content) VALUES (${conversation?.id}, 'user', 'legacy message')`
+    await sql`INSERT INTO artifacts (user_id, conversation_id, kind, title) VALUES ('user-admin', ${conversation?.id}, 'prd', 'Legacy artifact')`
+    await sql`INSERT INTO credit_transactions (user_id, amount, type, model_id, balance_after) VALUES ('user-admin', -15, 'generation', 'cx/gpt-5.6-terra', 777)`
+    await sql`INSERT INTO audit_logs (admin_id, admin_email, action, target_id, target_type) VALUES ('user-admin', 'admin@example.com', 'model.disable', 'cx/gpt-5.6-terra', 'model')`
+
+    const migration = readFileSync(
+      path.resolve(process.cwd(), 'src/lib/db/migrations/0019_model_catalog.sql'),
+      'utf8',
+    )
+    await sql.unsafe(migration.replaceAll('--> statement-breakpoint', ''))
+
+    const [user] = await sql<{ credits: number }>`SELECT credits FROM users WHERE id = 'user-admin'`
+    const [storedConversation] = await sql<{ title: string }>`SELECT title FROM conversations WHERE id = ${conversation?.id}`
+    const [messageCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM messages`
+    const [artifactCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM artifacts`
+    const [creditCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM credit_transactions`
+    const [auditCount] = await sql<{ value: number }>`SELECT count(*)::int AS value FROM audit_logs`
+    const [setting] = await sql<{
+      status: string
+      disabled_reason: string | null
+    }>`SELECT status, disabled_reason FROM model_settings WHERE model_id = 'cx/gpt-5.6-terra'`
+
+    expect(user?.credits).toBe(777)
+    expect(storedConversation?.title).toBe('Legacy chat')
+    expect(messageCount?.value).toBe(1)
+    expect(artifactCount?.value).toBe(1)
+    expect(creditCount?.value).toBe(1)
+    expect(auditCount?.value).toBe(1)
+    expect(setting).toMatchObject({
+      status: 'inactive',
+      disabled_reason: 'legacy maintenance',
+    })
+
+    expect(await catalog.seedModelCatalogFromLegacy(database)).toEqual({
+      catalogRows: 26,
+      aliasRows: 2,
+    })
+    expect(await catalog.seedModelCatalogFromLegacy(database)).toEqual({
+      catalogRows: 26,
+      aliasRows: 2,
+    })
+    expect(await catalog.getEligibleModel('cx/gpt-5.6-terra', database)).toBeNull()
   })
 })

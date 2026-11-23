@@ -8,13 +8,17 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres, { type Sql } from 'postgres'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import * as schema from '../../src/lib/db/schema'
+import { validateCompareModelsAvailability } from '../../src/server/core/compare'
+import { resolveInferenceModel } from '../../src/server/core/inference-model'
 import {
   findHistoricalModelLabel,
+  findOrphanModelSettings,
   getEligibleModel,
   getPublicCatalog,
   resolveAutoForInference,
   seedModelCatalogFromLegacy,
 } from '../../src/server/core/model-catalog'
+import { listCatalogCore } from '../../src/server/core/models'
 
 const connectionString = process.env.ZONA_P1_TEST_DATABASE_URL ?? ''
 const describeDb = connectionString ? describe : describe.skip
@@ -141,5 +145,118 @@ describeDb('model catalog on isolated PostgreSQL', () => {
     await expect(
       getEligibleModel('cx/gpt-5.5', closedDatabase),
     ).rejects.toThrow()
+  })
+
+  it('resolves inference identity and cost from the catalog before provider use', async () => {
+    await seedModelCatalogFromLegacy(database)
+
+    const alias = await resolveInferenceModel(
+      { modelId: 'gpt-5.6-sol', prompt: 'refactor', credits: 100 },
+      database,
+    )
+    expect(alias).toMatchObject({
+      modelId: 'cx/gpt-5.6-sol',
+      routerModelId: 'cx/gpt-5.6-sol',
+      cost: 15,
+    })
+
+    const auto = await resolveInferenceModel(
+      { modelId: 'auto', prompt: 'refactor', credits: 100 },
+      database,
+    )
+    expect(auto.routerModelId).toBe('cx/gpt-5.6-sol')
+    expect(auto.cost).toBe(15)
+  })
+
+  it('rejects unavailable models with a typed error before inference', async () => {
+    await seedModelCatalogFromLegacy(database)
+
+    for (const modelId of ['auto', 'unknown/model', 'gpt-4o', 'sol']) {
+      await expect(
+        resolveInferenceModel(
+          { modelId, prompt: 'refactor', credits: 0 },
+          database,
+        ),
+      ).rejects.toMatchObject({ code: 'ERR-003' })
+    }
+
+    await database
+      .update(schema.modelSettings)
+      .set({ status: 'inactive', isActive: false })
+      .where(eq(schema.modelSettings.modelId, 'cx/gpt-5.5'))
+    await expect(
+      resolveInferenceModel(
+        { modelId: 'cx/gpt-5.5', prompt: 'hi', credits: 100 },
+        database,
+      ),
+    ).rejects.toMatchObject({ code: 'ERR-MODEL-DISABLED' })
+  })
+  it('excludes retired rows from the public catalog but keeps historical DTOs', async () => {
+    await seedModelCatalogFromLegacy(database)
+    await database
+      .update(schema.modelSettings)
+      .set({ status: 'retired', retiredAt: new Date(), isActive: false })
+      .where(eq(schema.modelSettings.modelId, 'gh/gpt-4o'))
+
+    const publicRows = await getPublicCatalog(database)
+    expect(publicRows.some((row) => row.id === 'gh/gpt-4o')).toBe(false)
+
+    const historicalRows = await getPublicCatalog(database, true)
+    const retired = historicalRows.find((row) => row.id === 'gh/gpt-4o')
+    expect(retired).toMatchObject({
+      status: 'retired',
+      displayName: 'GPT-4o',
+    })
+  })
+
+  it('rejects two aliases that resolve to one canonical model in Compare', async () => {
+    await seedModelCatalogFromLegacy(database)
+    await expect(
+      validateCompareModelsAvailability(
+        ['gpt-5.6-sol', 'cx/gpt-5.6-sol'],
+        database,
+      ),
+    ).rejects.toMatchObject({ code: 'ERR-003' })
+    await expect(
+      validateCompareModelsAvailability(
+        ['cx/gpt-5.6-sol', 'cx/gpt-5.6-terra'],
+        database,
+      ),
+    ).resolves.toBeUndefined()
+  })
+
+  it('reports orphan settings without applying them to another model', async () => {
+    await seedModelCatalogFromLegacy(database)
+    await database.insert(schema.modelSettings).values({
+      modelId: 'retired/vendor-only-model',
+      isActive: false,
+      status: 'inactive',
+      disabledReason: 'orphan evidence',
+    })
+
+    expect(await findOrphanModelSettings(database)).toEqual([
+      'retired/vendor-only-model',
+    ])
+    expect(
+      (await getPublicCatalog(database)).find(
+        (entry) => entry.id === 'cx/gpt-5.5',
+      )?.isActive,
+    ).toBe(true)
+  })
+
+  it('paginates the public catalog without dropping the workspace list', async () => {
+    await seedModelCatalogFromLegacy(database)
+    const all = await getPublicCatalog(database)
+    const firstPage = await listCatalogCore({ limit: 10 }, database)
+    const secondPage = await listCatalogCore(
+      { limit: 10, offset: firstPage.nextOffset ?? 0 },
+      database,
+    )
+
+    expect(firstPage.items).toHaveLength(10)
+    expect(firstPage.nextOffset).toBe(10)
+    expect(secondPage.items).toHaveLength(10)
+    expect(secondPage.nextOffset).toBe(20)
+    expect(all).toHaveLength(26)
   })
 })
