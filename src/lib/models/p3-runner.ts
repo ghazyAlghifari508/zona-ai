@@ -101,3 +101,18 @@ export function retryAfterMs(value: string | null, now: number): number {
     : Date.parse(value) - now
   return Number.isFinite(delay) ? Math.max(0, delay) : 0
 }
+
+const recheckStates: Record<string, true> = {
+  aborted: true,
+  'gateway-error': true,
+  'http-rejected': true,
+  'identity-mismatch': true,
+  'identity-unreported': true,
+  'invalid-protocol': true,
+  'rate-limit': true,
+  truncated: true,
+  'unexpected-answer': true,
+}
+export function shouldRecheckState(state: string) {
+  return recheckStates[state] === true
+}

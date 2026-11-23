@@ -22,7 +22,12 @@ import {
   totalGatewayCost,
   verifyRouteProvenance,
 } from '../../lib/models/p3-provenance.server'
-import { admission, planRun, runnerVersion } from '../../lib/models/p3-runner'
+import {
+  admission,
+  planRun,
+  runnerVersion,
+  shouldRecheckState,
+} from '../../lib/models/p3-runner'
 import {
   buildTextSuite,
   defaultSeed,
@@ -77,6 +82,7 @@ async function main() {
       resume: { type: 'boolean' },
       discover: { type: 'boolean' },
       enrich: { type: 'boolean' },
+      recheck: { type: 'boolean' },
       'max-calls': { type: 'string' },
       'max-tokens': { type: 'string' },
       'max-output': { type: 'string' },
@@ -247,13 +253,21 @@ async function main() {
         const execute = async (job: (typeof jobs)[number]) => {
           const previous = history.get(job.key) ?? []
           const last = previous.at(-1)
-          if (last && !isRetryable(last.state) && last.state !== 'interrupted')
+          const recheck =
+            values.recheck === true && !!last && shouldRecheckState(last.state)
+          if (
+            last &&
+            !isRetryable(last.state) &&
+            last.state !== 'interrupted' &&
+            !recheck
+          )
             return
           const reservation = reservedFor(job)
           const provider = job.route.split('/')[0]
           for (
             let attempt = previous.length;
-            attempt <= retries && !stop.signal.aborted;
+            attempt <= (recheck ? previous.length + retries : retries) &&
+            !stop.signal.aborted;
             attempt++
           ) {
             const time = Math.max(

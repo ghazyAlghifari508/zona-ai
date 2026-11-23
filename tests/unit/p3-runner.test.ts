@@ -4,6 +4,7 @@ import {
   classifyAttempt,
   planRun,
   retryAfterMs,
+  shouldRecheckState,
 } from '../../src/lib/models/p3-runner'
 
 it('plans all independent text, repeat, preflight and vision calls for each exact route', () => {
@@ -50,4 +51,12 @@ it('does not score an unreported, substituted, or truncated route', () => {
   expect(classifyAttempt('a/model', 'a/model', 'stop', '"ok"')).toBe('valid')
   expect(retryAfterMs('7', 0)).toBe(7000)
   expect(retryAfterMs('Thu, 01 Jan 1970 00:00:07 GMT', 0)).toBe(7000)
+})
+
+it('rechecks final invalid states but never rechecks valid or auth failures', () => {
+  expect(shouldRecheckState('http-rejected')).toBe(true)
+  expect(shouldRecheckState('aborted')).toBe(true)
+  expect(shouldRecheckState('identity-mismatch')).toBe(true)
+  expect(shouldRecheckState('valid')).toBe(false)
+  expect(shouldRecheckState('auth')).toBe(false)
 })
