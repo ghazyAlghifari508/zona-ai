@@ -32,3 +32,29 @@ it('recomputes complete evidence and rejects missing or substituted routes', () 
     ),
   ).toThrow()
 })
+
+it('accepts a provenance-verified wire alias as exact-route evidence', () => {
+  const route = 'test/physical'
+  const rows = planRun([route], 12).map((job) => ({
+    key: job.key,
+    state: 'valid',
+    identity: 'physical',
+    routeVerified: true,
+    gatewayModel: 'physical',
+    route,
+    raw: JSON.stringify(job.id.endsWith(':control') ? null : job.expected),
+    finish: 'stop',
+    fixtureHash: job.hash,
+    at: '2026-11-23T00:00:00.000Z',
+  }))
+  expect(validateEvaluation(route, 12, rows)).toMatchObject({ score: 100 })
+  expect(() =>
+    validateEvaluation(
+      route,
+      12,
+      rows.map((row, i) =>
+        i === 1 ? { ...row, gatewayModel: 'other/model' } : row,
+      ),
+    ),
+  ).toThrow()
+})

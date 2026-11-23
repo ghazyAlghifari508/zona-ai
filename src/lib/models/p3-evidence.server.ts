@@ -20,6 +20,8 @@ const header = z.object({ key: z.string(), state: z.string() })
 const evidence = header.extend({
   route: z.string(),
   identity: z.string().nullable(),
+  routeVerified: z.boolean().nullish(),
+  gatewayModel: z.string().nullish(),
   raw: z.string().nullable(),
   finish: z.string().nullable(),
   fixtureHash: z.string().nullable(),
@@ -35,6 +37,7 @@ export function validateEvaluation(
     const row = header.parse(value)
     rows.set(row.key, value)
   }
+  const physical = route.slice(route.indexOf('/') + 1)
   const points = new Map<string, number>()
   const outcomes = new Map<string, VisionResult>()
   const canonical = []
@@ -47,8 +50,11 @@ export function validateEvaluation(
       outcomes.set(job.id, 'unsupported')
       continue
     }
+    const exact =
+      row.identity === route ||
+      (row.routeVerified === true && row.gatewayModel === physical)
     if (
-      row.identity !== route ||
+      !exact ||
       row.state !== 'valid' ||
       row.finish !== 'stop' ||
       !row.raw?.trim()
