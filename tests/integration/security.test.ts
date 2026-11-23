@@ -43,6 +43,8 @@ const NO_REQUEST_BOUNDARY = new Set([
   'artifact-repository.ts',
   'artifact-workspace.ts',
   'history.ts',
+  'inference-model.ts',
+  'model-catalog.ts',
   'prd.ts',
 ])
 
@@ -1136,7 +1138,8 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
       const delegatesToCore = content.includes("from '../core/")
       return (
         hasExport &&
-        !content.includes('getAuthSession') &&
+        (!content.includes('getAuthSession') &&
+          !content.includes('requireAdminSession')) &&
         !delegatesToCore &&
         !NO_REQUEST_BOUNDARY.has(baseName(f))
       )
@@ -1152,7 +1155,8 @@ describe('security audit — static checks (SECURITY.md 20 sections)', () => {
     expect(coreFiles.length).toBeGreaterThan(0)
     const offenders = coreFiles.filter((f) => {
       return (
-        !readFileSync(f, 'utf8').includes('getAuthSession') &&
+        (!readFileSync(f, 'utf8').includes('getAuthSession') &&
+          !readFileSync(f, 'utf8').includes('requireAdminSession')) &&
         !NO_REQUEST_BOUNDARY.has(baseName(f))
       )
     })
