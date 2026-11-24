@@ -51,6 +51,13 @@ describe('P6 shared activity presentation', () => {
       'Memperbarui status feedback',
     )
     expect(getAuditActionLabel('legacy.unknown')).toBe('Aktivitas lainnya')
+    expect(getAuditActionLabel('model.update')).toBe('Mengubah informasi model')
+    expect(getAuditActionLabel('model.connection_test')).toBe(
+      'Memeriksa koneksi model',
+    )
+    expect(getAuditActionLabel('credit.reset')).toBe(
+      'Reset kredit (development)',
+    )
   })
 
   it('keeps internal codes as filter values with human labels', () => {

@@ -50,6 +50,20 @@ export function parseAuditLogMetadataValue(
   }
   return { metadata: result.data, unreadable: false }
 }
+export function sanitizeAuditText(
+  value: string | null | undefined,
+  maxLength = SAFE_MAX_STRING_LENGTH,
+): string | null {
+  if (typeof value !== 'string') return null
+  const cleaned = value
+    .replace(/<[^>]*>/g, '')
+    .replace(/\p{Cc}/gu, ' ')
+    .trim()
+  if (cleaned === '') return null
+  return cleaned.length > maxLength
+    ? `${cleaned.slice(0, maxLength)}…`
+    : cleaned
+}
 
 export function readAuditSnapshot(
   metadata: AuditLogMetadata,

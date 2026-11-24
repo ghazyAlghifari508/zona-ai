@@ -30,14 +30,14 @@ const actionLabels: Record<AuditActionCode, string> = {
   'model.enable': 'Mengaktifkan model',
   'model.disable': 'Menonaktifkan model',
   'model.create': 'Menambahkan model',
-  'model.update': 'Memperbarui model',
+  'model.update': 'Mengubah informasi model',
   'model.delete': 'Menghapus model',
-  'model.connection_test': 'Menguji koneksi model',
+  'model.connection_test': 'Memeriksa koneksi model',
   'user.ban': 'Memblokir pengguna',
   'user.unban': 'Membuka blokir pengguna',
   'user.delete': 'Menghapus pengguna',
   'credit.adjust': 'Menyesuaikan kredit',
-  'credit.reset': 'Mengatur ulang kredit',
+  'credit.reset': 'Reset kredit (development)',
   'feedback.status_update': 'Memperbarui status feedback',
 }
 
@@ -207,6 +207,10 @@ function connectionDetails(metadata: AuditLogMetadata): AuditActivityDetail[] {
     result = 'Pemeriksaan berhasil'
   } else if (
     outcome === 'auth_failure' ||
+    outcome === 'rate_limit' ||
+    outcome === 'timeout' ||
+    outcome === 'upstream_error' ||
+    outcome === 'invalid_response' ||
     outcome === 'connection_error' ||
     outcome === 'failed' ||
     outcome === 'invalid'

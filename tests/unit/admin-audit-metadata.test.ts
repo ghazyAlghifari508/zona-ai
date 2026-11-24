@@ -6,6 +6,7 @@ import {
   getTargetSnapshot,
   parseAuditLogMetadataValue,
   safeTechnicalMetadata,
+  sanitizeAuditText,
 } from '../../src/lib/admin/audit-metadata'
 
 describe('P6 audit metadata schema', () => {
@@ -85,5 +86,11 @@ describe('P6 audit metadata schema', () => {
     expect(JSON.stringify(technical)).not.toContain('catatan pribadi')
     expect(JSON.stringify(technical)).not.toContain('rahasia')
     expect(technical.status).toBe('banned')
+  })
+
+  it('sanitizes untrusted reason text before it is stored', () => {
+    expect(sanitizeAuditText('  <b>Pelanggaran</b>  ')).toBe('Pelanggaran')
+    expect(sanitizeAuditText('')).toBeNull()
+    expect(sanitizeAuditText('a'.repeat(300))).toHaveLength(241)
   })
 })
