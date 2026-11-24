@@ -168,6 +168,26 @@ describe('P6 audit producer snapshots and atomicity', () => {
     })
   })
 
+  it('does not store the deleted email in new audit metadata', async () => {
+    harness.setSelectRows([
+      {
+        id: 'user-privacy',
+        name: 'Pengguna Privat',
+        email: 'privat@example.test',
+        role: 'user',
+        banned: false,
+      },
+    ])
+    harness.setUpdateRows([{ id: 'user-privacy' }])
+
+    await deleteUserCore({ request, data: { userId: 'user-privacy' } })
+
+    const metadata = lastAuditMetadata()
+
+    expect(metadata).not.toHaveProperty('deletedEmail')
+    expect(JSON.stringify(metadata)).not.toContain('privat@example.test')
+  })
+
   it('stores before/after status for ban and unban instead of null metadata', async () => {
     harness.setSelectRows([
       {

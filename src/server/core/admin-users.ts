@@ -310,7 +310,6 @@ export async function deleteUserCore(params: {
           displayName: targetUser.name ?? targetUser.email,
         },
         details: {
-          deletedEmail: targetUser.email,
           deletedName: targetUser.name,
           deletedRole: targetUser.role,
           previousStatus: targetUser.banned ? 'banned' : 'active',
