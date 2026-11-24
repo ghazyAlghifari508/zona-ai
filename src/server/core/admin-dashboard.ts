@@ -1,14 +1,20 @@
-import { count, desc, eq, gte, isNull, or, sum } from 'drizzle-orm'
+import { and, count, desc, eq, gte, isNull, or, sum } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
 import {
   auditLogs,
   creditTransactions,
   feedback,
+  modelCatalog,
   modelSettings,
   users,
 } from '../../lib/db/schema'
+
 import { type AuditLogItem, parseAuditLogMetadataResult } from './admin-audit'
+
+const targetUsers = alias(users, 'audit_target_users')
+const targetModels = alias(modelCatalog, 'audit_target_models')
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/admin-dashboard.ts is server-only')
@@ -136,11 +142,27 @@ export async function getAdminDashboardMetricsCore(
         action: auditLogs.action,
         targetId: auditLogs.targetId,
         targetType: auditLogs.targetType,
+        targetUserName: targetUsers.name,
+        targetModelName: targetModels.displayName,
         metadata: auditLogs.metadata,
         createdAt: auditLogs.createdAt,
       })
       .from(auditLogs)
       .leftJoin(users, eq(auditLogs.adminId, users.id))
+      .leftJoin(
+        targetUsers,
+        and(
+          eq(auditLogs.targetType, 'user'),
+          eq(auditLogs.targetId, targetUsers.id),
+        ),
+      )
+      .leftJoin(
+        targetModels,
+        and(
+          eq(auditLogs.targetType, 'model'),
+          eq(auditLogs.targetId, targetModels.id),
+        ),
+      )
       .orderBy(desc(auditLogs.createdAt))
       .limit(10),
     db
@@ -165,6 +187,7 @@ export async function getAdminDashboardMetricsCore(
         action: row.action,
         targetId: row.targetId,
         targetType: row.targetType,
+        currentTargetName: row.targetUserName ?? row.targetModelName ?? null,
         metadata: parsed.metadata,
         metadataUnreadable: parsed.unreadable,
         createdAt: row.createdAt,

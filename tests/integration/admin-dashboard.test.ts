@@ -13,6 +13,58 @@ import {
 } from '../../src/server/functions/admin-audit'
 import { getAdminDashboardMetricsFn } from '../../src/server/functions/admin-dashboard'
 
+
+function auditCountQuery(
+  total: number,
+  onWhere?: (condition: unknown) => unknown,
+) {
+  const where = vi.fn().mockImplementation(
+    onWhere ?? (() => Promise.resolve([{ total }])),
+  )
+  return {
+    from: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          leftJoin: vi.fn().mockReturnValue({ where }),
+        }),
+      }),
+    }),
+  }
+}
+
+function auditItemsQuery(rows: unknown[]) {
+  return {
+    from: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          leftJoin: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  offset: vi.fn().mockResolvedValue(rows),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  }
+}
+
+function recentAuditQuery(rows: unknown[]) {
+  return {
+    leftJoin: vi.fn().mockReturnValue({
+      leftJoin: vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(rows),
+          }),
+        }),
+      }),
+    }),
+  }
+}
 describe('Admin Dashboard Metrics & Audit Log Services', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -194,6 +246,7 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
           action: 'user.ban',
           targetId: 'user-bad',
           targetType: 'user',
+          currentTargetName: null,
           metadata: { reason: 'Violation' },
           createdAt: new Date('2026-09-09T06:00:00.000Z'),
         },
@@ -206,6 +259,7 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
           action: 'model.disable',
           targetId: 'cx/gpt-5.6-terra',
           targetType: 'model',
+          currentTargetName: null,
           metadata: { disabledReason: 'Maintenance' },
           createdAt: new Date('2026-09-09T05:00:00.000Z'),
         },
@@ -214,30 +268,11 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
       let selectCallCount = 0
       vi.spyOn(db, 'select').mockImplementation(() => {
         selectCallCount++
-        if (selectCallCount === 1) {
-          // Count query
-          return {
-            from: vi.fn().mockReturnValue({
-              leftJoin: vi.fn().mockReturnValue({
-                where: vi.fn().mockResolvedValue([{ total: 25 }]),
-              }),
-            }),
-          } as unknown as ReturnType<typeof db.select>
-        }
-        // Items query
-        return {
-          from: vi.fn().mockReturnValue({
-            leftJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    offset: vi.fn().mockResolvedValue(mockLogs),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        } as unknown as ReturnType<typeof db.select>
+        return (
+          selectCallCount === 1
+            ? auditCountQuery(25)
+            : auditItemsQuery(mockLogs)
+        ) as unknown as ReturnType<typeof db.select>
       })
 
       const request = new Request('http://localhost:3000/api/admin/audit-logs')
@@ -265,31 +300,14 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
       let selectCallCount = 0
       vi.spyOn(db, 'select').mockImplementation(() => {
         selectCallCount++
-        if (selectCallCount === 1) {
-          return {
-            from: vi.fn().mockReturnValue({
-              leftJoin: vi.fn().mockReturnValue({
-                where: vi.fn().mockImplementation((condition) => {
-                  capturedWhereConditions = condition
-                  return Promise.resolve([{ total: 1 }])
-                }),
-              }),
-            }),
-          } as unknown as ReturnType<typeof db.select>
-        }
-        return {
-          from: vi.fn().mockReturnValue({
-            leftJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    offset: vi.fn().mockResolvedValue([]),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        } as unknown as ReturnType<typeof db.select>
+        return (
+          selectCallCount === 1
+            ? auditCountQuery(1, (condition) => {
+                capturedWhereConditions = condition
+                return Promise.resolve([{ total: 1 }])
+              })
+            : auditItemsQuery([])
+        ) as unknown as ReturnType<typeof db.select>
       })
 
       const request = new Request('http://localhost:3000/api/admin/audit-logs')
@@ -312,28 +330,11 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
       let selectCallCount = 0
       vi.spyOn(db, 'select').mockImplementation(() => {
         selectCallCount++
-        if (selectCallCount === 1) {
-          return {
-            from: vi.fn().mockReturnValue({
-              leftJoin: vi.fn().mockReturnValue({
-                where: vi.fn().mockResolvedValue([{ total: 0 }]),
-              }),
-            }),
-          } as unknown as ReturnType<typeof db.select>
-        }
-        return {
-          from: vi.fn().mockReturnValue({
-            leftJoin: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                orderBy: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    offset: vi.fn().mockResolvedValue([]),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        } as unknown as ReturnType<typeof db.select>
+        return (
+          selectCallCount === 1
+            ? auditCountQuery(0)
+            : auditItemsQuery([])
+        ) as unknown as ReturnType<typeof db.select>
       })
 
       const request = new Request('http://localhost:3000/api/admin/audit-logs')
@@ -384,6 +385,7 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
           action: 'user.ban',
           targetId: 'user-xyz',
           targetType: 'user',
+          currentTargetName: null,
           metadata: null,
           metadataUnreadable: false,
           createdAt: new Date('2026-09-09T06:30:00.000Z'),
@@ -435,13 +437,7 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
             }
             if (currentCall === 8) {
               // recentAuditLogs
-              return {
-                leftJoin: vi.fn().mockReturnValue({
-                  orderBy: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue(mockRecentLogs),
-                  }),
-                }),
-              }
+              return recentAuditQuery(mockRecentLogs)
             }
             // chartTransactions
             return {
@@ -497,13 +493,7 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
               return Promise.resolve([])
             }
             if (currentCall === 8) {
-              return {
-                leftJoin: vi.fn().mockReturnValue({
-                  orderBy: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue([]),
-                  }),
-                }),
-              }
+              return recentAuditQuery([])
             }
             return {
               where: vi.fn().mockResolvedValue([]),

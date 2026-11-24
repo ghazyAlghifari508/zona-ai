@@ -35,6 +35,7 @@ const log: AuditLogItem = {
   action: 'user.ban',
   targetId: 'user-1',
   targetType: 'user',
+  currentTargetName: null,
   metadata: {
     actorSnapshot: { id: 'admin-1', displayName: 'Admin Tersimpan' },
     targetSnapshot: { id: 'user-1', displayName: 'Nama Tersimpan' },

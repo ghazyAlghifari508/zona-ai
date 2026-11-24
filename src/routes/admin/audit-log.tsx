@@ -84,7 +84,7 @@ function presentLog(log: AuditLogItem) {
     currentActorName: log.adminName,
     targetId: log.targetId,
     targetType: log.targetType,
-    currentTargetName: null,
+    currentTargetName: log.currentTargetName,
   })
 }
 

@@ -1,11 +1,15 @@
 import { and, count, desc, eq, ilike, or, type SQL, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import {
   type AuditLogMetadata,
   parseAuditLogMetadataValue,
 } from '../../lib/admin/audit-metadata'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
-import { auditLogs, users } from '../../lib/db/schema'
+import { auditLogs, modelCatalog, users } from '../../lib/db/schema'
+
+const targetUsers = alias(users, 'audit_target_users')
+const targetModels = alias(modelCatalog, 'audit_target_models')
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/admin-audit.ts is server-only')
@@ -35,6 +39,7 @@ export interface AuditLogItem {
   action: string
   targetId: string
   targetType: string
+  currentTargetName: string | null
   metadata: AuditLogMetadata
   metadataUnreadable: boolean
   createdAt: Date | null
@@ -80,6 +85,8 @@ function buildSearchCondition(search: string): SQL {
     ),
     ilike(sql<string>`${auditLogs.metadata}->'targetSnapshot'->>'id'`, pattern),
     ilike(sql<string>`${auditLogs.metadata}->>'deletedName'`, pattern),
+    ilike(targetUsers.name, pattern),
+    ilike(targetModels.displayName, pattern),
   )
   return condition ?? sql`true`
 }
@@ -121,6 +128,20 @@ export async function listAuditLogsCore(
     .select({ total: count() })
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.adminId, users.id))
+    .leftJoin(
+      targetUsers,
+      and(
+        eq(auditLogs.targetType, 'user'),
+        eq(auditLogs.targetId, targetUsers.id),
+      ),
+    )
+    .leftJoin(
+      targetModels,
+      and(
+        eq(auditLogs.targetType, 'model'),
+        eq(auditLogs.targetId, targetModels.id),
+      ),
+    )
     .where(whereClause)
 
   const total = Number(countResult[0]?.total ?? 0)
@@ -140,11 +161,27 @@ export async function listAuditLogsCore(
       action: auditLogs.action,
       targetId: auditLogs.targetId,
       targetType: auditLogs.targetType,
+      targetUserName: targetUsers.name,
+      targetModelName: targetModels.displayName,
       metadata: auditLogs.metadata,
       createdAt: auditLogs.createdAt,
     })
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.adminId, users.id))
+    .leftJoin(
+      targetUsers,
+      and(
+        eq(auditLogs.targetType, 'user'),
+        eq(auditLogs.targetId, targetUsers.id),
+      ),
+    )
+    .leftJoin(
+      targetModels,
+      and(
+        eq(auditLogs.targetType, 'model'),
+        eq(auditLogs.targetId, targetModels.id),
+      ),
+    )
     .where(whereClause)
     .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
     .limit(limit)
@@ -161,6 +198,7 @@ export async function listAuditLogsCore(
       action: row.action,
       targetId: row.targetId,
       targetType: row.targetType,
+      currentTargetName: row.targetUserName ?? row.targetModelName ?? null,
       metadata: parsed.metadata,
       metadataUnreadable: parsed.unreadable,
       createdAt: row.createdAt,

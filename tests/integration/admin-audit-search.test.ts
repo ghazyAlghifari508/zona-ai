@@ -75,7 +75,7 @@ describeDb('Audit log search on isolated PostgreSQL', () => {
   }, 60_000)
 
   beforeEach(async () => {
-    await sql`TRUNCATE audit_logs CASCADE`
+    await sql`TRUNCATE audit_logs, users, model_settings, model_catalog CASCADE`
     vi.restoreAllMocks()
     vi.spyOn(auth.auth.api, 'getSession').mockResolvedValue(session('admin'))
   })
@@ -149,6 +149,44 @@ describeDb('Audit log search on isolated PostgreSQL', () => {
     ])
   }
 
+  async function seedCurrentTargets() {
+    await database.insert(schema.users).values({
+      id: 'user-target',
+      email: 'target@example.test',
+      name: 'Nama Saat Ini',
+      role: 'user',
+      credits: 0,
+    })
+    await database.insert(schema.modelCatalog).values({
+      id: 'model-x',
+      routerModelId: 'probe/model-x',
+      displayName: 'Model Saat Ini',
+      provider: 'probe',
+      vendor: 'Uji',
+      description: '',
+      intelligenceLevel: 1,
+      intelligenceScore: 50,
+      intelligenceBars: 2,
+      confidence: 'medium',
+      creditCostMin: 1,
+      creditCostMax: 2,
+      creditTier: 'economy',
+      capabilities: {
+        text: true,
+        vision: false,
+        files: false,
+        tools: false,
+        reasoning: false,
+        structuredOutput: false,
+      },
+      searchAliases: [],
+      category: 'general',
+      speedClass: 'fast',
+      routingProfile: 'general',
+      provenance: 'isolated-test',
+    })
+  }
+
   const request = new Request('http://localhost:3000/admin/audit-log')
 
   it('finds logs by administrator name, email and ID', async () => {
@@ -176,6 +214,36 @@ describeDb('Audit log search on isolated PostgreSQL', () => {
       .toHaveLength(1)
     expect((await listAuditLogsCore({ request, search: 'model-x' })).items)
       .toHaveLength(1)
+  })
+
+  it('resolves and searches current target names', async () => {
+    await seedLogs()
+    await seedCurrentTargets()
+
+    const result = await listAuditLogsCore({ request, limit: 10 })
+    const byTargetId = new Map(result.items.map((item) => [item.targetId, item]))
+
+    expect(byTargetId.get('user-target')?.currentTargetName).toBe('Nama Saat Ini')
+    expect(byTargetId.get('model-x')?.currentTargetName).toBe('Model Saat Ini')
+    expect(byTargetId.get('user-removed')?.currentTargetName).toBeNull()
+
+    const byUser = await listAuditLogsCore({
+      request,
+      search: 'Nama Saat Ini',
+      limit: 10,
+    })
+    expect(byUser.items.length).toBeGreaterThan(0)
+    expect(
+      byUser.items.every((item) => item.targetId === 'user-target'),
+    ).toBe(true)
+
+    const byModel = await listAuditLogsCore({
+      request,
+      search: 'Model Saat Ini',
+      limit: 10,
+    })
+    expect(byModel.items).toHaveLength(1)
+    expect(byModel.items[0]?.targetId).toBe('model-x')
   })
 
   it('treats wildcard characters in search as literal text', async () => {
