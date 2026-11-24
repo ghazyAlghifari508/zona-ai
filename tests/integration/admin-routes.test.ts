@@ -417,6 +417,52 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
       expect(vi.mocked(getAdminDashboardMetricsFn)).not.toHaveBeenCalled()
     })
 
+    it('keeps the chart period and metrics unchanged while the feed pages', async () => {
+      const { AdminDashboardOverview } = await import(
+        '../../src/routes/admin/index'
+      )
+      render(
+        React.createElement(AdminDashboardOverview, {
+          data: mockData,
+          initialAudit: auditPage(1),
+        }),
+      )
+
+      fireEvent.click(screen.getByTestId('admin-chart-filter-14d'))
+      expect(screen.getByText(/Total Periode \(14 Hari\)/)).toBeDefined()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' }))
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-activity-row-log-2-1')).toBeDefined()
+      })
+      expect(screen.getByText(/Total Periode \(14 Hari\)/)).toBeDefined()
+      expect(screen.getByTestId('admin-metric-total-users')).toBeDefined()
+      expect(vi.mocked(getAdminDashboardMetricsFn)).not.toHaveBeenCalled()
+    })
+
+    it('keeps the loaded feed page label while a page request is pending', async () => {
+      const { AdminDashboardOverview } = await import(
+        '../../src/routes/admin/index'
+      )
+      const gate = Promise.withResolvers<ListAuditLogsResponse>()
+      render(
+        React.createElement(AdminDashboardOverview, {
+          data: mockData,
+          initialAudit: auditPage(1),
+        }),
+      )
+      vi.mocked(listAuditLogsFn).mockReturnValueOnce(gate.promise)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' }))
+      expect(screen.getByText('Halaman 1 dari 3')).toBeDefined()
+      expect(screen.getAllByTestId(/^admin-activity-row-/)).toHaveLength(5)
+
+      gate.resolve(auditPage(2))
+      await waitFor(() =>
+        expect(screen.getByText('Halaman 2 dari 3')).toBeDefined(),
+      )
+    })
+
     it('disables impossible navigation on the last page', async () => {
       const { AdminDashboardOverview } = await import(
         '../../src/routes/admin/index'

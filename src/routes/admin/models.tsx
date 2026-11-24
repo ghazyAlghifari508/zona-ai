@@ -198,7 +198,6 @@ export function AdminModelsView({
     initialData.items.map(toModelCatalogItem),
   )
   const [pagination, setPagination] = useState(initialData.pagination)
-  const [currentPage, setCurrentPage] = useState(initialData.pagination.page)
   const [providers, setProviders] = useState(initialData.providers)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -260,7 +259,6 @@ export function AdminModelsView({
     const requestId = ++requestIdRef.current
     setIsFetchingList(true)
     setListError(null)
-    setCurrentPage(params.page)
     try {
       const result = await getAdminModelsFn({
         data: {
@@ -275,7 +273,6 @@ export function AdminModelsView({
       if (requestId !== requestIdRef.current) return
       setModels(result.items.map(toModelCatalogItem))
       setPagination(result.pagination)
-      setCurrentPage(result.pagination.page)
       setProviders(result.providers)
     } catch (error) {
       if (requestId !== requestIdRef.current) return
@@ -857,7 +854,7 @@ export function AdminModelsView({
         <div className="border-t border-hairline">
           <TablePagination
             ariaLabel="Navigasi halaman model"
-            page={currentPage}
+            page={pagination.page}
             totalPages={pagination.totalPages}
             total={pagination.total}
             pageSize={pageSize}

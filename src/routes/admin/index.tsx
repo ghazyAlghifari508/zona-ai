@@ -58,14 +58,12 @@ export function AdminDashboardOverview({
   initialAudit,
 }: AdminDashboardOverviewProps) {
   const [audit, setAudit] = useState(initialAudit)
-  const [currentPage, setCurrentPage] = useState(initialAudit.pagination.page)
   const [isFetching, setIsFetching] = useState(false)
   const [auditError, setAuditError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
 
   const fetchAudit = async (page: number) => {
     const requestId = ++requestIdRef.current
-    setCurrentPage(page)
     setIsFetching(true)
     setAuditError(null)
     try {
@@ -74,7 +72,6 @@ export function AdminDashboardOverview({
       })
       if (requestId !== requestIdRef.current) return
       setAudit(result)
-      setCurrentPage(result.pagination.page)
     } catch (error) {
       if (requestId !== requestIdRef.current) return
       setAuditError(
@@ -259,7 +256,7 @@ export function AdminDashboardOverview({
               <span>{auditError}</span>
               <button
                 type="button"
-                onClick={() => void fetchAudit(currentPage)}
+                onClick={() => void fetchAudit(audit.pagination.page)}
                 className="font-medium underline"
               >
                 Coba lagi
@@ -269,7 +266,7 @@ export function AdminDashboardOverview({
           <div className="border-t border-hairline">
             <TablePagination
               ariaLabel="Navigasi aktivitas"
-              page={currentPage}
+              page={audit.pagination.page}
               totalPages={audit.pagination.totalPages}
               total={audit.pagination.total}
               pageSize={ADMIN_ACTIVITY_PAGE_SIZE}

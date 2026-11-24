@@ -422,6 +422,38 @@ describe('Admin model list pagination', () => {
       ).toBe(true),
     )
   })
+  it('keeps the loaded page label while the next request is pending', async () => {
+    const gate = Promise.withResolvers<AdminModelListResponse>()
+    renderView(
+      makeResponse([activeModel], {
+        page: 1,
+        total: 20,
+        totalPages: 2,
+        start: 1,
+        end: 10,
+      }),
+    )
+    vi.mocked(getAdminModelsFn).mockReturnValueOnce(gate.promise)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' }))
+    expect(screen.getByText('Halaman 1 dari 2')).toBeDefined()
+    expect(
+      screen.getByTestId(`model-row-${activeModel.id}`).getAttribute('data-page'),
+    ).toBe('1')
+
+    gate.resolve(
+      makeResponse([pendingModel], {
+        page: 2,
+        total: 20,
+        totalPages: 2,
+        start: 11,
+        end: 20,
+      }),
+    )
+    await waitFor(() =>
+      expect(screen.getByText('Halaman 2 dari 2')).toBeDefined(),
+    )
+  })
 
   it('ignores a late response from an older filter request', async () => {
     const slow = Promise.withResolvers<AdminModelListResponse>()
