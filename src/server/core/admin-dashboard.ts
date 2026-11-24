@@ -8,7 +8,7 @@ import {
   modelSettings,
   users,
 } from '../../lib/db/schema'
-import { type AuditLogItem, parseAuditLogMetadata } from './admin-audit'
+import { type AuditLogItem, parseAuditLogMetadataResult } from './admin-audit'
 
 if (typeof window !== 'undefined') {
   throw new Error('src/server/core/admin-dashboard.ts is server-only')
@@ -154,18 +154,22 @@ export async function getAdminDashboardMetricsCore(
   ])
 
   const recentAuditLogs: RecentAuditLogItem[] = (recentAuditLogRows ?? []).map(
-    (row) => ({
-      id: row.id,
-      adminId: row.adminId,
-      adminEmail: row.adminEmail,
-      adminName: row.adminName,
-      adminImage: row.adminImage,
-      action: row.action,
-      targetId: row.targetId,
-      targetType: row.targetType,
-      metadata: parseAuditLogMetadata(row.metadata),
-      createdAt: row.createdAt,
-    }),
+    (row) => {
+      const parsed = parseAuditLogMetadataResult(row.metadata)
+      return {
+        id: row.id,
+        adminId: row.adminId,
+        adminEmail: row.adminEmail,
+        adminName: row.adminName,
+        adminImage: row.adminImage,
+        action: row.action,
+        targetId: row.targetId,
+        targetType: row.targetType,
+        metadata: parsed.metadata,
+        metadataUnreadable: parsed.unreadable,
+        createdAt: row.createdAt,
+      }
+    },
   )
 
   const chartData = buildDailyMetricPoints(chartTxRows ?? [])

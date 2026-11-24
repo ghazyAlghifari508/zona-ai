@@ -218,7 +218,9 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
           // Count query
           return {
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([{ total: 25 }]),
+              leftJoin: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([{ total: 25 }]),
+              }),
             }),
           } as unknown as ReturnType<typeof db.select>
         }
@@ -245,7 +247,9 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
         limit: 10,
       })
 
-      expect(result.items).toEqual(mockLogs)
+      expect(result.items).toEqual(
+        mockLogs.map((log) => ({ ...log, metadataUnreadable: false })),
+      )
       expect(result.pagination).toEqual({
         total: 25,
         page: 2,
@@ -264,9 +268,11 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
         if (selectCallCount === 1) {
           return {
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockImplementation((condition) => {
-                capturedWhereConditions = condition
-                return Promise.resolve([{ total: 1 }])
+              leftJoin: vi.fn().mockReturnValue({
+                where: vi.fn().mockImplementation((condition) => {
+                  capturedWhereConditions = condition
+                  return Promise.resolve([{ total: 1 }])
+                }),
               }),
             }),
           } as unknown as ReturnType<typeof db.select>
@@ -309,7 +315,9 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
         if (selectCallCount === 1) {
           return {
             from: vi.fn().mockReturnValue({
-              where: vi.fn().mockResolvedValue([{ total: 0 }]),
+              leftJoin: vi.fn().mockReturnValue({
+                where: vi.fn().mockResolvedValue([{ total: 0 }]),
+              }),
             }),
           } as unknown as ReturnType<typeof db.select>
         }
@@ -377,6 +385,7 @@ describe('Admin Dashboard Metrics & Audit Log Services', () => {
           targetId: 'user-xyz',
           targetType: 'user',
           metadata: null,
+          metadataUnreadable: false,
           createdAt: new Date('2026-09-09T06:30:00.000Z'),
         },
       ]

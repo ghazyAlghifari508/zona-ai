@@ -1,5 +1,8 @@
-import { and, count, desc, eq, type SQL } from 'drizzle-orm'
-import { z } from 'zod'
+import { and, count, desc, eq, ilike, or, type SQL, sql } from 'drizzle-orm'
+import {
+  type AuditLogMetadata,
+  parseAuditLogMetadataValue,
+} from '../../lib/admin/audit-metadata'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { db } from '../../lib/db/index'
 import { auditLogs, users } from '../../lib/db/schema'
@@ -10,23 +13,7 @@ if (typeof window !== 'undefined') {
 
 // Enforces admin authentication via requireAdminSession (delegates to getAuthSession)
 
-export const auditLogMetadataValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])),
-  z.record(
-    z.string(),
-    z.union([z.string(), z.number(), z.boolean(), z.null()]),
-  ),
-])
-
-export const auditLogMetadataSchema = z
-  .record(z.string(), auditLogMetadataValueSchema)
-  .nullable()
-
-export type AuditLogMetadata = z.infer<typeof auditLogMetadataSchema>
+export type { AuditLogMetadata } from '../../lib/admin/audit-metadata'
 
 export interface ListAuditLogsParams {
   request: Request
@@ -34,6 +21,7 @@ export interface ListAuditLogsParams {
   adminId?: string | null
   targetType?: string | null
   targetId?: string | null
+  search?: string | null
   page?: number | null
   limit?: number | null
 }
@@ -48,6 +36,7 @@ export interface AuditLogItem {
   targetId: string
   targetType: string
   metadata: AuditLogMetadata
+  metadataUnreadable: boolean
   createdAt: Date | null
 }
 
@@ -61,9 +50,38 @@ export interface ListAuditLogsResponse {
   }
 }
 
+export function parseAuditLogMetadataResult(raw: unknown) {
+  return parseAuditLogMetadataValue(raw)
+}
+
 export function parseAuditLogMetadata(raw: unknown): AuditLogMetadata {
-  const result = auditLogMetadataSchema.safeParse(raw ?? null)
-  return result.success ? result.data : null
+  return parseAuditLogMetadataResult(raw).metadata
+}
+
+function escapeLikeTerm(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
+function buildSearchCondition(search: string): SQL {
+  const pattern = `%${escapeLikeTerm(search.trim())}%`
+  const condition = or(
+    ilike(users.name, pattern),
+    ilike(auditLogs.adminEmail, pattern),
+    ilike(auditLogs.adminId, pattern),
+    ilike(auditLogs.targetId, pattern),
+    ilike(
+      sql<string>`${auditLogs.metadata}->'actorSnapshot'->>'displayName'`,
+      pattern,
+    ),
+    ilike(sql<string>`${auditLogs.metadata}->'actorSnapshot'->>'id'`, pattern),
+    ilike(
+      sql<string>`${auditLogs.metadata}->'targetSnapshot'->>'displayName'`,
+      pattern,
+    ),
+    ilike(sql<string>`${auditLogs.metadata}->'targetSnapshot'->>'id'`, pattern),
+    ilike(sql<string>`${auditLogs.metadata}->>'deletedName'`, pattern),
+  )
+  return condition ?? sql`true`
 }
 
 export async function listAuditLogsCore(
@@ -71,9 +89,9 @@ export async function listAuditLogsCore(
 ): Promise<ListAuditLogsResponse> {
   await requireAdminSession(params.request)
 
-  const page = Math.max(1, params.page ?? 1)
-  const limit = Math.min(100, Math.max(1, params.limit ?? 20))
-  const offset = (page - 1) * limit
+  let page = Math.max(1, Math.floor(params.page ?? 1))
+  const limit = Math.min(100, Math.max(1, Math.floor(params.limit ?? 20)))
+  let offset = (page - 1) * limit
 
   const conditions: SQL[] = []
 
@@ -93,15 +111,24 @@ export async function listAuditLogsCore(
     conditions.push(eq(auditLogs.targetId, params.targetId))
   }
 
+  if (params.search?.trim()) {
+    conditions.push(buildSearchCondition(params.search))
+  }
+
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
   const countResult = await db
     .select({ total: count() })
     .from(auditLogs)
+    .leftJoin(users, eq(auditLogs.adminId, users.id))
     .where(whereClause)
 
   const total = Number(countResult[0]?.total ?? 0)
   const totalPages = total > 0 ? Math.ceil(total / limit) : 0
+  if (totalPages > 0 && page > totalPages) {
+    page = totalPages
+    offset = (page - 1) * limit
+  }
 
   const rows = await db
     .select({
@@ -119,22 +146,26 @@ export async function listAuditLogsCore(
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.adminId, users.id))
     .where(whereClause)
-    .orderBy(desc(auditLogs.createdAt))
+    .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
     .limit(limit)
     .offset(offset)
 
-  const items: AuditLogItem[] = rows.map((row) => ({
-    id: row.id,
-    adminId: row.adminId,
-    adminEmail: row.adminEmail,
-    adminName: row.adminName,
-    adminImage: row.adminImage,
-    action: row.action,
-    targetId: row.targetId,
-    targetType: row.targetType,
-    metadata: parseAuditLogMetadata(row.metadata),
-    createdAt: row.createdAt,
-  }))
+  const items: AuditLogItem[] = rows.map((row) => {
+    const parsed = parseAuditLogMetadataResult(row.metadata)
+    return {
+      id: row.id,
+      adminId: row.adminId,
+      adminEmail: row.adminEmail,
+      adminName: row.adminName,
+      adminImage: row.adminImage,
+      action: row.action,
+      targetId: row.targetId,
+      targetType: row.targetType,
+      metadata: parsed.metadata,
+      metadataUnreadable: parsed.unreadable,
+      createdAt: row.createdAt,
+    }
+  })
 
   return {
     items,

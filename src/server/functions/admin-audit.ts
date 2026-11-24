@@ -8,6 +8,7 @@ export const listAuditLogsSchema = z.object({
   adminId: z.string().optional().nullable(),
   targetType: z.string().optional().nullable(),
   targetId: z.string().optional().nullable(),
+  search: z.string().trim().max(120).optional().nullable(),
   page: z.number().int().min(1).optional().default(1),
   limit: z.number().int().min(1).max(100).optional().default(20),
 })
@@ -22,6 +23,7 @@ export const listAuditLogsFn = createServerFn({ method: 'GET' })
       adminId: data.adminId,
       targetType: data.targetType,
       targetId: data.targetId,
+      search: data.search,
       page: data.page,
       limit: data.limit,
     })
