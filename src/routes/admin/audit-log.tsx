@@ -310,9 +310,6 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
                       <div className="max-w-64 truncate text-[12px] text-ink">
                         {presentation.targetLabel}
                       </div>
-                      <div className="text-[11px] text-stone">
-                        {log.targetType} · {log.targetId}
-                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <button
@@ -330,7 +327,7 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
                           size={14}
                           strokeWidth={1.75}
                         />
-                        Detail
+                        Lihat detail
                       </button>
                     </TableCell>
                   </TableRow>
