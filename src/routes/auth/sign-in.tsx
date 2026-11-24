@@ -41,7 +41,7 @@ function SignIn() {
     <div className="flex min-h-screen items-center justify-center bg-pure-white px-4">
       <div
         data-testid="auth-card"
-        className="w-full max-w-[380px] rounded-2xl border border-hairline bg-pure-white p-8 text-center shadow-xs"
+        className="w-full max-w-[380px] rounded-xl border border-hairline bg-pure-white p-8 text-center"
       >
         {/* Brand mark */}
         <Link

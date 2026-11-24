@@ -128,7 +128,7 @@ export function GlobalNav({
           data-testid="site-sign-in"
           onClick={onSignIn}
           disabled={signingIn}
-          className="flex h-8 items-center gap-1.5 rounded-full bg-accent px-4 text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-accent-hover disabled:opacity-60"
+          className="flex h-8 items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-accent-hover disabled:opacity-60"
         >
           <HugeiconsIcon
             icon={Login03Icon}
