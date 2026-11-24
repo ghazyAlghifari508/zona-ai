@@ -199,6 +199,43 @@ export class AppError extends Error {
   }
 }
 
+function isValidationIssue(value: unknown): value is { message: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'message' in value &&
+    typeof value.message === 'string'
+  )
+}
+
+/**
+ * Server function validation failures arrive as a JSON-encoded issue array in
+ * `error.message`; surface the authored messages instead of the raw payload.
+ */
+export function serverErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback
+  const message = error.message.trim()
+  if (message.startsWith('[')) {
+    try {
+      const parsed: unknown = JSON.parse(message)
+      if (Array.isArray(parsed)) {
+        const messages = [
+          ...new Set(
+            parsed
+              .filter(isValidationIssue)
+              .map((issue) => issue.message.trim())
+              .filter(Boolean),
+          ),
+        ]
+        if (messages.length > 0) return messages.join('. ')
+      }
+    } catch {
+      return message
+    }
+  }
+  return message
+}
+
 export type UsageLike = {
   inputTokens?: number
   outputTokens?: number

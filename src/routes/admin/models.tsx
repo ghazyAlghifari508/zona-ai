@@ -45,6 +45,7 @@ import {
   ADMIN_MODEL_PAGE_SIZES,
   ADMIN_MODEL_SEARCH_DEBOUNCE_MS,
 } from '../../lib/utils/constants'
+import { serverErrorMessage } from '../../lib/utils/errors'
 import {
   discoverAdminGatewayModelsFn,
   getAdminModelsFn,
@@ -144,7 +145,7 @@ const emptyForm: ModelForm = {
 type StatusMessage = { type: 'success' | 'error'; text: string } | null
 
 function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
+  return serverErrorMessage(error, fallback)
 }
 
 function isEvaluated(status: EvaluationStatus | undefined): boolean {
@@ -771,7 +772,11 @@ export function AdminModelsView({
                               if (active) setTargetModelToDisable(model)
                               else void handleUpdateStatus(model.id, true, null)
                             }}
-                            disabled={isSubmitting || !evaluated}
+                            disabled={
+                              isSubmitting ||
+                              !evaluated ||
+                              model.id === RESERVED_MODEL_ID
+                            }
                             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-notion-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                               active && evaluated
                                 ? 'bg-accent'
