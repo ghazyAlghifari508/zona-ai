@@ -226,32 +226,35 @@ export async function getCreditBalance(userId: string): Promise<number> {
   return rows[0]?.credits ?? 0
 }
 
-export async function resetDevCredits(userId: string): Promise<number> {
+export async function resetDevCredits(
+  userId: string,
+  tx?: DatabaseTransaction,
+): Promise<number> {
   if (process.env.NODE_ENV === 'production')
     throw new Error('Forbidden in production')
-  return await db.transaction(async (tx) => {
-    const prevRes = await tx.execute(
-      sql`SELECT credits FROM users WHERE id=${userId} FOR UPDATE`,
-    )
-    const prevRows = getRows<{ credits: number }>(prevRes)
-    const oldBalance = prevRows[0]?.credits ?? 0
-    const diff = 100 - oldBalance
 
-    const res = await tx.execute(
-      sql`UPDATE users SET credits=100 WHERE id=${userId} RETURNING credits`,
-    )
-    const rows = getRows<{ credits: number }>(res)
-    const bal = rows[0]?.credits ?? 100
+  const executor = tx ?? db
+  const prevRes = await executor.execute(
+    sql`SELECT credits FROM users WHERE id=${userId} FOR UPDATE`,
+  )
+  const prevRows = getRows<{ credits: number }>(prevRes)
+  const oldBalance = prevRows[0]?.credits ?? 0
+  const diff = 100 - oldBalance
 
-    if (diff !== 0) {
-      await tx.insert(creditTransactions).values({
-        userId,
-        amount: diff,
-        type: diff > 0 ? 'refill' : 'adjustment',
-        balanceAfter: bal,
-        description: `Dev reset to 100 (${diff > 0 ? '+' : ''}${diff})`,
-      })
-    }
-    return bal
-  })
+  const res = await executor.execute(
+    sql`UPDATE users SET credits=100 WHERE id=${userId} RETURNING credits`,
+  )
+  const rows = getRows<{ credits: number }>(res)
+  const balance = rows[0]?.credits ?? 100
+
+  if (diff !== 0) {
+    await executor.insert(creditTransactions).values({
+      userId,
+      amount: diff,
+      type: diff > 0 ? 'refill' : 'adjustment',
+      balanceAfter: balance,
+      description: `Dev reset to 100 (${diff > 0 ? '+' : ''}${diff})`,
+    })
+  }
+  return balance
 }

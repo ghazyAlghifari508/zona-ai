@@ -57,7 +57,7 @@ export async function resetDevCreditsCore({
       throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
     }
     const oldBalance = target.credits ?? 0
-    const balance = await resetDevCredits(targetId)
+    const balance = await resetDevCredits(targetId, tx)
     const now = new Date()
     await tx.insert(auditLogs).values({
       adminId: session.user.id,
