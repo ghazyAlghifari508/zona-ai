@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, ne, sql } from 'drizzle-orm'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../src/lib/db/index'
 import {
@@ -10,6 +10,8 @@ import {
   creditTransactions,
   generationRuns,
   messages,
+  modelCatalog,
+  modelSettings,
   usageRecords,
   users,
 } from '../../src/lib/db/schema'
@@ -197,7 +199,7 @@ describe('sendMessage integration', () => {
     await db.delete(users).where(eq(users.id, mockUserId2))
   })
 
-  it('deducts 6 for auto reasoning + creates generation_runs', async () => {
+  it('deducts the resolved auto reasoning route cost + creates generation_runs', async () => {
     const { sendMessageCore } = await import('../../src/server/core/chat')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
@@ -236,16 +238,36 @@ describe('sendMessage integration', () => {
     expect(gens.length).toBeGreaterThan(0)
     const gen = gens[gens.length - 1]
     expect(gen.status).toBe('completed')
-    expect(gen.routerModelId).toBe('ag/gemini-3.7-flash-high')
+    const routed = await db
+      .select({
+        credit: modelCatalog.creditCostMax,
+        profile: modelCatalog.routingProfile,
+      })
+      .from(modelCatalog)
+      .innerJoin(modelSettings, eq(modelSettings.modelId, modelCatalog.id))
+      .where(
+        and(
+          eq(modelCatalog.routerModelId, gen.routerModelId),
+          eq(modelSettings.status, 'active'),
+        ),
+      )
+      .limit(1)
+    const route = routed[0]
+    if (!route) {
+      throw new Error(
+        `Auto route ${gen.routerModelId} is not an active catalog route`,
+      )
+    }
+    expect(route.profile).toBe('reasoning')
     const txs = await db
       .select()
       .from(creditTransactions)
       .where(eq(creditTransactions.userId, mockUserId))
-    const usageTx = txs.find((t) => t.amount === -6)
+    const usageTx = txs.find((t) => t.amount === -route.credit)
     expect(usageTx).toBeDefined()
-    expect(usageTx?.balanceAfter).toBe(94)
+    expect(usageTx?.balanceAfter).toBe(100 - route.credit)
     const [user] = await db.select().from(users).where(eq(users.id, mockUserId))
-    expect(user.credits).toBe(94)
+    expect(user.credits).toBe(100 - route.credit)
   })
 
   it('throws 402 if insufficient for premium', async () => {
@@ -261,7 +283,7 @@ describe('sendMessage integration', () => {
     await expect(
       sendMessageCore({
         data: {
-          modelId: 'gpt-5.6-sol',
+          modelId: 'cx/gpt-6.2-sol',
           content: 'hello premium',
           skillId: 'none',
         },
@@ -377,7 +399,6 @@ describe('sendMessage integration', () => {
 
   it('getModels returns available models', async () => {
     const { getModelsCore } = await import('../../src/server/core/models')
-    const { getAvailableModels } = await import('../../src/lib/models/registry')
     const request = new Request('http://localhost:3000', {
       headers: { 'x-test-user': mockUserId },
     })
@@ -385,7 +406,17 @@ describe('sendMessage integration', () => {
     vi.mocked(sessionMod.getAuthSession).mockResolvedValueOnce({
       user: { id: mockUserId, email: 'test1@example.com' },
     } as never)
-    const models = (await getModelsCore({ request })) as unknown as unknown[]
-    expect(models.length).toBe(getAvailableModels().length)
+    const models = (await getModelsCore({ request })) as unknown as Array<{
+      id: string
+    }>
+    const selectable = await db
+      .select({ id: modelCatalog.id })
+      .from(modelCatalog)
+      .innerJoin(modelSettings, eq(modelSettings.modelId, modelCatalog.id))
+      .where(ne(modelSettings.status, 'retired'))
+    expect(models.map((m) => m.id).sort()).toEqual(
+      selectable.map((r) => r.id).sort(),
+    )
+    expect(models.map((m) => m.id)).toContain('auto')
   })
 })

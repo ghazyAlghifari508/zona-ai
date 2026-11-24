@@ -716,7 +716,7 @@ describe('files API', () => {
     })
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['cx/gpt-6.2-sol', 'nvidia/minimaxai/minimax-m3.1-flash'],
         content: 'describe image',
         skillId: 'none',
         conversationId: conv.id,

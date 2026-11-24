@@ -101,10 +101,10 @@ vi.mock('ai', async () => {
 const COMPARE_USERS = ['compare-artifact-1', 'compare-artifact-2', 'compare-artifact-3', 'compare-artifact-4']
 
 const FOUR_MODELS = [
-  'ag/gemini-3.7-flash-high',
-  'cx/gpt-5.6-sol',
-  'bai/qwen3.8-flash',
-  'bai/mimo-v2.5',
+  'cent-ai/qwen3.8-flash',
+  'cx/gpt-6.2-sol',
+  'gh/gpt-4.1',
+  'tokenharbor/mimo-v2.6-flash:free',
 ]
 const FOUR_MODEL_COST = 6 + 15 + 3 + 3
 
@@ -252,7 +252,7 @@ describe('compareArtifactSchema', () => {
     )
     expect(() =>
       compareArtifactSchema.parse({
-        modelIds: ['ag/gemini-3.7-flash-high'],
+        modelIds: ['cent-ai/qwen3.8-flash'],
         content: 'hi',
         operation: { type: 'create', skillId: 'checklist' },
       }),
@@ -266,20 +266,20 @@ describe('compareArtifactSchema', () => {
     ).toThrow()
     expect(() =>
       compareArtifactSchema.parse({
-        modelIds: ['auto', 'ag/gemini-3.7-flash-high'],
+        modelIds: ['auto', 'cent-ai/qwen3.8-flash'],
         content: 'hi',
         operation: { type: 'create', skillId: 'checklist' },
       }),
     ).toThrow()
     expect(() =>
       compareArtifactSchema.parse({
-        modelIds: ['ag/gemini-3.7-flash-high', 'ag/gemini-3.7-flash-high'],
+        modelIds: ['cent-ai/qwen3.8-flash', 'cent-ai/qwen3.8-flash'],
         content: 'hi',
         operation: { type: 'create', skillId: 'checklist' },
       }),
     ).toThrow()
     const parsed = compareArtifactSchema.parse({
-      modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
+      modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
       content: 'hi',
       operation: { type: 'create', skillId: 'checklist' },
     })
@@ -496,7 +496,7 @@ describe.sequential('generateCompareArtifactsCore', () => {
     __setDelays([0, 1200])
     const res = await generateCompareArtifactsCore({
       data: {
-        modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
+        modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
         content: 'Barrier compare',
         operation: { type: 'create', skillId: 'checklist' },
       },
@@ -567,7 +567,7 @@ describe.sequential('generateCompareArtifactsCore', () => {
     await expect(
       generateCompareArtifactsCore({
         data: {
-          modelIds: ['ag/gemini-3.7-flash-high', 'cx/gpt-5.6-sol'],
+          modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
           content: 'PRD compare blocked',
           operation: { type: 'create', skillId: 'prd-plan' },
         },

@@ -92,7 +92,7 @@ vi.mock('../../src/lib/auth/session', () => ({
 describe('document_chunks schema', () => {
   it('has table with embedding vector', async () => {
     const r = await db.execute(
-      sql`SELECT column_name, udt_name FROM information_schema.columns WHERE table_name='document_chunks' AND column_name='embedding'`,
+      sql`SELECT column_name, udt_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='document_chunks' AND column_name='embedding'`,
     )
     const rows = Array.isArray(r)
       ? r
@@ -101,7 +101,7 @@ describe('document_chunks schema', () => {
   })
   it('has HNSW index', async () => {
     const r = await db.execute(
-      sql`SELECT indexname FROM pg_indexes WHERE tablename='document_chunks' AND indexname LIKE '%hnsw%'`,
+      sql`SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND tablename='document_chunks' AND indexname LIKE '%hnsw%'`,
     )
     const rows = Array.isArray(r)
       ? r
@@ -627,7 +627,7 @@ describe('injection chat rag', () => {
     mockStreamTextGlobal.mockClear()
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
         content: 'what is in doc?',
         skillId: 'none',
         conversationId: convId,

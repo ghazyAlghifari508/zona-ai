@@ -273,7 +273,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Explain the early version of this artifact',
         artifactMentions: [
           {
@@ -316,7 +316,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Compare Alpha and Beta',
         artifactMentions: [
           {
@@ -360,7 +360,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendCompareMessageCore({
       data: {
         conversationId,
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
         content: 'Analyze this doc with both models',
         artifactMentions: [
           {
@@ -388,7 +388,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Turn 1 with mention',
         artifactMentions: [
           {
@@ -408,7 +408,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Turn 2 regular question without mentions',
       },
       request: new Request('http://localhost:3000/api/chat', {
@@ -434,7 +434,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Can you see what files we have?',
       },
       request: new Request('http://localhost:3000/api/chat', {
@@ -468,7 +468,7 @@ describe('artifact context injection in chat and compare', () => {
     await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Please summarize this document',
         artifactMentions: [
           {
@@ -507,7 +507,7 @@ describe('artifact context injection in chat and compare', () => {
       sendMessageCore({
         data: {
           conversationId,
-          modelId: 'gpt-5.6-sol',
+          modelId: 'cx/gpt-6.2-sol',
           content: 'Ubah dokumen ini',
           artifactMentions: [
             {
@@ -534,7 +534,7 @@ describe('artifact context injection in chat and compare', () => {
     const singleRes = await sendMessageCore({
       data: {
         conversationId,
-        modelId: 'gpt-5.6-sol',
+        modelId: 'cx/gpt-6.2-sol',
         content: 'Single chat prompt',
       },
       request: new Request('http://localhost:3000/api/chat', {
@@ -553,7 +553,7 @@ describe('artifact context injection in chat and compare', () => {
     const compareRes = await sendCompareMessageCore({
       data: {
         conversationId,
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
         content: 'Compare chat prompt',
       },
       request: new Request('http://localhost:3000/api/chat/compare', {

@@ -9,7 +9,7 @@ import { db } from '../../src/lib/db/index'
 describe('db schema', () => {
   it('has conversations table with userId FK', async () => {
     const r = await db.execute(
-      sql`SELECT column_name FROM information_schema.columns WHERE table_name='conversations' AND column_name='user_id'`,
+      sql`SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='conversations' AND column_name='user_id'`,
     )
     // drizzle postgres-js returns array directly, not .rows
     const rows = Array.isArray(r)
@@ -30,7 +30,7 @@ describe('db schema', () => {
 
   it('users credits default 100', async () => {
     const r = await db.execute(
-      sql`SELECT column_default FROM information_schema.columns WHERE table_name='users' AND column_name='credits'`,
+      sql`SELECT column_default FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='users' AND column_name='credits'`,
     )
     const rows = Array.isArray(r)
       ? (r as unknown as Array<{ column_default: string }>)

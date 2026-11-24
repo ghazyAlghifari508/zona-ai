@@ -218,7 +218,7 @@ describe('sendMessage enableWebSearch', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendMessageCore({
       data: {
-        modelId: 'gemini-3.7-flash-high',
+        modelId: 'cent-ai/qwen3.8-flash',
         content: 'berita terkini AI',
         skillId: 'none',
         enableWebSearch: true,
@@ -270,7 +270,7 @@ describe('sendMessage enableWebSearch', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendMessageCore({
       data: {
-        modelId: 'gemini-3.7-flash-high',
+        modelId: 'cent-ai/qwen3.8-flash',
         content: 'test fail web',
         skillId: 'none',
         enableWebSearch: true,
@@ -379,7 +379,7 @@ describe('Fair Compare', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendCompareMessageCore({
       data: {
-        modelIds: ['gemini-3.7-flash-high', 'gpt-5.6-sol'],
+        modelIds: ['cent-ai/qwen3.8-flash', 'cx/gpt-6.2-sol'],
         content: 'berita terkini AI',
         skillId: 'none',
         enableWebSearch: true,
@@ -446,7 +446,7 @@ describe('Fair Compare', () => {
     const request = new Request('http://localhost:3000')
     const response = (await sendMessageCore({
       data: {
-        modelId: 'gemini-3.7-flash-high',
+        modelId: 'cent-ai/qwen3.8-flash',
         content: 'ownership test',
         skillId: 'none',
         enableWebSearch: true,
