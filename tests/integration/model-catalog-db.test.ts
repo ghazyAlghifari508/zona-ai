@@ -21,7 +21,11 @@ import {
 import { listCatalogCore } from '../../src/server/core/models'
 
 const connectionString = process.env.ZONA_P1_TEST_DATABASE_URL ?? ''
-const describeDb = connectionString ? describe : describe.skip
+// This suite recreates the public schema, so it may only run on a dedicated test database.
+const databaseName = connectionString
+  ? new URL(connectionString).pathname.replace(/^\//, '')
+  : ''
+const describeDb = databaseName.endsWith('_test') ? describe : describe.skip
 
 describeDb('model catalog on isolated PostgreSQL', () => {
   let sql: Sql
