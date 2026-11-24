@@ -62,7 +62,7 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
   let auth: typeof AuthModule
   let resetDevCreditsCore: typeof ResetDevCreditsCore
   let updateFeedbackStatusCore: typeof UpdateFeedbackStatusCore
-
+  let fixtureUserId: string
   beforeAll(async () => {
     const root = postgres(connectionString, { max: 1 })
     try {
@@ -79,9 +79,13 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
       migrationsFolder: path.resolve(process.cwd(), 'src/lib/db/migrations'),
       migrationsSchema: schemaName,
     })
-    await sql`ALTER TABLE zona_p6_audit_tx_test.credit_transactions DROP CONSTRAINT IF EXISTS credit_transactions_user_id_users_id_fk`
-    await sql`ALTER TABLE zona_p6_audit_tx_test.feedback DROP CONSTRAINT IF EXISTS feedback_user_id_users_id_fk`
-    await sql`ALTER TABLE zona_p6_audit_tx_test.audit_logs DROP CONSTRAINT IF EXISTS audit_logs_admin_id_users_id_fk`
+    const publicUsers =
+      await sql`SELECT id FROM public.users ORDER BY id LIMIT 1`
+    const publicUser = publicUsers[0]
+    if (!publicUser) {
+      throw new Error('No public user available for isolated FK fixture')
+    }
+    fixtureUserId = String(publicUser.id)
     auth = await import('../../src/lib/auth/auth')
     ;({ resetDevCreditsCore } = await import('../../src/server/core/credits'))
     ;({ updateFeedbackStatusCore } = await import(
@@ -107,25 +111,16 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
   const request = new Request('http://localhost:3000/admin/audit-log')
 
   async function seed() {
-    await database.insert(schema.users).values([
-      {
-        id: 'admin-user',
-        email: 'admin-user@example.test',
-        name: 'Admin Utama',
-        role: 'admin',
-        credits: 100,
-      },
-      {
-        id: 'target-user',
-        email: 'target-user@example.test',
-        name: 'Pengguna Target',
-        role: 'user',
-        credits: 250,
-      },
-    ])
+    await database.insert(schema.users).values({
+      id: fixtureUserId,
+      email: 'fixture-user@example.test',
+      name: 'Pengguna Uji',
+      role: 'admin',
+      credits: 250,
+    })
     await database.insert(schema.feedback).values({
       id: '11111111-1111-4111-8111-111111111111',
-      userId: 'target-user',
+      userId: fixtureUserId,
       type: 'bug',
       title: 'Laporan uji',
       description: 'Deskripsi uji',
@@ -145,23 +140,23 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
 
   it('rolls back nested credit reset and audit log when audit insert fails', async () => {
     await seed()
-    mockAdmin('admin-user')
+    mockAdmin(fixtureUserId)
     failAuditMetadata()
 
     await expect(
-      resetDevCreditsCore({ request, targetUserId: 'target-user' }),
+      resetDevCreditsCore({ request, targetUserId: fixtureUserId }),
     ).rejects.toBeDefined()
 
     const [target] = await database
       .select({ credits: schema.users.credits })
       .from(schema.users)
-      .where(eq(schema.users.id, 'target-user'))
+      .where(eq(schema.users.id, fixtureUserId))
     expect(target?.credits).toBe(250)
 
     const transactions = await database
       .select()
       .from(schema.creditTransactions)
-      .where(eq(schema.creditTransactions.userId, 'target-user'))
+      .where(eq(schema.creditTransactions.userId, fixtureUserId))
     expect(transactions).toHaveLength(0)
 
     const logs = await database.select().from(schema.auditLogs)
@@ -170,18 +165,18 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
 
   it('commits credit reset and audit log together when inputs are valid', async () => {
     await seed()
-    mockAdmin('admin-user')
+    mockAdmin(fixtureUserId)
 
     const result = await resetDevCreditsCore({
       request,
-      targetUserId: 'target-user',
+      targetUserId: fixtureUserId,
     })
 
     expect(result.newBalance).toBe(100)
     const [target] = await database
       .select({ credits: schema.users.credits })
       .from(schema.users)
-      .where(eq(schema.users.id, 'target-user'))
+      .where(eq(schema.users.id, fixtureUserId))
     expect(target?.credits).toBe(100)
 
     const logs = await database.select().from(schema.auditLogs)
@@ -191,7 +186,7 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
 
   it('rolls back feedback status update when audit insert fails', async () => {
     await seed()
-    mockAdmin('admin-user')
+    mockAdmin(fixtureUserId)
     failAuditMetadata()
 
     await expect(
