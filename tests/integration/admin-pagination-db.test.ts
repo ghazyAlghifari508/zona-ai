@@ -158,6 +158,9 @@ describeDb('P7 pagination on isolated PostgreSQL', () => {
     })
     rows[0].displayName = 'Model Duplicate'
     rows[1].displayName = 'Model Duplicate'
+    rows[2].routerModelId = 'custom/exact-route'
+    rows[1].evaluationStatus = 'pending'
+    rows[3].searchAliases = ['Alias Unik']
     rows.push({
       ...rows[0],
       id: 'test/auto',
@@ -177,8 +180,13 @@ describeDb('P7 pagination on isolated PostgreSQL', () => {
     await database.insert(schema.modelSettings).values(
       rows.map((row) => ({
         modelId: row.id,
-        status: row.id === 'test/retired' ? 'retired' : 'active',
-        isActive: row.id !== 'test/retired',
+        status:
+          row.id === 'test/retired'
+            ? 'retired'
+            : row.id === 'test/model-01'
+              ? 'inactive'
+              : 'active',
+        isActive: row.id !== 'test/retired' && row.id !== 'test/model-01',
       })),
     )
   }
@@ -277,6 +285,46 @@ describeDb('P7 pagination on isolated PostgreSQL', () => {
     expect(result.items.length).toBe(10)
     expect(result.items.every((item) => item.provider === 'beta')).toBe(true)
     expect(result.providers).toEqual(['Alpha', 'Beta'])
+    const none = await adminModels.listAdminModelsCore({
+      request,
+      provider: 'gamma',
+    })
+    expect(none.pagination.total).toBe(0)
+    expect(none.items).toEqual([])
+  })
+
+  it('filters inactive models while pending-evaluated entries stay in the default list', async () => {
+    await seedModels()
+    const defaultList = await adminModels.listAdminModelsCore({
+      request,
+      search: 'model-02',
+    })
+    expect(defaultList.items.map((item) => item.id)).toEqual(['test/model-02'])
+    expect(defaultList.items[0]?.evaluationStatus).toBe('pending')
+
+    const inactive = await adminModels.listAdminModelsCore({
+      request,
+      status: 'inactive',
+    })
+    expect(inactive.pagination.total).toBe(1)
+    expect(inactive.items.map((item) => item.id)).toEqual(['test/model-01'])
+  })
+
+  it('searches case-insensitively across names, ids, routes, providers, vendors, and stored aliases', async () => {
+    await seedModels()
+
+    const terms = [
+      ['MODEL DUPLICATE', 'test/model-01'],
+      ['TEST/MODEL-05', 'test/model-05'],
+      ['CUSTOM/EXACT-ROUTE', 'test/model-03'],
+      ['BETA', 'test/model-01'],
+      ['ALIAS UNIK', 'test/model-04'],
+    ] as const
+
+    for (const [search, expectedId] of terms) {
+      const result = await adminModels.listAdminModelsCore({ request, search })
+      expect(result.items.map((item) => item.id)).toContain(expectedId)
+    }
   })
 
   it('clamps once when the last row of the last filtered page is retired', async () => {

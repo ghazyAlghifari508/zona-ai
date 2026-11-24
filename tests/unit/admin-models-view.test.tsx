@@ -529,4 +529,39 @@ describe('Admin model list pagination', () => {
       expect(screen.queryByTestId('model-list-error')).toBeNull()
     })
   })
+
+  it('refetches once after retiring the last row and accepts the server clamp', async () => {
+    retireModel.mockResolvedValueOnce({ success: true })
+    renderView(
+      makeResponse([activeModel], {
+        page: 2,
+        total: 11,
+        totalPages: 2,
+        start: 11,
+        end: 11,
+      }),
+    )
+    vi.mocked(getAdminModelsFn).mockResolvedValueOnce(
+      makeResponse([activeModel], {
+        page: 1,
+        total: 10,
+        totalPages: 1,
+        start: 1,
+        end: 10,
+      }),
+    )
+
+    openActions(activeModel.id)
+    fireEvent.click(screen.getByTestId(`model-delete-${activeModel.id}`))
+    await waitFor(() => {
+      expect(screen.getByTestId('confirm-retire-model')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByTestId('confirm-retire-model'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Halaman 1 dari 1')).toBeDefined()
+    })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(vi.mocked(getAdminModelsFn).mock.calls).toHaveLength(1)
+  })
 })
