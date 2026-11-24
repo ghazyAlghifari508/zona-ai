@@ -6,7 +6,7 @@ Scope: P9 only, following `docs/prompts/p9.md`, plus the design review feedback 
 
 | Item | Value |
 |---|---|
-| Branch | `main`, baseline `5ed010b`, 16 P9 commits |
+| Branch | `main`, baseline `5ed010b`, 20 P9 commits (42 earlier unpushed commits sit below it) |
 | App server | User-owned `bun run dev` on `http://localhost:3000` |
 | 9Router | `http://localhost:20128/v1`, live, 470 models (`/v1/models` → 200) |
 | Database | Local PostgreSQL 17, role `zona`, migrations through `bun x drizzle-kit migrate` (20 applied) |
