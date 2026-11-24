@@ -156,6 +156,8 @@ describeDb('P7 pagination on isolated PostgreSQL', () => {
         provenance: 'synthetic-fixture',
       }
     })
+    rows[0].displayName = 'Model Duplicate'
+    rows[1].displayName = 'Model Duplicate'
     rows.push({
       ...rows[0],
       id: 'test/auto',
@@ -208,6 +210,9 @@ describeDb('P7 pagination on isolated PostgreSQL', () => {
     expect(new Set(seen).size).toBe(53)
     expect(seen.filter((id) => id === 'test/auto')).toHaveLength(1)
     expect(seen).not.toContain('test/retired')
+    expect(seen.indexOf('test/model-01')).toBeLessThan(
+      seen.indexOf('test/model-02'),
+    )
   })
 
   it('clamps out-of-range pages and reports an honest empty result', async () => {
