@@ -386,7 +386,7 @@ export function Sidebar({
         {!collapsed && (
           <>
             <p className="px-2.5 pb-2 text-[10px] font-bold tracking-[0.11em] text-stone uppercase">
-              Recent
+              Terbaru
             </p>
             {conversationsQuery.isPending ? (
               <div className="space-y-2" role="status">
@@ -447,7 +447,7 @@ export function Sidebar({
                       {editingId === conversation.id ? (
                         <input
                           ref={editingInputRef}
-                          aria-label={`Rename ${conversation.title ?? 'New Chat'}`}
+                          aria-label={`Ubah nama ${conversation.title ?? 'Percakapan baru'}`}
                           value={editTitle}
                           maxLength={100}
                           onChange={(event) => setEditTitle(event.target.value)}
@@ -462,7 +462,7 @@ export function Sidebar({
                       ) : (
                         <button
                           type="button"
-                          title={conversation.title ?? 'New Chat'}
+                          title={conversation.title ?? 'Percakapan baru'}
                           onMouseEnter={() => {
                             void router.preloadRoute({
                               to: '/chat/$conversationId',
@@ -510,7 +510,7 @@ export function Sidebar({
                           </div>
                           <div className="flex min-w-0 flex-1 flex-col items-start">
                             <span className="w-full truncate text-[13px] font-medium leading-[1.3] text-ink/80 group-hover:text-ink">
-                              {conversation.title ?? 'New Chat'}
+                              {conversation.title ?? 'Percakapan baru'}
                             </span>
                             <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-stone">
                               <HugeiconsIcon
@@ -535,7 +535,7 @@ export function Sidebar({
                         <DropdownMenuTrigger asChild>
                           <button
                             type="button"
-                            aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
+                            aria-label={`Menu ${conversation.title ?? 'Percakapan baru'}`}
                             className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 not-hover:opacity-100"
                           >
                             <HugeiconsIcon
@@ -551,7 +551,9 @@ export function Sidebar({
                             onSelect={() => {
                               window.requestAnimationFrame(() => {
                                 setEditingId(conversation.id)
-                                setEditTitle(conversation.title ?? 'New Chat')
+                                setEditTitle(
+                                  conversation.title ?? 'Percakapan baru',
+                                )
                               })
                             }}
                           >
@@ -562,13 +564,13 @@ export function Sidebar({
                               className="mr-2"
                               aria-hidden="true"
                             />
-                            Rename
+                            Ubah nama
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() =>
                               setDeleteTarget({
                                 id: conversation.id,
-                                title: conversation.title ?? 'New Chat',
+                                title: conversation.title ?? 'Percakapan baru',
                               })
                             }
                             className="text-coral focus:text-coral"
@@ -580,7 +582,7 @@ export function Sidebar({
                               className="mr-2"
                               aria-hidden="true"
                             />
-                            Delete
+                            Hapus
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -598,7 +600,7 @@ export function Sidebar({
               >
                 {conversationsQuery.isFetchingNextPage
                   ? 'Memuat...'
-                  : 'Load more'}
+                  : 'Muat lainnya'}
               </button>
             )}
           </>

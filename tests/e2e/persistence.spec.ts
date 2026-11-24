@@ -101,8 +101,8 @@ test('searches, renames, and deletes conversations', async ({ page }) => {
   await expect(page.getByText('Beta project')).not.toBeVisible()
 
   await page.getByRole('button', { name: 'Menu Alpha project' }).click()
-  await page.getByRole('menuitem', { name: 'Rename' }).click()
-  const rename = page.getByRole('textbox', { name: 'Rename Alpha project' })
+  await page.getByRole('menuitem', { name: 'Ubah nama' }).click()
+  const rename = page.getByRole('textbox', { name: 'Ubah nama Alpha project' })
   await rename.fill('Renamed project')
   await rename.press('Enter')
   // Clear the search filter so the renamed item is no longer filtered out
@@ -111,7 +111,7 @@ test('searches, renames, and deletes conversations', async ({ page }) => {
 
   await page.getByRole('searchbox', { name: 'Cari percakapan' }).fill('Beta')
   await page.getByRole('button', { name: 'Menu Beta project' }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page.getByRole('menuitem', { name: 'Hapus' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.getByRole('button', { name: 'Hapus percakapan' }).click()
   await expect(page.getByText('Beta project')).not.toBeVisible()

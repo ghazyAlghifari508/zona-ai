@@ -157,9 +157,9 @@ describe('Sidebar persistence', () => {
         await screen.findByRole('button', { name: 'Menu Old title' }),
         { button: 0, ctrlKey: false },
       )
-      fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Ubah nama' }))
       const input = await screen.findByRole('textbox', {
-        name: 'Rename Old title',
+        name: 'Ubah nama Old title',
       })
       fireEvent.change(input, { target: { value: 'New title' } })
       fireEvent.keyDown(input, { key: 'Enter' })
@@ -197,7 +197,7 @@ describe('Sidebar persistence', () => {
       await screen.findByRole('button', { name: 'Menu Disposable' }),
       { button: 0, ctrlKey: false },
     )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Hapus' }))
     expect(screen.getByRole('dialog')).toBeTruthy()
     expect(serverMocks.deleteConversation).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
@@ -231,7 +231,7 @@ describe('Sidebar persistence', () => {
       await screen.findByRole('button', { name: 'Menu Active thread' }),
       { button: 0, ctrlKey: false },
     )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Hapus' }))
     fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
 
     await waitFor(() =>
@@ -261,7 +261,7 @@ describe('Sidebar persistence', () => {
       await screen.findByRole('button', { name: 'Menu Other thread' }),
       { button: 0, ctrlKey: false },
     )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Hapus' }))
     fireEvent.click(screen.getByRole('button', { name: 'Hapus percakapan' }))
 
     await waitFor(() =>
@@ -305,7 +305,7 @@ describe('Sidebar persistence', () => {
     // Non-collapsed items must NOT exist
     expect(screen.queryByRole('searchbox')).toBeNull()
     expect(screen.queryByRole('navigation', { name: 'Riwayat percakapan' })).toBeNull()
-    expect(screen.queryByText('Recent')).toBeNull()
+    expect(screen.queryByText('Terbaru')).toBeNull()
     expect(screen.queryByText('Hidden Thread in Collapsed')).toBeNull()
 
     // When expanded back
@@ -453,7 +453,7 @@ describe('Sidebar persistence', () => {
 
     renderSidebar()
 
-    const trigger = await screen.findByRole('button', { name: 'Menu New Chat' })
+    const trigger = await screen.findByRole('button', { name: 'Menu Percakapan baru' })
     expect(trigger).toBeTruthy()
 
     const ellipsisCalls = iconMocks.calls.filter(
@@ -492,7 +492,7 @@ describe('Sidebar persistence', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.keyDown(trigger, { key: 'Enter' })
-    expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeTruthy()
+    expect(await screen.findByRole('menuitem', { name: 'Ubah nama' })).toBeTruthy()
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
 
     fireEvent.keyDown(document.activeElement ?? document.body, {
@@ -528,7 +528,7 @@ describe('Sidebar persistence', () => {
       pointerType: 'touch',
     })
 
-    expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeTruthy()
+    expect(await screen.findByRole('menuitem', { name: 'Hapus' })).toBeTruthy()
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
   }, 10000)
 })
