@@ -1,6 +1,6 @@
 # P6 — Audit Activity Redesign: acceptance and handoff
 
-Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwright, screenshots, app opening, push, merge, or deployment. Branch `main`; baseline `08b2fea`; code commit under final verification `5a255b17fe`; this handoff is committed separately.
+Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwright, screenshots, app opening, push, merge, or deployment. Branch `main`; baseline `08b2fea`; code commit under final verification `5f87c454f7`; this handoff is committed separately.
 
 ## Acceptance status
 
@@ -12,7 +12,7 @@ Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwrig
 | 4. UI/detail presentation with ready-made primitives | PASS (non-browser) | `src/routes/admin/audit-log.tsx` uses shadcn Table, existing Dialog, Base UI Accordion, P5 NativeSelect, existing UserAvatar; component tests in `tests/unit/admin-audit-log-view.test.tsx` cover `Lihat detail` accessible name and hidden raw IDs on first sight. Visual/light-dark/responsive review deferred to P9 by prompt. |
 | Authorization preserved | PASS | `requireAdminSession` remains the first call in `listAuditLogsCore`; isolated DB test proves non-admin search is rejected. |
 | PII/secret redaction | PASS | `safeTechnicalMetadata` redacts emails, tokens, headers, notes, prompts, chat/document text; component test proves `adminNotes` never reaches technical JSON or clipboard. |
-| Recent activity presentation; metrics unchanged | PASS | `src/routes/admin/index.tsx` uses `presentAuditActivity`; `Lihat semua` still targets `/admin/audit-log`; dashboard metrics in `src/server/core/admin-dashboard.ts` remain unchanged apart from presentation, `metadataUnreadable`, and the joined `currentTargetName`. |
+| Recent activity presentation; metrics unchanged | PASS | `src/routes/admin/index.tsx` uses `presentAuditActivity` with joined `currentTargetName`; the recent section heading is `Log Aktivitas`; `Lihat semua` still targets `/admin/audit-log`; dashboard metrics in `src/server/core/admin-dashboard.ts` remain unchanged apart from presentation, `metadataUnreadable`, and the joined `currentTargetName`. |
 | Append-only history, no fake rows, no real-DB mutation | PASS | No migration or seed against the app DB; isolated schema harness only; public user IDs are read-only FK anchors. |
 | Type safety bypass scan | PASS (production) | No `as never`, `as any`, `: any`, `@ts-ignore`, `@ts-expect-error`, or non-null assertion in P6 production files. Pre-existing `as unknown as ReturnType<typeof db.select>` remains only inside drizzle mock chains in `tests/integration/admin-dashboard.test.ts`; it is a test-harness cast, not a production type bypass. Generated route tree and unrelated legacy files were not touched. |
 | Full `vitest run` with DB isolation env | BLOCKED (environment) | Earlier full-suite run exited 1: 35 failed / 1157 passed / 28 skipped in 92.55s. Failures were unrelated model-registry availability (`Model tidak ditemukan`) plus cross-file PostgreSQL lock contention on shared public tables. P6-specific failures were fixed and all affected P6 gates now pass, but the full suite was not rerun after the final code commit; no claim of full-suite pass is made. No P6 assertion was weakened or skipped. |
@@ -27,7 +27,7 @@ Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwrig
 | `bun x vitest run --maxWorkers=1` on the eight non-DB P6 files (`admin-audit-metadata`, `admin-audit-activity`, `admin-audit-log-view`, `admin-audit-producers`, `admin-users`, `admin-credits`, `feedback`, `admin-dashboard`) | 8 files, 98 tests passed, 93.42s, exit 0 |
 | `bun x vitest run --maxWorkers=1` on `admin-audit-search`, `admin-audit-transactions` with `ZONA_P6_TEST_DATABASE_URL="$DATABASE_URL"` | 2 files, 16 tests passed, 21.70s, exit 0 |
 | `bun x vitest run --maxWorkers=1` on `admin-audit-search`, `admin-dashboard`, `admin-audit-log-view` with `ZONA_P6_TEST_DATABASE_URL="$DATABASE_URL"` | 3 files, 31 tests passed, 49.83s, exit 0 |
-| `bun run build` | exit 0, 38.78s wall, `✓ built in 9.93s` |
+| `bun run build` | exit 0, 35.73s wall, `✓ built in 6.92s` |
 | `rg` bypass scan on P6 production files | no matches; test-only drizzle mock casts documented above |
 
 All finite commands used explicit timeouts. No dev server or background process was left running.
@@ -64,6 +64,8 @@ No SQL migration is required: `audit_logs.metadata` remains `jsonb`; table name,
 - `a98928d370` `style(test): format audit producer test`
 - `94f81ae300` `test(admin): prove delete and retire audit rollback on real transactions`
 - `5a255b17fe` `feat(admin): resolve current audit target names in one query`
+- `3b1804521a` `docs(p6): record current-target lookup and acceptance evidence`
+- `5f87c454f7` `fix(admin): align Ringkasan activity copy and target fallback`
 
 ## Root cause fixed beyond presentation
 
