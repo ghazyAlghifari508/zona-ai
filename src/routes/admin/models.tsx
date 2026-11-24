@@ -36,6 +36,7 @@ import type {
   AdminModelListItem,
   AdminModelListResponse,
 } from '../../lib/admin/model-list-contract'
+import { RESERVED_MODEL_ID } from '../../lib/models/admin-model-input'
 import type {
   ConnectionProbe,
   GatewayModelDiscovery,
@@ -795,41 +796,43 @@ export function AdminModelsView({
                               }`}
                             />
                           </button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                aria-label={`Aksi untuk ${model.name}`}
-                                data-testid={`model-actions-${model.id}`}
-                                disabled={isSubmitting}
-                                className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-stone transition-colors hover:bg-paper focus:outline-none focus:ring-2 focus:ring-notion-blue disabled:opacity-50"
-                              >
-                                <span aria-hidden="true">⋮</span>
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                data-testid={`model-edit-${model.id}`}
-                                onSelect={() => openEdit(model)}
-                              >
-                                Edit model
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                data-testid={`model-probe-${model.id}`}
-                                onSelect={() => void handleProbeModel(model)}
-                              >
-                                Uji koneksi
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                data-testid={`model-delete-${model.id}`}
-                                className="text-coral focus:bg-danger-soft focus:text-coral"
-                                onSelect={() => setDeleteTarget(model)}
-                              >
-                                Hapus model
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {model.id === RESERVED_MODEL_ID ? null : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={`Aksi untuk ${model.name}`}
+                                  data-testid={`model-actions-${model.id}`}
+                                  disabled={isSubmitting}
+                                  className="flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-stone transition-colors hover:bg-paper focus:outline-none focus:ring-2 focus:ring-notion-blue disabled:opacity-50"
+                                >
+                                  <span aria-hidden="true">⋮</span>
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  data-testid={`model-edit-${model.id}`}
+                                  onSelect={() => openEdit(model)}
+                                >
+                                  Edit model
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  data-testid={`model-probe-${model.id}`}
+                                  onSelect={() => void handleProbeModel(model)}
+                                >
+                                  Uji koneksi
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  data-testid={`model-delete-${model.id}`}
+                                  className="text-coral focus:bg-danger-soft focus:text-coral"
+                                  onSelect={() => setDeleteTarget(model)}
+                                >
+                                  Hapus model
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       </td>
                     </tr>
