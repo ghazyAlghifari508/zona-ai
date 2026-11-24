@@ -4,15 +4,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { auth } from '../../src/lib/auth/auth'
 import {
-  adjustUserCreditsCore,
-  resetDevCreditsCore,
-} from '../../src/server/core/credits'
-import { updateFeedbackStatusCore } from '../../src/server/core/feedback'
-import {
   banUserCore,
   deleteUserCore,
   unbanUserCore,
 } from '../../src/server/core/admin-users'
+import {
+  adjustUserCreditsCore,
+  resetDevCreditsCore,
+} from '../../src/server/core/credits'
+import { updateFeedbackStatusCore } from '../../src/server/core/feedback'
 
 const harness = vi.hoisted(() => {
   const calls: {
@@ -82,7 +82,9 @@ const harness = vi.hoisted(() => {
     setUpdateRows: (rows: unknown[]) => {
       updateRows = rows
     },
-    setExecuteResults: (results: Array<{ rows: Array<{ credits: number }> }>) => {
+    setExecuteResults: (
+      results: Array<{ rows: Array<{ credits: number }> }>,
+    ) => {
       executeResults = results
     },
     setFailTxInsert: (value: boolean) => {
@@ -335,7 +337,11 @@ describe('P6 audit producer snapshots and atomicity', () => {
       },
     ])
     harness.setUpdateRows([
-      { id: 'feedback-2', status: 'in_progress', adminNotes: 'catatan pribadi' },
+      {
+        id: 'feedback-2',
+        status: 'in_progress',
+        adminNotes: 'catatan pribadi',
+      },
     ])
 
     await updateFeedbackStatusCore({
