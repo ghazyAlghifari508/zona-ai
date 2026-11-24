@@ -164,6 +164,32 @@ describe('AdminAuditLogView', () => {
     expect(lastCallData().page).toBe(1)
   })
 
+  it('ignores a stale response after a newer query resolves', async () => {
+    const staleResponse = {
+      items: [log],
+      pagination: { total: 1, page: 1, limit: 20, totalPages: 1 },
+    }
+    const { promise: stale, resolve: resolveStale } =
+      Promise.withResolvers<typeof staleResponse>()
+    listAuditLogs
+      .mockImplementationOnce(() => stale)
+      .mockImplementationOnce(() => Promise.resolve(emptyResponse))
+    renderView([])
+
+    const filter = screen.getByTestId('admin-audit-action-filter')
+    fireEvent.change(filter, { target: { value: 'user.ban' } })
+    fireEvent.change(filter, { target: { value: 'credit.adjust' } })
+
+    await waitFor(() =>
+      expect(screen.getByTestId('admin-audit-empty')).toBeDefined(),
+    )
+    resolveStale(staleResponse)
+
+    await waitFor(() => expect(listAuditLogs).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('admin-audit-empty')).toBeDefined()
+    expect(screen.queryByText('Nama Tersimpan')).toBeNull()
+  })
+
   it('passes a trimmed search term and resets paging', async () => {
     renderView()
 
