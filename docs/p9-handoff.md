@@ -1,12 +1,12 @@
 # P9 — Browser QA, regression gates, and release status
 
-Scope: P9 only, following `docs/prompts/p9.md`, plus the design review feedback delivered during P9. Branch `main`. No push, merge, or deploy. The 9Router gateway and the user-owned dev server on port 3000 were reused as-is.
+Scope: P9 only, following `docs/prompts/p9.md`, plus the design review feedback delivered during P9. Branch `main`. No merge or deploy. The 9Router gateway and the user-owned dev server on port 3000 were reused as-is. Curated screenshots are included in the pending artifact commit after the user's explicit `push + artefak` request.
 
 ## 1. Environment
 
 | Item | Value |
 |---|---|
-| Branch | `main`, baseline `5ed010b`, 20 P9 commits (42 earlier unpushed commits sit below it) |
+| Branch | `main`, baseline `5ed010b`, 22 P9 commits (42 earlier unpushed commits sit below it) |
 | App server | User-owned `bun run dev` on `http://localhost:3000` |
 | 9Router | `http://localhost:20128/v1`, live, 470 models (`/v1/models` → 200) |
 | Database | Local PostgreSQL 17, role `zona`, migrations through `bun x drizzle-kit migrate` (20 applied) |
@@ -98,10 +98,14 @@ Every command above was bounded; no server, browser, or port started by P9 was l
 
 ## 8. Release gate
 
-**Release ready with one environment caveat.** The browser matrix passes end to end on the real app (catalog management, selector, chat, compare, attachments, history, all admin surfaces, accessibility 100, both themes, three viewports). The non-browser gates pass (`tsc`, Biome, build). The full Vitest and Playwright runs fail only on parallel-load artefacts — 5–30s timeouts and Vite dev-server overlay interceptions — and every affected file passes when run on its own, with the raw logs kept in `test-results/p9/`.
+**Release ready with one environment caveat.** The browser matrix passes end to end on the real app (catalog management, selector, chat, compare, attachments, history, all admin surfaces, accessibility 100, both themes, three viewports). The non-browser gates pass (`tsc`, Biome, build). The full Vitest and Playwright runs fail only on parallel-load artefacts — 5–30s timeouts and Vite dev-server overlay interceptions — and every affected file passes when run on its own. Raw logs remain local under `test-results/p9/`; curated, cropped browser evidence is published in [`p9-artifacts/`](p9-artifacts/README.md).
 
 Outstanding, none blocking:
 
 - The Vite dev server can re-optimize dependencies mid-run, which 504s route chunks and injects an error overlay; a restart clears it. This affects local dev only, never the production build.
 - Antigravity/gemini-3.8, MiMo and Grok Vision remain `unverified` from P3 evidence (no fabricated capability).
 - Chat history, artifacts, and the earlier audit trail were lost in the incident in §2 and cannot be restored; the catalog, the admin account, and the app schema are restored.
+
+## 9. Published browser evidence
+
+The tracked evidence bundle is in `docs/p9-artifacts/`. It contains cropped screenshots of the model selector and the admin model table/actions. Raw screenshots, browser snapshots, and logs containing account or environment data were not published. See its README for the image index and redaction scope.
