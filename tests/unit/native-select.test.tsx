@@ -21,6 +21,8 @@ describe('NativeSelect', () => {
     )
 
     const select = screen.getByRole('combobox', { name: 'Provider' })
+    select.focus()
+    expect(document.activeElement).toBe(select)
     expect((select as HTMLSelectElement).value).toBe('all')
     expect(
       screen.getAllByRole('option').map((option) => option.textContent),
