@@ -18,6 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '../../components/ui/native-select'
 import { StatusText } from '../../components/ui/StatusText'
 import { UserAvatar } from '../../components/ui/UserAvatar'
 import {
@@ -243,7 +247,7 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] text-stone">Status:</span>
-            <select
+            <NativeSelect
               data-testid="admin-feedback-status-filter"
               value={statusFilter}
               onChange={(e) =>
@@ -251,31 +255,35 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
                   e.target.value as FeedbackStatus | 'all',
                 )
               }
-              className="h-9 rounded-md border border-hairline bg-paper px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
             >
-              <option value="all">Semua Status</option>
-              <option value="new">Baru</option>
-              <option value="in_progress">Diproses</option>
-              <option value="resolved">Selesai</option>
-              <option value="rejected">Ditolak</option>
-            </select>
+              <NativeSelectOption value="all">Semua status</NativeSelectOption>
+              <NativeSelectOption value="new">Baru</NativeSelectOption>
+              <NativeSelectOption value="in_progress">
+                Diproses
+              </NativeSelectOption>
+              <NativeSelectOption value="resolved">Selesai</NativeSelectOption>
+              <NativeSelectOption value="rejected">Ditolak</NativeSelectOption>
+            </NativeSelect>
           </div>
 
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] text-stone">Kategori:</span>
-            <select
+            <NativeSelect
               data-testid="admin-feedback-type-filter"
               value={typeFilter}
               onChange={(e) =>
                 handleTypeFilterChange(e.target.value as FeedbackType | 'all')
               }
-              className="h-9 rounded-md border border-hairline bg-paper px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
             >
-              <option value="all">Semua Kategori</option>
-              <option value="general">Umum</option>
-              <option value="feature">Saran fitur</option>
-              <option value="bug">Laporan bug</option>
-            </select>
+              <NativeSelectOption value="all">
+                Semua kategori
+              </NativeSelectOption>
+              <NativeSelectOption value="general">Umum</NativeSelectOption>
+              <NativeSelectOption value="feature">
+                Saran fitur
+              </NativeSelectOption>
+              <NativeSelectOption value="bug">Laporan bug</NativeSelectOption>
+            </NativeSelect>
           </div>
         </div>
       </div>
@@ -528,19 +536,25 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
                     >
                       Status Feedback
                     </label>
-                    <select
+                    <NativeSelect
                       id="update-status-select"
+                      className="mt-1 w-full"
                       value={updateStatus}
                       onChange={(e) =>
                         setUpdateStatus(e.target.value as FeedbackStatus)
                       }
-                      className="mt-1 h-9 w-full rounded-md border border-hairline bg-paper px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
                     >
-                      <option value="new">Baru</option>
-                      <option value="in_progress">Diproses</option>
-                      <option value="resolved">Selesai</option>
-                      <option value="rejected">Ditolak</option>
-                    </select>
+                      <NativeSelectOption value="new">Baru</NativeSelectOption>
+                      <NativeSelectOption value="in_progress">
+                        Diproses
+                      </NativeSelectOption>
+                      <NativeSelectOption value="resolved">
+                        Selesai
+                      </NativeSelectOption>
+                      <NativeSelectOption value="rejected">
+                        Ditolak
+                      </NativeSelectOption>
+                    </NativeSelect>
                   </div>
                 </div>
 

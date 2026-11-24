@@ -25,6 +25,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '../../components/ui/native-select'
 import { ProviderIcon } from '../../components/ui/ProviderIcons'
 import { StatusText } from '../../components/ui/StatusText'
 import type {
@@ -546,19 +550,18 @@ export function AdminModelsView({
           <label htmlFor="provider-filter" className="text-[12px] text-stone">
             Provider:
           </label>
-          <select
+          <NativeSelect
             id="provider-filter"
             value={providerFilter}
             onChange={(e) => setProviderFilter(e.target.value)}
-            className="h-9 rounded-md border border-hairline bg-paper px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
           >
-            <option value="all">Semua Provider</option>
+            <NativeSelectOption value="all">Semua provider</NativeSelectOption>
             {providers.map((p) => (
-              <option key={p} value={p}>
+              <NativeSelectOption key={p} value={p}>
                 {p}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 

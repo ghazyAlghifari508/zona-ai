@@ -11,6 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '../../components/ui/native-select'
 import { UserAvatar } from '../../components/ui/UserAvatar'
 import type { AuditLogItem } from '../../server/core/admin-audit'
 import { listAuditLogsFn } from '../../server/functions/admin-audit'
@@ -147,18 +151,17 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
 
         <div className="flex items-center gap-2">
           <span className="text-[12px] text-stone">Aksi:</span>
-          <select
+          <NativeSelect
             data-testid="admin-audit-action-filter"
             value={actionFilter}
             onChange={(e) => handleActionChange(e.target.value)}
-            className="h-9 rounded-md border border-hairline bg-paper px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
           >
             {COMMON_ACTIONS.map((act) => (
-              <option key={act.value} value={act.value}>
+              <NativeSelectOption key={act.value} value={act.value}>
                 {act.label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 

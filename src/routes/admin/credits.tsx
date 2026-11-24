@@ -17,6 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '../../components/ui/native-select'
 import { StatusText } from '../../components/ui/StatusText'
 import { UserAvatar } from '../../components/ui/UserAvatar'
 import { formatUserRole } from '../../lib/admin/presentation'
@@ -430,19 +434,25 @@ export function AdminCreditsView({ initialData }: AdminCreditsViewProps) {
                 >
                   Mode Penyesuaian
                 </label>
-                <select
+                <NativeSelect
                   id="adjust-credits-mode-select"
                   data-testid="adjust-credits-mode-select"
+                  className="mt-1 w-full bg-pure-white"
                   value={adjustMode}
                   onChange={(e) =>
                     setAdjustMode(e.target.value as 'add' | 'deduct' | 'set')
                   }
-                  className="mt-1 h-9 w-full rounded-md border border-hairline bg-pure-white px-3 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
                 >
-                  <option value="add">Tambah Saldo (+)</option>
-                  <option value="deduct">Kurangi Saldo (-)</option>
-                  <option value="set">Tetapkan Saldo Baru (=)</option>
-                </select>
+                  <NativeSelectOption value="add">
+                    Tambah Saldo (+)
+                  </NativeSelectOption>
+                  <NativeSelectOption value="deduct">
+                    Kurangi Saldo (-)
+                  </NativeSelectOption>
+                  <NativeSelectOption value="set">
+                    Tetapkan Saldo Baru (=)
+                  </NativeSelectOption>
+                </NativeSelect>
               </div>
 
               <div>

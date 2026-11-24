@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { authClient } from '@/lib/auth/auth-client'
 import { useDefaultSkill } from '@/lib/chat/skill-preference'
@@ -305,18 +306,18 @@ function SettingsPage() {
               </div>
             </div>
             <div className="w-full min-w-[220px] sm:w-auto">
-              <select
+              <NativeSelect
                 data-testid="default-model-select"
+                className="bg-pure-white font-medium"
                 value={defaultModel}
                 onChange={(e) => setDefaultModel(e.target.value)}
-                className="w-full rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink focus:border-notion-blue focus:outline-none"
               >
                 {catalog.map((m) => (
-                  <option key={m.id} value={m.id}>
+                  <NativeSelectOption key={m.id} value={m.id}>
                     {m.displayName}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 
@@ -331,21 +332,21 @@ function SettingsPage() {
               </div>
             </div>
             <div className="w-full min-w-[220px] sm:w-auto">
-              <select
+              <NativeSelect
                 data-testid="default-skill-select"
+                className="bg-pure-white font-medium"
                 value={defaultSkill}
                 onChange={(e) => setDefaultSkill(e.target.value)}
-                className="w-full rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink focus:border-notion-blue focus:outline-none"
               >
                 {SKILL_IDS.map((id) => {
                   const def = getSkillDefinition(id)
                   return (
-                    <option key={def.id} value={def.id}>
+                    <NativeSelectOption key={def.id} value={def.id}>
                       {def.label}
-                    </option>
+                    </NativeSelectOption>
                   )
                 })}
-              </select>
+              </NativeSelect>
             </div>
           </div>
         </div>

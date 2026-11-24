@@ -16,6 +16,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '../../components/ui/native-select'
 import { StatusText } from '../../components/ui/StatusText'
 import { UserAvatar } from '../../components/ui/UserAvatar'
 import { formatUserBlocked, formatUserRole } from '../../lib/admin/presentation'
@@ -285,23 +289,22 @@ export function AdminUsersView({
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] text-stone">Peran:</span>
-            <select
+            <NativeSelect
               data-testid="admin-users-role-filter"
               value={roleFilter}
               onChange={(e) =>
                 handleRoleChange(e.target.value as 'all' | 'admin' | 'user')
               }
-              className="h-9 rounded-md border border-hairline bg-paper px-2.5 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
             >
-              <option value="all">Semua Peran</option>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+              <NativeSelectOption value="all">Semua peran</NativeSelectOption>
+              <NativeSelectOption value="user">User</NativeSelectOption>
+              <NativeSelectOption value="admin">Admin</NativeSelectOption>
+            </NativeSelect>
           </div>
 
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] text-stone">Status:</span>
-            <select
+            <NativeSelect
               data-testid="admin-users-status-filter"
               value={statusFilter}
               onChange={(e) =>
@@ -309,12 +312,11 @@ export function AdminUsersView({
                   e.target.value as 'all' | 'active' | 'banned',
                 )
               }
-              className="h-9 rounded-md border border-hairline bg-paper px-2.5 text-[13px] text-ink focus:border-hairline-strong focus:outline-none"
             >
-              <option value="all">Semua Status</option>
-              <option value="active">Aktif</option>
-              <option value="banned">Diblokir</option>
-            </select>
+              <NativeSelectOption value="all">Semua status</NativeSelectOption>
+              <NativeSelectOption value="active">Aktif</NativeSelectOption>
+              <NativeSelectOption value="banned">Diblokir</NativeSelectOption>
+            </NativeSelect>
           </div>
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
   findCatalogEntry,
   useModelCatalog,
 } from '@/components/chat/useModelCatalog'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import type {
   ArtifactSummary,
   ArtifactVersionDescriptor,
@@ -106,27 +107,31 @@ export function ArtifactHeader({
         >
           {`Version for ${summary.title}`}
         </label>
-        <select
+        <NativeSelect
           id={`artifact-version-${summary.artifactId}`}
           aria-label={`Version for ${summary.title}`}
           data-testid="artifact-version-select"
+          size="sm"
+          className="bg-pure-white"
           value={activeVersionId}
           onChange={handleVersionChange}
           disabled={versions.length === 0}
-          className="h-7 shrink-0 rounded border border-hairline bg-pure-white px-1.5 text-[12px] text-ink"
         >
           {versions.length === 0 ? (
-            <option value={activeVersionId}>
+            <NativeSelectOption value={activeVersionId}>
               {`v${summary.currentVersion}`}
-            </option>
+            </NativeSelectOption>
           ) : (
             versions.map((version) => (
-              <option key={version.versionId} value={version.versionId}>
+              <NativeSelectOption
+                key={version.versionId}
+                value={version.versionId}
+              >
                 {`v${version.version}`}
-              </option>
+              </NativeSelectOption>
             ))
           )}
-        </select>
+        </NativeSelect>
 
         <button
           type="button"
