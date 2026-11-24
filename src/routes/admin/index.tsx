@@ -10,19 +10,28 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
 import { AdminActivityChart } from '../../components/admin/AdminActivityChart'
+import { TablePagination } from '../../components/admin/TablePagination'
 import { presentAuditActivity } from '../../lib/admin/audit-activity'
+import { ADMIN_ACTIVITY_PAGE_SIZE } from '../../lib/utils/constants'
+import type { ListAuditLogsResponse } from '../../server/core/admin-audit'
 import type { AdminDashboardMetrics } from '../../server/core/admin-dashboard'
+import { listAuditLogsFn } from '../../server/functions/admin-audit'
 import { getAdminDashboardMetricsFn } from '../../server/functions/admin-dashboard'
-
 export const Route = createFileRoute('/admin/')({
   staleTime: 30_000,
   loader: async () => {
-    return getAdminDashboardMetricsFn()
+    const [data, audit] = await Promise.all([
+      getAdminDashboardMetricsFn(),
+      listAuditLogsFn({
+        data: { page: 1, limit: ADMIN_ACTIVITY_PAGE_SIZE },
+      }),
+    ])
+    return { data, audit }
   },
   component: AdminDashboardPage,
 })
-
 function formatNumber(num: number): string {
   return new Intl.NumberFormat('id-ID').format(num)
 }
@@ -41,9 +50,40 @@ function formatDate(date: Date | string | null): string {
 
 interface AdminDashboardOverviewProps {
   data: AdminDashboardMetrics
+  initialAudit: ListAuditLogsResponse
 }
 
-export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
+export function AdminDashboardOverview({
+  data,
+  initialAudit,
+}: AdminDashboardOverviewProps) {
+  const [audit, setAudit] = useState(initialAudit)
+  const [currentPage, setCurrentPage] = useState(initialAudit.pagination.page)
+  const [isFetching, setIsFetching] = useState(false)
+  const [auditError, setAuditError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
+
+  const fetchAudit = async (page: number) => {
+    const requestId = ++requestIdRef.current
+    setCurrentPage(page)
+    setIsFetching(true)
+    setAuditError(null)
+    try {
+      const result = await listAuditLogsFn({
+        data: { page, limit: ADMIN_ACTIVITY_PAGE_SIZE },
+      })
+      if (requestId !== requestIdRef.current) return
+      setAudit(result)
+      setCurrentPage(result.pagination.page)
+    } catch (error) {
+      if (requestId !== requestIdRef.current) return
+      setAuditError(
+        error instanceof Error ? error.message : 'Gagal memuat aktivitas.',
+      )
+    } finally {
+      if (requestId === requestIdRef.current) setIsFetching(false)
+    }
+  }
   const metricCards = [
     {
       id: 'total-users',
@@ -157,13 +197,13 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
           data-testid="admin-recent-audit-feed"
           className="overflow-hidden rounded-lg border border-hairline bg-pure-white shadow-xs"
         >
-          {data.recentAuditLogs.length === 0 ? (
+          {audit.items.length === 0 ? (
             <div className="p-8 text-center text-[13px] text-stone">
               Belum ada riwayat aktivitas.
             </div>
           ) : (
             <div className="divide-y divide-hairline overflow-x-auto">
-              {data.recentAuditLogs.map((log) => {
+              {audit.items.map((log) => {
                 const activity = presentAuditActivity({
                   action: log.action,
                   metadata: log.metadata,
@@ -178,6 +218,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
                 return (
                   <div
                     key={log.id}
+                    data-testid={`admin-activity-row-${log.id}`}
                     className="flex items-center justify-between gap-4 p-4 text-[13px] transition-colors hover:bg-paper/40"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -210,6 +251,32 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
               })}
             </div>
           )}
+          {auditError && (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-2 border-t border-hairline bg-danger-soft px-4 py-2.5 text-[13px] text-coral"
+            >
+              <span>{auditError}</span>
+              <button
+                type="button"
+                onClick={() => void fetchAudit(currentPage)}
+                className="font-medium underline"
+              >
+                Coba lagi
+              </button>
+            </div>
+          )}
+          <div className="border-t border-hairline">
+            <TablePagination
+              ariaLabel="Navigasi aktivitas"
+              page={currentPage}
+              totalPages={audit.pagination.totalPages}
+              total={audit.pagination.total}
+              pageSize={ADMIN_ACTIVITY_PAGE_SIZE}
+              disabled={isFetching}
+              onPageChange={(page) => void fetchAudit(page)}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -217,6 +284,6 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
 }
 
 function AdminDashboardPage() {
-  const data = Route.useLoaderData()
-  return <AdminDashboardOverview data={data} />
+  const { data, audit } = Route.useLoaderData()
+  return <AdminDashboardOverview data={data} initialAudit={audit} />
 }

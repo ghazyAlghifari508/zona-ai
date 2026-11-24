@@ -2,7 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import { requireAdminSession } from '../../src/lib/auth/admin-guard'
+import { listAuditLogsFn } from '../../src/server/functions/admin-audit'
+import type { AdminDashboardMetrics } from '../../src/server/core/admin-dashboard'
+import { getAdminDashboardMetricsFn } from '../../src/server/functions/admin-dashboard'
+import type { ListAuditLogsResponse } from '../../src/server/core/admin-audit'
 import { AppError } from '../../src/lib/utils/errors'
 
 vi.mock('../../src/lib/auth/admin-guard', () => ({
@@ -301,64 +306,136 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
   })
 
   describe('Admin Dashboard Overview Page (admin/index.tsx)', () => {
-    it('should render 6 metric cards, quick shortcuts, and recent audit activity', async () => {
+    const mockData: AdminDashboardMetrics = {
+      totalUsers: 142,
+      activeUsers: 138,
+      bannedUsers: 4,
+      newFeedbackCount: 12,
+      disabledModelsCount: 2,
+      totalCreditsInCirculation: 52000,
+      totalCreditTransactions: 310,
+      chartData: [
+        {
+          date: '2026-09-08',
+          label: '8 Sep',
+          creditsUsed: 120,
+          transactionsCount: 15,
+        },
+        {
+          date: '2026-09-09',
+          label: '9 Sep',
+          creditsUsed: 250,
+          transactionsCount: 32,
+        },
+      ],
+    }
+
+    const auditCallSchema = z.object({
+      data: z.object({ page: z.number().int().optional() }),
+    })
+
+    function auditPage(page: number, totalPages = 3): ListAuditLogsResponse {
+      const ids = Array.from(
+        { length: 5 },
+        (_, index) => `log-${page}-${index + 1}`,
+      )
+      return {
+        items: ids.map((id) => ({
+          id,
+          adminId: 'admin-1',
+          adminEmail: 'admin@zona.ai',
+          adminName: 'Admin',
+          adminImage: null,
+          action: 'user.ban',
+          targetId: `user-${id}`,
+          targetType: 'user',
+          currentTargetName: null,
+          metadata: null,
+          metadataUnreadable: false,
+          createdAt: new Date('2026-09-08T10:00:00Z'),
+        })),
+        pagination: { total: 15, page, limit: 5, totalPages },
+      }
+    }
+
+    beforeEach(() => {
+      vi.mocked(listAuditLogsFn).mockImplementation(async (arg) => {
+        const page = auditCallSchema.parse(arg).data.page ?? 1
+        return auditPage(page)
+      })
+      vi.mocked(getAdminDashboardMetricsFn).mockResolvedValue(mockData)
+    })
+
+    it('renders metrics and a fixed five-record activity page with a link to the full audit log', async () => {
       const { AdminDashboardOverview } = await import(
         '../../src/routes/admin/index'
       )
-
-      const mockData = {
-        totalUsers: 142,
-        activeUsers: 138,
-        bannedUsers: 4,
-        newFeedbackCount: 12,
-        disabledModelsCount: 2,
-        totalCreditsInCirculation: 52000,
-        totalCreditTransactions: 310,
-        recentAuditLogs: [
-          {
-            id: 'log-1',
-            adminId: 'admin-1',
-            adminEmail: 'admin@zona.ai',
-            adminName: 'Admin',
-            adminImage: null,
-            action: 'user.ban',
-            targetId: 'user-banned',
-            targetType: 'user',
-            metadata: { reason: 'Violation' },
-            createdAt: new Date('2026-09-08T10:00:00Z'),
-          },
-        ],
-        chartData: [
-          {
-            date: '2026-09-08',
-            label: '8 Sep',
-            creditsUsed: 120,
-            transactionsCount: 15,
-          },
-          {
-            date: '2026-09-09',
-            label: '9 Sep',
-            creditsUsed: 250,
-            transactionsCount: 32,
-          },
-        ],
-      }
-
-      render(React.createElement(AdminDashboardOverview, { data: mockData }))
+      render(
+        React.createElement(AdminDashboardOverview, {
+          data: mockData,
+          initialAudit: auditPage(1),
+        }),
+      )
 
       expect(screen.getByTestId('admin-metric-total-users')).toBeDefined()
-      expect(screen.getByTestId('admin-metric-active-users')).toBeDefined()
-      expect(screen.getByTestId('admin-metric-banned-users')).toBeDefined()
-      expect(screen.getByTestId('admin-metric-new-feedback')).toBeDefined()
-      expect(screen.getByTestId('admin-metric-disabled-models')).toBeDefined()
       expect(screen.getByTestId('admin-metric-total-credits')).toBeDefined()
-      expect(screen.getByTestId('admin-recent-audit-feed')).toBeDefined()
       expect(screen.getByTestId('admin-activity-chart')).toBeDefined()
+      expect(screen.getByTestId('admin-recent-audit-feed')).toBeDefined()
+      expect(screen.getAllByTestId(/^admin-activity-row-/)).toHaveLength(5)
+      expect(
+        screen.getByRole('link', { name: 'Lihat semua' }).getAttribute('href'),
+      ).toBe('/admin/audit-log')
       expect(screen.queryByTestId('admin-quick-shortcuts')).toBeNull()
 
-      // Interactive filter clicks
       fireEvent.click(screen.getByTestId('admin-chart-filter-14d'))
       fireEvent.click(screen.getByTestId('admin-chart-metric-transactions'))
+    })
+
+    it('paginates the feed without re-fetching metrics or chart data', async () => {
+      const { AdminDashboardOverview } = await import(
+        '../../src/routes/admin/index'
+      )
+      render(
+        React.createElement(AdminDashboardOverview, {
+          data: mockData,
+          initialAudit: auditPage(1),
+        }),
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' }))
+
+      await waitFor(() => {
+        expect(vi.mocked(listAuditLogsFn).mock.calls[0]?.[0]).toMatchObject({
+          data: { page: 2, limit: 5 },
+        })
+      })
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-activity-row-log-2-1')).toBeDefined()
+      })
+      expect(screen.getAllByTestId(/^admin-activity-row-/)).toHaveLength(5)
+      expect(screen.getByTestId('admin-metric-total-users')).toBeDefined()
+      expect(vi.mocked(getAdminDashboardMetricsFn)).not.toHaveBeenCalled()
+    })
+
+    it('disables impossible navigation on the last page', async () => {
+      const { AdminDashboardOverview } = await import(
+        '../../src/routes/admin/index'
+      )
+      render(
+        React.createElement(AdminDashboardOverview, {
+          data: mockData,
+          initialAudit: auditPage(3),
+        }),
+      )
+
+      expect(screen.getByText('Halaman 3 dari 3')).toBeDefined()
+      expect(
+        (
+          screen.getByRole('button', {
+            name: 'Berikutnya',
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true)
     })
   })
 
@@ -428,10 +505,41 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
       const mockCatalog = [
         {
           id: 'anthropic/claude-3-5-sonnet',
-          name: 'Claude 3.5 Sonnet',
+          routerModelId: 'anthropic/claude-3-5-sonnet',
+          displayName: 'Claude 3.5 Sonnet',
           provider: 'anthropic',
-          cost: 10,
-          contextWindow: 200000,
+          vendor: 'Anthropic',
+          description: '',
+          intelligenceLevel: 3,
+          intelligenceScore: 3,
+          intelligenceBars: 3,
+          confidence: 'high',
+          creditCost: 10,
+          creditTier: 'balanced',
+          capabilities: {
+            text: true,
+            vision: false,
+            files: false,
+            tools: false,
+            reasoning: false,
+            structuredOutput: false,
+          },
+          searchAliases: [],
+          aliasIds: [],
+          evaluationStatus: 'legacy',
+          visionStatus: 'unverified',
+          isDefault: false,
+          isActive: true,
+          status: 'active',
+          disabledReason: null,
+          metadata: {
+            contextWindow: 200000,
+            maxOutput: null,
+            pricing: null,
+            category: 'general',
+            speedClass: 'medium',
+          },
+          lastCheckedAt: null,
         },
       ]
 
@@ -455,7 +563,18 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
           QueryClientProvider,
           { client: queryClient },
           React.createElement(AdminModelsView, {
-            catalog: mockCatalog,
+            initialData: {
+              items: mockCatalog,
+              pagination: {
+                page: 1,
+                pageSize: 10,
+                total: 1,
+                totalPages: 1,
+                start: 1,
+                end: 1,
+              },
+              providers: ['anthropic'],
+            },
             initialSettings: mockSettings,
           }),
         ),
@@ -573,6 +692,8 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
           targetId: 'user-cred-1',
           targetType: 'user',
           metadata: { mode: 'add', amount: 50, newBalance: 500 },
+          currentTargetName: null,
+          metadataUnreadable: false,
           createdAt: new Date('2026-09-08T15:30:00Z'),
         },
       ]
