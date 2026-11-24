@@ -9,6 +9,7 @@ Discovery performed before any P5 code change on 2026-11-24. No browser QA, no P
 - Installed: React 19.2.8, `lucide-react` 1.37.0 (ISC), `@base-ui-components/react` 1.0.0-rc.0 (MIT), Radix `dialog`/`dropdown-menu`/`popover`/`slot`, Tailwind 4.1.13, `clsx` + `tailwind-merge` via `src/lib/utils.ts`.
 - Installed UI: `src/components/ui/{button,dialog,dropdown-menu,popover,toast,StatusText,ProviderIcons,UserAvatar}.tsx`. There is no installed `select`, `native-select`, `command`/`cmdk`, or `@radix-ui/react-select` (`node_modules/@radix-ui/react-select` absent).
 - Tokens in `src/styles/app.css`: `paper`, `pure-white`, `ink`, `graphite`, `stone`, `hairline`, `hairline-strong`, `notion-blue`, `accent`, `coral`, with `.dark` counterparts. Global `*:focus-visible` outline is defined in the same file.
+- Native semantics source: [MDN `<select>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/select) documents implicit `combobox` role, `<label>` association, `disabled`, form submission and browser-owned keyboard/typeahead. Version check: React 19.2.8, Tailwind 4.1.13, lucide-react 1.37.0 and Base UI 1.0.0-rc.0 from installed `package.json`; shadcn registry `new-york-v4/native-select.json` fetched and matched against the installed React/CSS setup (no pinned registry version published).
 
 ## Needs → candidates → decision
 
@@ -23,7 +24,7 @@ Discovery performed before any P5 code change on 2026-11-24. No browser QA, no P
 ## Actually used
 
 - New shared component: `src/components/ui/native-select.tsx` — official shadcn `NativeSelect` composition, adapted to `border-hairline`, `bg-paper`/`bg-pure-white` override, `text-ink`, `text-stone`, global focus outline and a compact `size="sm"` for the artifact toolbar. Exports `NativeSelect` and `NativeSelectOption` only.
-- Imports in all migrated routes/components: `import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'` (alias from `components.json`).
+- Imports: `src/routes/settings.tsx` and `src/components/artifacts/ArtifactHeader.tsx` use `@/components/ui/native-select`; `src/routes/admin/{audit-log,credits,feedback,models,users}.tsx` use `../../components/ui/native-select`. Both resolve to `src/components/ui/native-select.tsx` via the project aliases.
 - No dependency changed, no remote installer run, no second design system.
 
 ## Inventory — every discovered value select
