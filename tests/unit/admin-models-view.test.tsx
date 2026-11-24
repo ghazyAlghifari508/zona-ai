@@ -349,7 +349,7 @@ describe('Admin model list pagination', () => {
     )
   })
 
-  it('resets page to one when page size or provider filter changes', async () => {
+  it('resets page to one when page size, provider, or status changes', async () => {
     renderView(
       makeResponse([activeModel], {
         page: 3,
@@ -374,6 +374,18 @@ describe('Admin model list pagination', () => {
       expect(lastCalledData()).toMatchObject({
         page: 1,
         provider: 'codex',
+        pageSize: 20,
+      }),
+    )
+
+    fireEvent.change(screen.getByTestId('model-status-filter'), {
+      target: { value: 'inactive' },
+    })
+    await waitFor(() =>
+      expect(lastCalledData()).toMatchObject({
+        page: 1,
+        provider: 'codex',
+        status: 'inactive',
         pageSize: 20,
       }),
     )
