@@ -59,8 +59,8 @@ import { checkRateLimit } from '../../lib/security/rate-limit'
 import { AppError } from '../../lib/utils/errors'
 import {
   findHistoricalModelLabel,
-  getEligibleModel,
   invalidateCatalogCache,
+  isCatalogModelEvaluated,
   loadCatalogSnapshot,
   normalizeCatalogRow,
 } from './model-catalog'
@@ -874,11 +874,18 @@ export async function updateModelAvailabilityCore(params: {
   disabledReason: string | null
 }> {
   const session = await requireAdminSession(params.request)
+  if (params.modelId.trim().toLowerCase() === RESERVED_MODEL_ID) {
+    throw new AppError(
+      'Auto adalah router virtual dan statusnya selalu aktif.',
+      400,
+      'ERR-MODEL-RESERVED',
+    )
+  }
   const label = await findHistoricalModelLabel(params.modelId)
   if (!label || label.status === 'retired') {
     throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
   }
-  if (params.isActive && (await getEligibleModel(params.modelId)) === null) {
+  if (params.isActive && !(await isCatalogModelEvaluated(params.modelId))) {
     throw new AppError(
       'Model belum dievaluasi dan tidak dapat diaktifkan',
       400,

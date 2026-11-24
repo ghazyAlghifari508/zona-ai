@@ -28,6 +28,7 @@ import {
 import {
   type CatalogStatus,
   isCatalogEntryEligible,
+  isCatalogEntryEvaluated,
   resolveCatalogIdentity,
 } from '../../lib/models/catalog-identity'
 import {
@@ -245,6 +246,19 @@ export async function getEligibleModel(
   )
   if (!isCatalogEntryEligible(row)) return null
   return catalogEntryDtoSchema.parse(toCatalogEntryDto(row))
+}
+
+export async function isCatalogModelEvaluated(
+  modelId: string,
+  database?: CatalogDatabase,
+): Promise<boolean> {
+  const snapshot = await loadCatalogSnapshot(database)
+  const row = resolveCatalogIdentity(
+    snapshot.rows,
+    modelId,
+    Object.fromEntries(snapshot.aliases),
+  )
+  return isCatalogEntryEvaluated(row)
 }
 
 export async function resolveAutoForInference(

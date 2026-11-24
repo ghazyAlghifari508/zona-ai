@@ -46,18 +46,23 @@ export function resolveHistoricalCatalogEntry<T extends CatalogIdentityRow>(
   return resolveCatalogIdentity(catalog, modelId, aliases ?? {})
 }
 
-export function isCatalogEntryEligible(
+export function isCatalogEntryEvaluated(
   entry: CatalogIdentityRow | null | undefined,
 ): entry is CatalogIdentityRow {
   return (
     entry !== null &&
     entry !== undefined &&
     !entry.isVirtual &&
-    entry.status === 'active' &&
     (entry.evaluationStatus === 'legacy' ||
       entry.evaluationStatus === 'verified') &&
     entry.capabilities.text
   )
+}
+
+export function isCatalogEntryEligible(
+  entry: CatalogIdentityRow | null | undefined,
+): entry is CatalogIdentityRow {
+  return isCatalogEntryEvaluated(entry) && entry.status === 'active'
 }
 
 export function reconcileModelPreference(
