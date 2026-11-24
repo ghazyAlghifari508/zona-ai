@@ -2,12 +2,15 @@ import {
   Alert01Icon,
   CheckmarkCircle02Icon,
   Coins01Icon,
+  Edit02Icon,
   Loading03Icon,
+  Refresh01Icon,
   Search01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { TablePagination } from '../../components/admin/TablePagination'
 import {
   Dialog,
   DialogClose,
@@ -328,7 +331,7 @@ export function AdminCreditsView({ initialData }: AdminCreditsViewProps) {
                       {formatDate(user.updatedAt || user.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1.5">
+                      <div className="inline-flex items-center gap-2">
                         <button
                           type="button"
                           data-testid={`adjust-credits-btn-${user.id}`}
@@ -338,17 +341,30 @@ export function AdminCreditsView({ initialData }: AdminCreditsViewProps) {
                             setAdjustAmount(100)
                             setAdjustReason('')
                           }}
-                          className="rounded-md border border-hairline bg-pure-white px-3 py-1 text-[12px] font-medium text-ink transition-colors hover:bg-stone/10"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-2.5 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-paper focus:outline-none focus:ring-2 focus:ring-notion-blue"
                         >
-                          Sesuaikan
+                          <HugeiconsIcon
+                            icon={Edit02Icon}
+                            size={14}
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
+                          Sesuaikan saldo
                         </button>
                         <button
                           type="button"
+                          data-testid={`reset-credits-btn-${user.id}`}
                           onClick={() => handleResetDevCredits(user)}
                           title="Reset saldo ke kuota dev (100 kredit)"
-                          className="rounded-md border border-hairline bg-paper px-2 py-1 text-[11px] text-stone transition-colors hover:text-ink"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-2.5 py-1.5 text-[12px] font-medium text-stone transition-colors hover:bg-paper hover:text-ink focus:outline-none focus:ring-2 focus:ring-notion-blue"
                         >
-                          Dev Reset
+                          <HugeiconsIcon
+                            icon={Refresh01Icon}
+                            size={14}
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
+                          Reset ke 100
                         </button>
                       </div>
                     </td>
@@ -359,32 +375,16 @@ export function AdminCreditsView({ initialData }: AdminCreditsViewProps) {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between border-t border-hairline bg-paper px-4 py-3 text-[12px] text-stone">
-          <span>
-            Menampilkan {users.length} dari {total} pengguna
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1 || isLoading}
-              onClick={() => fetchUsers(page - 1, search)}
-              className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
-            >
-              Sebelumnya
-            </button>
-            <span>
-              Halaman {page} dari {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={page >= totalPages || isLoading}
-              onClick={() => fetchUsers(page + 1, search)}
-              className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
-            >
-              Berikutnya
-            </button>
-          </div>
+        <div className="border-t border-hairline bg-paper">
+          <TablePagination
+            ariaLabel="Navigasi kredit pengguna"
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={limit}
+            disabled={isLoading}
+            onPageChange={(next) => void fetchUsers(next, search)}
+          />
         </div>
       </div>
 

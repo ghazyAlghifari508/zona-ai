@@ -283,14 +283,12 @@ describe('Admin model management actions', () => {
 
   it('blocks availability changes for unevaluated models', () => {
     renderView()
-    const toggle = screen.getByTestId(
-      `model-status-toggle-${pendingModel.id}`,
-    ) as HTMLButtonElement
-    expect(toggle.disabled).toBe(true)
-    expect(toggle.getAttribute('aria-checked')).toBe('false')
     expect(
       screen.getByTestId(`model-evaluation-${pendingModel.id}`).textContent,
     ).toContain('Belum dievaluasi')
+    openActions(pendingModel.id)
+    expect(screen.queryByTestId(`model-toggle-${pendingModel.id}`)).toBeNull()
+    expect(screen.getByTestId(`model-edit-${pendingModel.id}`)).toBeTruthy()
   })
 
   it('disables controls while a mutation is pending', async () => {

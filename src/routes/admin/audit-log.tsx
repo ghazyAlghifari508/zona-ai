@@ -2,6 +2,7 @@ import { Copy01Icon, EyeIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
+import { TablePagination } from '../../components/admin/TablePagination'
 import {
   Accordion,
   AccordionItem,
@@ -315,19 +316,20 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
                       <button
                         data-testid="admin-audit-detail-button"
                         type="button"
+                        aria-label="Lihat detail"
                         disabled={isLoading}
                         onClick={() => {
                           setSelectedLog(log)
                           setCopied(false)
                         }}
-                        className="inline-flex items-center gap-1 text-[12px] text-notion-blue hover:underline disabled:opacity-40"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-hairline text-stone transition-colors hover:bg-paper hover:text-ink focus:outline-none focus:ring-2 focus:ring-notion-blue disabled:opacity-40"
                       >
                         <HugeiconsIcon
                           icon={EyeIcon}
-                          size={14}
+                          size={17}
                           strokeWidth={1.75}
+                          aria-hidden="true"
                         />
-                        Lihat detail
                       </button>
                     </TableCell>
                   </TableRow>
@@ -362,6 +364,7 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
               Berikutnya
             </button>
           </div>
+            onPageChange={(next) => void fetchLogs(next, search, actionFilter)}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { TablePagination } from '../../components/admin/TablePagination'
 import {
   Dialog,
   DialogClose,
@@ -469,36 +470,18 @@ export function AdminUsersView({
           </table>
         </div>
 
-        {/* Pagination bar */}
-        <div className="flex items-center justify-between border-t border-hairline bg-paper px-4 py-3 text-[12px] text-stone">
-          <span>
-            Menampilkan {users.length} dari {total} pengguna
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={page <= 1 || isLoading}
-              onClick={() =>
-                fetchUsers(page - 1, search, roleFilter, statusFilter)
-              }
-              className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
-            >
-              Sebelumnya
-            </button>
-            <span>
-              Halaman {page} dari {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={page >= totalPages || isLoading}
-              onClick={() =>
-                fetchUsers(page + 1, search, roleFilter, statusFilter)
-              }
-              className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
-            >
-              Berikutnya
-            </button>
-          </div>
+        <div className="border-t border-hairline bg-paper">
+          <TablePagination
+            ariaLabel="Navigasi pengguna"
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={limit}
+            disabled={isLoading}
+            onPageChange={(next) =>
+              void fetchUsers(next, search, roleFilter, statusFilter)
+            }
+          />
         </div>
       </div>
 

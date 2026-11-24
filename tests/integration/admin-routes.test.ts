@@ -628,7 +628,7 @@ describe('Admin Route and Shell Integration Suite', { timeout: 30000 }, () => {
 
       expect(screen.getByTestId('admin-models-table')).toBeDefined()
       expect(
-        screen.getByTestId('model-status-toggle-anthropic/claude-3-5-sonnet'),
+        screen.getByTestId('model-actions-anthropic/claude-3-5-sonnet'),
       ).toBeDefined()
     })
   })

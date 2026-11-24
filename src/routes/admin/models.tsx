@@ -1,8 +1,13 @@
 import {
   Alert01Icon,
   CheckmarkCircle02Icon,
+  Delete02Icon,
+  Link01Icon,
   Loading03Icon,
+  PencilEdit01Icon,
   Search01Icon,
+  ToggleOffIcon,
+  ToggleOnIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -766,39 +771,6 @@ export function AdminModelsView({
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={active && evaluated}
-                            aria-label={`Aktifkan ${model.name}`}
-                            data-testid={`model-status-toggle-${model.id}`}
-                            onClick={() => {
-                              if (active) setTargetModelToDisable(model)
-                              else void handleUpdateStatus(model.id, true, null)
-                            }}
-                            disabled={
-                              isSubmitting ||
-                              !evaluated ||
-                              model.id === RESERVED_MODEL_ID
-                            }
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-notion-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                              active && evaluated
-                                ? 'bg-accent'
-                                : 'bg-hairline-strong'
-                            }`}
-                          >
-                            <span className="sr-only">
-                              Alihkan status model
-                            </span>
-                            <span
-                              aria-hidden="true"
-                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                active && evaluated
-                                  ? 'translate-x-5'
-                                  : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
                           {model.id === RESERVED_MODEL_ID ? null : (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -813,16 +785,62 @@ export function AdminModelsView({
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                {evaluated && (
+                                  <>
+                                    <DropdownMenuItem
+                                      data-testid={`model-toggle-${model.id}`}
+                                      onSelect={() => {
+                                        if (active) {
+                                          setTargetModelToDisable(model)
+                                        } else {
+                                          void handleUpdateStatus(
+                                            model.id,
+                                            true,
+                                            null,
+                                          )
+                                        }
+                                      }}
+                                    >
+                                      <HugeiconsIcon
+                                        icon={
+                                          active ? ToggleOffIcon : ToggleOnIcon
+                                        }
+                                        size={14}
+                                        strokeWidth={1.75}
+                                        className="mr-2"
+                                        aria-hidden="true"
+                                      />
+                                      {active
+                                        ? 'Nonaktifkan model'
+                                        : 'Aktifkan model'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
                                 <DropdownMenuItem
                                   data-testid={`model-edit-${model.id}`}
                                   onSelect={() => openEdit(model)}
                                 >
+                                  <HugeiconsIcon
+                                    icon={PencilEdit01Icon}
+                                    size={14}
+                                    strokeWidth={1.75}
+                                    className="mr-2"
+                                    aria-hidden="true"
+                                  />
                                   Edit model
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   data-testid={`model-probe-${model.id}`}
                                   onSelect={() => void handleProbeModel(model)}
                                 >
+                                  <HugeiconsIcon
+                                    icon={Link01Icon}
+                                    size={14}
+                                    strokeWidth={1.75}
+                                    className="mr-2"
+                                    aria-hidden="true"
+                                  />
                                   Uji koneksi
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
@@ -831,6 +849,13 @@ export function AdminModelsView({
                                   className="text-coral focus:bg-danger-soft focus:text-coral"
                                   onSelect={() => setDeleteTarget(model)}
                                 >
+                                  <HugeiconsIcon
+                                    icon={Delete02Icon}
+                                    size={14}
+                                    strokeWidth={1.75}
+                                    className="mr-2"
+                                    aria-hidden="true"
+                                  />
                                   Hapus model
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
