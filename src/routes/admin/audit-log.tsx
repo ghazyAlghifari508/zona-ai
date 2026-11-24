@@ -29,9 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table'
+import { UserAvatar } from '../../components/ui/UserAvatar'
 import {
   AUDIT_ACTION_FILTER_OPTIONS,
   type AuditActionFilterValue,
+  presentAuditActivity,
 } from '../../lib/admin/audit-activity'
 import type { AuditLogItem } from '../../server/core/admin-audit'
 import { listAuditLogsFn } from '../../server/functions/admin-audit'
@@ -247,21 +249,26 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
         aria-busy={isLoading}
         className="overflow-hidden rounded-lg border border-hairline bg-pure-white shadow-xs"
       >
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-hairline bg-paper text-[11px] font-semibold tracking-wider text-stone uppercase">
-              <tr>
-                <th className="px-4 py-3">Waktu</th>
-                <th className="px-4 py-3">Administrator</th>
-                <th className="px-4 py-3">Aksi</th>
-                <th className="px-4 py-3">Target</th>
-                <th className="px-4 py-3">Detail Metadata</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-hairline">
-              {logs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-stone">
+        <Table>
+          <TableHeader className="bg-paper">
+            <TableRow>
+              <TableHead className="w-36">Waktu</TableHead>
+              <TableHead className="w-40">Administrator</TableHead>
+              <TableHead>Aktivitas</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead className="w-24 text-right">Detail</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {logs.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5}>
+                  <div
+                    data-testid={
+                      error === null ? 'admin-audit-empty' : undefined
+                    }
+                    className="py-8 text-center text-[13px] text-stone"
+                  >
                     {isLoading
                       ? 'Memuat aktivitas...'
                       : 'Tidak ada aktivitas yang ditemukan.'}
@@ -333,10 +340,10 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
           </TableBody>
         </Table>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between border-t border-hairline bg-paper px-4 py-3 text-[12px] text-stone">
-          <span>
-            Menampilkan {logs.length} dari {pagination.total} rekaman audit
+        <div className="flex flex-col gap-3 border-t border-hairline bg-paper px-4 py-3 text-[12px] text-stone sm:flex-row sm:items-center sm:justify-between">
+          <span data-testid="admin-audit-page-info">
+            Menampilkan {logs.length} dari {pagination.total} aktivitas ·
+            Halaman {page} dari {Math.max(1, pagination.totalPages)}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -370,7 +377,7 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent data-testid="admin-audit-dialog" className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[17px] font-bold text-ink">
               Detail aktivitas
