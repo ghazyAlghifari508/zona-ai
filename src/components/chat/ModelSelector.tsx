@@ -388,7 +388,7 @@ export function ModelSelector({
               icon={ArrowDown01Icon}
               size={13}
               strokeWidth={1.75}
-              className="shrink-0 text-ink/40"
+              className="shrink-0 text-stone"
             />
           </button>
         </PopoverTrigger>
@@ -399,7 +399,7 @@ export function ModelSelector({
           className="w-[340px] rounded-lg border border-hairline bg-pure-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
         >
           <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
+            <span className="text-[10px] font-bold tracking-[0.11em] text-stone uppercase">
               {compareEnabled
                 ? `PILIH ${COMPARE_MIN_MODELS}-${COMPARE_MAX_MODELS} MODEL`
                 : 'PILIH MODEL AI'}
@@ -463,7 +463,7 @@ export function ModelSelector({
             {autoModel && (
               <div className="space-y-1">
                 {!compareEnabled && (
-                  <div className="px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-ink/40 uppercase">
+                  <div className="px-2.5 py-0.5 text-[10px] font-bold tracking-[0.08em] text-stone uppercase">
                     Smart Router
                   </div>
                 )}
@@ -478,7 +478,7 @@ export function ModelSelector({
                 className="space-y-1"
               >
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline/60 bg-pure-white/95 px-2.5 py-1 backdrop-blur-[2px]">
-                  <span className="text-[10px] font-bold tracking-[0.08em] text-ink/40 uppercase">
+                  <span className="text-[10px] font-bold tracking-[0.08em] text-stone uppercase">
                     {vendor}
                   </span>
                   <span className="text-[10px] font-semibold text-stone">

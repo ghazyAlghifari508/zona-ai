@@ -167,7 +167,7 @@ export function AdminDashboardOverview({
                 {card.value}
               </span>
               {card.desc && (
-                <span className="text-[10px] font-medium text-stone/70">
+                <span className="text-[10px] font-medium text-stone">
                   {card.desc}
                 </span>
               )}

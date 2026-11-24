@@ -62,7 +62,7 @@ export function SkillSelector({ value, onChange, compareEnabled }: Props) {
             icon={ArrowDown01Icon}
             size={13}
             strokeWidth={1.75}
-            className="shrink-0 text-ink/40"
+            className="shrink-0 text-stone"
           />
         </button>
       </PopoverTrigger>
@@ -72,7 +72,7 @@ export function SkillSelector({ value, onChange, compareEnabled }: Props) {
         sideOffset={8}
         className="w-[280px] rounded-lg border border-hairline bg-pure-white p-2 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
       >
-        <div className="mb-2 px-2 py-1 text-[10px] font-bold tracking-[0.11em] text-ink/40 uppercase">
+        <div className="mb-2 px-2 py-1 text-[10px] font-bold tracking-[0.11em] text-stone uppercase">
           PILIH SKILL
         </div>
         <div className="space-y-1">
