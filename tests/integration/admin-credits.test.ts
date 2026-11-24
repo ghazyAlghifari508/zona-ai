@@ -280,9 +280,14 @@ describe('Admin Credit Management & Guards', () => {
                 where: vi.fn().mockResolvedValue([]),
               }),
             }),
-            insert: vi.fn().mockImplementation(() => {
+            insert: vi.fn().mockImplementation((table) => {
               return {
-                values: vi.fn().mockResolvedValue([]),
+                values: vi.fn().mockImplementation((val) => {
+                  if (table === auditLogs) {
+                    insertedAudit = val
+                  }
+                  return Promise.resolve()
+                }),
               }
             }),
           }

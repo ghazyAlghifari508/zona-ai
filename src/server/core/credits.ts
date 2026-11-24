@@ -3,6 +3,10 @@
  * NEVER import from client code.
  */
 import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
+import {
+  createAuditMetadata,
+  sanitizeAuditText,
+} from '../../lib/admin/audit-metadata'
 import { getCreditBalance, resetDevCredits } from '../../lib/ai/credits'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import { getAuthSession } from '../../lib/auth/session'
@@ -38,19 +42,50 @@ export async function resetDevCreditsCore({
   }
 
   const targetId = targetUserId ?? session.user.id
-  const bal = await resetDevCredits(targetId)
-
-  await db.insert(auditLogs).values({
-    adminId: session.user.id,
-    adminEmail: session.user.email,
-    action: 'credit.reset',
-    targetId,
-    targetType: 'user',
-    metadata: { newBalance: bal },
-    createdAt: new Date(),
+  const newBalance = await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        credits: users.credits,
+      })
+      .from(users)
+      .where(eq(users.id, targetId))
+      .for('update')
+    if (!target) {
+      throw new AppError('Pengguna tidak ditemukan.', 404, 'ERR-003')
+    }
+    const oldBalance = target.credits ?? 0
+    const balance = await resetDevCredits(targetId)
+    const now = new Date()
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'credit.reset',
+      targetId,
+      targetType: 'user',
+      metadata: createAuditMetadata({
+        actor: {
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.email,
+        },
+        target: {
+          id: targetId,
+          displayName: target.name ?? target.email,
+        },
+        details: {
+          oldBalance,
+          newBalance: balance,
+          delta: balance - oldBalance,
+        },
+      }),
+      createdAt: now,
+    })
+    return balance
   })
 
-  return { success: true as const, newBalance: bal }
+  return { success: true as const, newBalance }
 }
 
 export interface AdjustUserCreditsParams {
@@ -74,7 +109,12 @@ export async function adjustUserCreditsCore(
 
   return db.transaction(async (tx) => {
     const [targetUser] = await tx
-      .select({ id: users.id, credits: users.credits })
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        credits: users.credits,
+      })
       .from(users)
       .where(eq(users.id, params.data.userId))
       .for('update')
@@ -121,13 +161,25 @@ export async function adjustUserCreditsCore(
       action: 'credit.adjust',
       targetId: params.data.userId,
       targetType: 'user',
-      metadata: {
-        mode: params.data.mode,
-        amount: params.data.amount,
-        previousBalance,
-        newBalance,
-        reason: params.data.reason?.trim() || null,
-      },
+      metadata: createAuditMetadata({
+        actor: {
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.email,
+        },
+        target: {
+          id: targetUser.id,
+          displayName: targetUser.name ?? targetUser.email,
+        },
+        details: {
+          mode: params.data.mode,
+          amount: params.data.amount,
+          oldBalance: previousBalance,
+          previousBalance,
+          newBalance,
+          delta,
+          reason: sanitizeAuditText(params.data.reason),
+        },
+      }),
       createdAt: now,
     })
 

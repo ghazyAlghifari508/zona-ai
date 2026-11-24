@@ -518,7 +518,10 @@ describe('Admin User Management & Ban Enforcement', () => {
         action: 'user.unban',
         targetId: 'reformed-user',
         targetType: 'user',
-        metadata: null,
+        metadata: expect.objectContaining({
+          previousStatus: 'banned',
+          status: 'active',
+        }),
       })
     })
 

@@ -1,6 +1,12 @@
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
+import {
+  type AuditLogValue,
+  createAuditMetadata,
+  sanitizeAuditText,
+} from '../../lib/admin/audit-metadata'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
+import type { AuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
 import { auditLogs, modelCatalog, modelSettings } from '../../lib/db/schema'
 import {
@@ -33,6 +39,21 @@ import {
   invalidateCatalogCache,
   loadCatalogSnapshot,
 } from './model-catalog'
+
+function modelAuditMetadata(
+  session: AuthSession,
+  target: { id: string; displayName: string },
+  details: Record<string, AuditLogValue>,
+) {
+  return createAuditMetadata({
+    actor: {
+      id: session.user.id,
+      displayName: session.user.name ?? session.user.email,
+    },
+    target,
+    details,
+  })
+}
 
 export async function stageP3CatalogCore(request: Request) {
   await requireAdminSession(request)
@@ -93,10 +114,16 @@ export async function cutoverP3CatalogCore(request: Request, version: unknown) {
           action: 'model.delete',
           targetType: 'model',
           targetId: row.id,
-          metadata: {
-            modelId: row.routerModelId,
-            manifest: p3Manifest.version,
-          },
+          metadata: modelAuditMetadata(
+            session,
+            { id: row.id, displayName: row.displayName },
+            {
+              modelId: row.routerModelId,
+              manifest: p3Manifest.version,
+              previousStatus: row.status,
+              status: 'retired',
+            },
+          ),
           createdAt: now,
         })
       }
@@ -186,6 +213,17 @@ type EditableFields = Pick<
   CreateAdminModelInput,
   'displayName' | 'vendor' | 'provider' | 'description' | 'searchAliases'
 >
+function auditEditableFields(
+  fields: EditableFields,
+): Record<string, AuditLogValue> {
+  return {
+    displayName: fields.displayName,
+    vendor: fields.vendor,
+    provider: fields.provider,
+    description: fields.description,
+    searchAliases: [...fields.searchAliases],
+  }
+}
 
 export async function getModelSettingsCore({
   request,
@@ -310,11 +348,16 @@ export async function importAdminModelCore({
         action: 'model.create',
         targetId: existing?.id ?? modelId,
         targetType: 'model',
-        metadata: {
-          modelId,
-          reimport: existing !== undefined,
-          evaluationStatus: 'pending',
-        },
+        metadata: modelAuditMetadata(
+          session,
+          { id: existing?.id ?? modelId, displayName: data.displayName },
+          {
+            modelId,
+            reimport: existing !== undefined,
+            evaluationStatus: 'pending',
+            status: 'active',
+          },
+        ),
         createdAt: now,
       })
     })
@@ -378,7 +421,15 @@ export async function updateAdminModelCore({
       action: 'model.update',
       targetId: existing.id,
       targetType: 'model',
-      metadata: { modelId: data.modelId, before, after },
+      metadata: modelAuditMetadata(
+        session,
+        { id: existing.id, displayName: after.displayName },
+        {
+          modelId: data.modelId,
+          before: auditEditableFields(before),
+          after: auditEditableFields(after),
+        },
+      ),
       createdAt: new Date(),
     })
   })
@@ -448,7 +499,16 @@ export async function retireAdminModelCore({
       action: 'model.delete',
       targetId: existing.id,
       targetType: 'model',
-      metadata: { modelId, evaluationStatus: existing.evaluationStatus },
+      metadata: modelAuditMetadata(
+        session,
+        { id: existing.id, displayName: existing.displayName },
+        {
+          modelId,
+          evaluationStatus: existing.evaluationStatus,
+          previousStatus: label?.status ?? 'active',
+          status: 'retired',
+        },
+      ),
       createdAt: now,
     })
   })
@@ -564,12 +624,16 @@ export async function publishAdminModelCore({
       action: 'model.update',
       targetId: existing.id,
       targetType: 'model',
-      metadata: {
-        modelId: input.modelId,
-        evidenceRef,
-        previousCredit: existing.creditCostMax,
-        credit: evidence.credit,
-      },
+      metadata: modelAuditMetadata(
+        session,
+        { id: existing.id, displayName: existing.displayName },
+        {
+          modelId: input.modelId,
+          evidenceRef,
+          previousCredit: existing.creditCostMax,
+          credit: evidence.credit,
+        },
+      ),
       createdAt: now,
     })
     return {
@@ -636,15 +700,20 @@ export async function probeAdminModelCore({
       action: 'model.connection_test',
       targetId: label.id,
       targetType: 'model',
-      metadata: {
-        modelId,
-        outcome: result.outcome,
-        listed: result.listed,
-        httpStatus: result.httpStatus,
-        provenanceVerified: result.provenanceVerified,
-        durationMs: result.durationMs,
-        checkedAt: result.checkedAt,
-      },
+      metadata: modelAuditMetadata(
+        session,
+        { id: label.id, displayName: label.displayName },
+        {
+          modelId,
+          outcome: result.outcome,
+          result: result.outcome === 'valid' ? 'success' : 'failure',
+          listed: result.listed,
+          httpStatus: result.httpStatus,
+          provenanceVerified: result.provenanceVerified,
+          durationMs: result.durationMs,
+          checkedAt: result.checkedAt,
+        },
+      ),
       createdAt: now,
     })
   })
@@ -682,6 +751,11 @@ export async function updateModelAvailabilityCore(params: {
   const status = params.isActive ? ('active' as const) : ('inactive' as const)
 
   await db.transaction(async (tx) => {
+    const [previous] = await tx
+      .select()
+      .from(modelSettings)
+      .where(eq(modelSettings.modelId, label.id))
+
     await tx
       .insert(modelSettings)
       .values({
@@ -710,7 +784,17 @@ export async function updateModelAvailabilityCore(params: {
       action: params.isActive ? 'model.enable' : 'model.disable',
       targetId: label.id,
       targetType: 'model',
-      metadata: { disabledReason },
+      metadata: modelAuditMetadata(
+        session,
+        { id: label.id, displayName: label.displayName },
+        {
+          previousStatus: previous?.status ?? label.status,
+          status,
+          reason: sanitizeAuditText(disabledReason),
+          disabledReason: sanitizeAuditText(disabledReason),
+          previousReason: sanitizeAuditText(previous?.disabledReason),
+        },
+      ),
       createdAt: now,
     })
   })

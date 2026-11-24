@@ -556,6 +556,8 @@ describe('Feedback System Core and Functions', () => {
         },
       })
 
+      vi.spyOn(db, 'transaction').mockImplementation(async (cb) => cb(db))
+
       vi.spyOn(db, 'select').mockImplementationOnce(() => ({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([]),
@@ -601,6 +603,8 @@ describe('Feedback System Core and Functions', () => {
         status: 'new',
         adminNotes: null,
       }
+
+      vi.spyOn(db, 'transaction').mockImplementation(async (cb) => cb(db))
 
       vi.spyOn(db, 'select').mockImplementationOnce(() => ({
         from: vi.fn().mockReturnValue({
@@ -648,13 +652,16 @@ describe('Feedback System Core and Functions', () => {
           targetType: 'feedback',
           adminId: 'admin-id',
           adminEmail: 'admin@zona.ai',
-          metadata: {
+          metadata: expect.objectContaining({
             previousStatus: 'new',
             status: 'resolved',
-            adminNotes: 'Sudah diperbaiki pada patch v1.2',
-          },
+            targetSnapshot: { id: 'fb-1', displayName: 'fb-1' },
+          }),
         }),
       )
+      expect(
+        JSON.stringify(auditInsertSpy.mock.calls[0]?.[0] ?? {}),
+      ).not.toContain('Sudah diperbaiki')
     })
   })
 

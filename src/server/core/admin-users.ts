@@ -1,5 +1,9 @@
 import { and, count, desc, eq, ilike, isNull, or } from 'drizzle-orm'
 import {
+  createAuditMetadata,
+  sanitizeAuditText,
+} from '../../lib/admin/audit-metadata'
+import {
   preventAdminSelfBan,
   requireAdminSession,
 } from '../../lib/auth/admin-guard'
@@ -160,10 +164,22 @@ export async function banUserCore(params: {
       action: 'user.ban',
       targetId: params.data.userId,
       targetType: 'user',
-      metadata: {
-        reason: banReason,
-        expiresAt: banExpires ? banExpires.toISOString() : null,
-      },
+      metadata: createAuditMetadata({
+        actor: {
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.email,
+        },
+        target: {
+          id: targetUser.id,
+          displayName: targetUser.name ?? targetUser.email,
+        },
+        details: {
+          previousStatus: targetUser.banned ? 'banned' : 'active',
+          status: 'banned',
+          reason: sanitizeAuditText(banReason),
+          expiresAt: banExpires ? banExpires.toISOString() : null,
+        },
+      }),
       createdAt: now,
     })
     return updated
@@ -219,7 +235,20 @@ export async function unbanUserCore(params: {
       action: 'user.unban',
       targetId: params.data.userId,
       targetType: 'user',
-      metadata: null,
+      metadata: createAuditMetadata({
+        actor: {
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.email,
+        },
+        target: {
+          id: targetUser.id,
+          displayName: targetUser.name ?? targetUser.email,
+        },
+        details: {
+          previousStatus: targetUser.banned ? 'banned' : 'active',
+          status: 'active',
+        },
+      }),
       createdAt: now,
     })
     return updated
@@ -271,11 +300,22 @@ export async function deleteUserCore(params: {
       action: 'user.delete',
       targetId: params.data.userId,
       targetType: 'user',
-      metadata: {
-        deletedEmail: targetUser.email,
-        deletedName: targetUser.name,
-        deletedRole: targetUser.role,
-      },
+      metadata: createAuditMetadata({
+        actor: {
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.email,
+        },
+        target: {
+          id: targetUser.id,
+          displayName: targetUser.name ?? targetUser.email,
+        },
+        details: {
+          deletedEmail: targetUser.email,
+          deletedName: targetUser.name,
+          deletedRole: targetUser.role,
+          previousStatus: targetUser.banned ? 'banned' : 'active',
+        },
+      }),
       createdAt: now,
     })
   })

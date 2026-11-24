@@ -1,4 +1,5 @@
 import { and, count, desc, eq } from 'drizzle-orm'
+import { createAuditMetadata } from '../../lib/admin/audit-metadata'
 import {
   checkUserNotBanned,
   requireAdminSession,
@@ -227,49 +228,61 @@ export async function updateFeedbackStatusCore(params: {
 }) {
   const session = await requireAdminSession(params.request)
 
-  const [existing] = await db
-    .select()
-    .from(feedback)
-    .where(eq(feedback.id, params.data.feedbackId))
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(feedback)
+      .where(eq(feedback.id, params.data.feedbackId))
 
-  if (!existing) {
-    throw new AppError('Feedback tidak ditemukan.', 404, 'ERR-003')
-  }
+    if (!existing) {
+      throw new AppError('Feedback tidak ditemukan.', 404, 'ERR-003')
+    }
 
-  const now = new Date()
-  const adminNotes =
-    params.data.adminNotes !== undefined
-      ? params.data.adminNotes?.trim() || null
-      : existing.adminNotes
+    const now = new Date()
+    const adminNotes =
+      params.data.adminNotes !== undefined
+        ? params.data.adminNotes?.trim() || null
+        : existing.adminNotes
 
-  const [updated] = await db
-    .update(feedback)
-    .set({
-      status: params.data.status,
-      adminNotes,
-      updatedAt: now,
+    const [updated] = await tx
+      .update(feedback)
+      .set({
+        status: params.data.status,
+        adminNotes,
+        updatedAt: now,
+      })
+      .where(eq(feedback.id, params.data.feedbackId))
+      .returning()
+
+    await tx.insert(auditLogs).values({
+      adminId: session.user.id,
+      adminEmail: session.user.email,
+      action: 'feedback.status_update',
+      targetId: params.data.feedbackId,
+      targetType: 'feedback',
+      metadata: createAuditMetadata({
+        actor: {
+          id: session.user.id,
+          displayName: session.user.name ?? session.user.email,
+        },
+        target: {
+          id: params.data.feedbackId,
+          displayName: existing.title ?? params.data.feedbackId,
+        },
+        details: {
+          previousStatus: existing.status,
+          status: params.data.status,
+          hasAdminNotes: adminNotes !== null,
+        },
+      }),
+      createdAt: now,
     })
-    .where(eq(feedback.id, params.data.feedbackId))
-    .returning()
 
-  await db.insert(auditLogs).values({
-    adminId: session.user.id,
-    adminEmail: session.user.email,
-    action: 'feedback.status_update',
-    targetId: params.data.feedbackId,
-    targetType: 'feedback',
-    metadata: {
-      previousStatus: existing.status,
-      status: params.data.status,
-      adminNotes,
-    },
-    createdAt: now,
+    return {
+      success: true as const,
+      feedback: updated ?? existing,
+    }
   })
-
-  return {
-    success: true as const,
-    feedback: updated ?? existing,
-  }
 }
 
 export async function uploadFeedbackAttachmentCore(params: {
