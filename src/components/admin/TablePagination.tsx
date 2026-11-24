@@ -49,7 +49,7 @@ export function TablePagination({
       className="mx-0 w-full justify-between gap-3 px-4 py-2.5"
     >
       <PaginationContent className="flex flex-1 flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <PaginationItem className="flex items-center gap-3">
           {pageSizes && onPageSizeChange && (
             <div className="flex items-center gap-2">
               <label
@@ -81,39 +81,33 @@ export function TablePagination({
           <span aria-live="polite" className="text-[12px] text-stone">
             {rangeLabel}
           </span>
-        </div>
+        </PaginationItem>
 
-        <div className="flex items-center gap-1">
+        <PaginationItem className="flex items-center gap-1">
           {hasRows && (
             <>
-              <PaginationItem>
-                <PaginationButton
-                  isActive
-                  aria-label={`Halaman ${page}`}
-                  disabled={disabled}
-                >
-                  {page}
-                </PaginationButton>
-              </PaginationItem>
+              <PaginationButton
+                isActive
+                aria-label={`Halaman ${page}`}
+                disabled={disabled}
+              >
+                {page}
+              </PaginationButton>
               <span className="text-[12px] text-stone">dari {totalPages}</span>
               <span className="sr-only">
                 Halaman {page} dari {totalPages}
               </span>
             </>
           )}
-          <PaginationItem>
-            <PaginationPrevious
-              disabled={disabled || page <= 1 || totalPages === 0}
-              onClick={() => onPageChange(page - 1)}
-            />
-          </PaginationItem>
-          <PaginationItem>
-            <PaginationNext
-              disabled={disabled || page >= totalPages || totalPages === 0}
-              onClick={() => onPageChange(page + 1)}
-            />
-          </PaginationItem>
-        </div>
+          <PaginationPrevious
+            disabled={disabled || page <= 1 || totalPages === 0}
+            onClick={() => onPageChange(page - 1)}
+          />
+          <PaginationNext
+            disabled={disabled || page >= totalPages || totalPages === 0}
+            onClick={() => onPageChange(page + 1)}
+          />
+        </PaginationItem>
       </PaginationContent>
     </Pagination>
   )
