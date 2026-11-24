@@ -26,9 +26,11 @@ Ditulis sebelum implementasi UI. Fokus: footer pagination untuk tabel Model AI d
 | Carbon Pagination guidelines | `https://www.carbondesignsystem.com/building-blocks/core/components/pagination/guidelines/` | Pedoman: footer melekat di bawah tabel tanpa padding, range + current/total + prev/next tetap ada di layar kecil, prev/next aktif via Space/Enter | **Dipakai sebagai pedoman** |
 | HeroUI Pagination | `https://heroui.com/en/docs/react/components/pagination` | Fungsional, tetapi butuh `@heroui/react` + React Aria dan sistem warna sendiri | **Ditolak**: library/design system paralel; tidak sesuai stack shadcn yang sudah terpasang |
 | affectUI Pagination | `https://www.affectui.com/components/pagination` | Kontrol paling dekat (page/pageSize/total/onPageChange), MIT, React 19 | **Ditolak**: butuh `npx shadcn@latest add https://…` (installer remote) dan menambah komponen parallel dengan shadcn resmi; source/diff belum diaudit |
-| Magic UI / React Bits / Thinking Orbs / Sakani / Tuff UI / CUI | Pencarian registry: tidak ada kandidat pagination yang lebih cocok daripada shadcn/HeroUI/affectUI | Tidak relevan | **Ditolak** |
+| Magic UI / React Bits / Thinking Orbs / Sakani / Tuff UI / CUI | `https://magicui.design/`, `https://reactbits.dev/`, `https://www.thinkingorbs.com/#orbs`, `https://www.sakaniui.com`, `https://tuffui.com/`, `https://yappologistic.github.io/CUI/` | Fokus pada animasi/diagram, bukan footer pagination | **Ditolak**: tidak relevan untuk kontrol ini |
 
 Karena kedua surface P7 memakai state/server function, bukan URL navigation, `PaginationPrevious`/`PaginationNext` dan link halaman diadaptasi menjadi **tombol native** (`onClick`, `disabled`, `aria-current="page"`). Ini sesuai persistensi filter dan state dan mencegah prev/next aktif saat loading. Perubahan ini dicatat sebagai adaptasi, bukan komponen baru dari nol.
+
+Footer pagination di Users/Feedback/Credits/Audit sengaja tidak dimigrasi. P7 hanya membagi primitive UI untuk dua surface yang diminta; prompt melarang refactor endpoint unrelated. Copy `Halaman X dari Y` diselaraskan tanpa mengubah server semantics.
 
 1. Salin komposisi resmi shadcn Pagination ke `src/components/ui/pagination.tsx` tanpa installer remote. Struktur: `Pagination` (`<nav>`), `PaginationContent` (`<ul>`), `PaginationItem` (`<li>`), `PaginationLink`, `PaginationPrevious`, `PaginationNext`, `PaginationEllipsis`.
 
@@ -41,6 +43,7 @@ Karena kedua surface P7 memakai state/server function, bukan URL navigation, `Pa
 - **Dependency baru**: tidak ada. Tidak menjalankan installer remote; source registry shadcn dibaca dan disalin manual.
 - **Tailwind v4**: memakai utility yang sudah ada (`border-hairline`, `bg-pure-white`, `text-ink`, `text-stone`, `bg-paper/40`, `focus-visible:outline-notion-blue`) dan `cn()`; tidak menambah config Tailwind.
 - **A11y**: `<nav aria-label>` untuk setiap footer, tombol nyata dengan teks "Sebelumnya"/"Berikutnya" + ikon, `disabled` pada batas, `aria-current="page"` pada halaman aktif, `aria-live="polite"` pada teks range, label eksplisit pada pemilih ukuran. Fokus mengikuti pola global `src/styles/app.css`. State kosong/error tidak menyajikan angka palsu.
+- **Light/dark**: seluruh komponen memakai token semantik yang sudah mengikuti tema global; tidak ada warna literal baru, sehingga mode terang/gelap setara tanpa stylesheet tambahan.
 - **Responsive**: baris footer membungkus pada layar kecil; range dan prev/next tetap tampil (Carbon).
 
 ## Komponen yang benar-benar dipakai
