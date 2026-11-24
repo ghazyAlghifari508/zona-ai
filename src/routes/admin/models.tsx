@@ -7,7 +7,8 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { TablePagination } from '../../components/admin/TablePagination'
 import { modelCatalogQueryKey } from '../../components/chat/useModelCatalog'
 import {
   Dialog,
@@ -32,10 +33,18 @@ import {
 import { ProviderIcon } from '../../components/ui/ProviderIcons'
 import { StatusText } from '../../components/ui/StatusText'
 import type {
+  AdminModelListItem,
+  AdminModelListResponse,
+} from '../../lib/admin/model-list-contract'
+import type {
   ConnectionProbe,
   GatewayModelDiscovery,
 } from '../../lib/models/model-probe'
 import { formatContextWindowTokens } from '../../lib/models/presentation'
+import {
+  ADMIN_MODEL_PAGE_SIZES,
+  ADMIN_MODEL_SEARCH_DEBOUNCE_MS,
+} from '../../lib/utils/constants'
 import {
   discoverAdminGatewayModelsFn,
   getAdminModelsFn,
@@ -50,29 +59,13 @@ import {
 export const Route = createFileRoute('/admin/models')({
   staleTime: 30_000,
   loader: async () => {
-    const [settings, entries] = await Promise.all([
+    const [settings, list] = await Promise.all([
       getModelSettingsFn(),
-      getAdminModelsFn(),
+      getAdminModelsFn({
+        data: { page: 1, pageSize: ADMIN_MODEL_PAGE_SIZES[0] },
+      }),
     ])
-    const catalog = entries.map((m) => ({
-      id: m.id,
-      name: m.displayName,
-      provider: m.provider,
-      vendor: m.vendor,
-      cost:
-        m.creditCost === null
-          ? null
-          : typeof m.creditCost === 'number'
-            ? m.creditCost
-            : m.creditCost.max,
-      contextWindow: m.metadata.contextWindow,
-      evaluationStatus: m.evaluationStatus,
-      status: m.status,
-      description: m.description,
-      lastCheckedAt: m.lastCheckedAt,
-    }))
-
-    return { catalog, settings }
+    return { list, settings }
   },
   component: AdminModelsPage,
 })
@@ -108,8 +101,28 @@ export interface ModelSettingItem {
 }
 
 export interface AdminModelsViewProps {
-  catalog: ModelCatalogItem[]
+  initialData: AdminModelListResponse
   initialSettings: ModelSettingItem[]
+}
+
+function toModelCatalogItem(entry: AdminModelListItem): ModelCatalogItem {
+  return {
+    id: entry.id,
+    name: entry.displayName,
+    provider: entry.provider,
+    vendor: entry.vendor,
+    cost:
+      entry.creditCost === null
+        ? null
+        : typeof entry.creditCost === 'number'
+          ? entry.creditCost
+          : entry.creditCost.max,
+    contextWindow: entry.metadata.contextWindow,
+    evaluationStatus: entry.evaluationStatus,
+    status: entry.status,
+    description: entry.description,
+    lastCheckedAt: entry.lastCheckedAt,
+  }
 }
 
 interface ModelForm {
@@ -157,14 +170,47 @@ function outcomeLabel(outcome: ConnectionProbe['outcome']): string {
   }
 }
 
+type PageSize = AdminModelListResponse['pagination']['pageSize']
+type StatusFilter = 'all' | 'active' | 'inactive'
+
+interface ListFetchParams {
+  page: number
+  search: string
+  provider: string
+  status: StatusFilter
+  pageSize: PageSize
+}
+
+function isPageSize(value: number): value is PageSize {
+  return ADMIN_MODEL_PAGE_SIZES.some((size) => size === value)
+}
+
+function isStatusFilter(value: string): value is StatusFilter {
+  return value === 'all' || value === 'active' || value === 'inactive'
+}
+
 export function AdminModelsView({
-  catalog,
+  initialData,
   initialSettings,
 }: AdminModelsViewProps) {
   const queryClient = useQueryClient()
-  const [models, setModels] = useState(catalog)
+  const [models, setModels] = useState(() =>
+    initialData.items.map(toModelCatalogItem),
+  )
+  const [pagination, setPagination] = useState(initialData.pagination)
+  const [currentPage, setCurrentPage] = useState(initialData.pagination.page)
+  const [providers, setProviders] = useState(initialData.providers)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [providerFilter, setProviderFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [pageSize, setPageSize] = useState<PageSize>(
+    initialData.pagination.pageSize,
+  )
+  const [isFetchingList, setIsFetchingList] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
+  const hasMountedRef = useRef(false)
   const [settingsMap, setSettingsMap] = useState<
     Map<string, { isActive: boolean; disabledReason: string | null }>
   >(() => {
@@ -203,15 +249,86 @@ export function AdminModelsView({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [statusMessage, setStatusMessage] = useState<StatusMessage>(null)
 
-  const providers = Array.from(
-    new Set(models.map((m) => m.vendor || m.provider)),
-  ).sort()
-
   const invalidateRelatedQueries = () => {
     void queryClient.invalidateQueries({ queryKey: modelCatalogQueryKey })
     void queryClient.invalidateQueries({ queryKey: ['admin-models'] })
     void queryClient.invalidateQueries({ queryKey: ['admin-metrics'] })
     void queryClient.invalidateQueries({ queryKey: ['admin-audit'] })
+  }
+
+  const fetchList = useCallback(async (params: ListFetchParams) => {
+    const requestId = ++requestIdRef.current
+    setIsFetchingList(true)
+    setListError(null)
+    setCurrentPage(params.page)
+    try {
+      const result = await getAdminModelsFn({
+        data: {
+          page: params.page,
+          pageSize: params.pageSize,
+          search: params.search || undefined,
+          provider: params.provider === 'all' ? undefined : params.provider,
+          status: params.status === 'all' ? undefined : params.status,
+        },
+      })
+
+      if (requestId !== requestIdRef.current) return
+      setModels(result.items.map(toModelCatalogItem))
+      setPagination(result.pagination)
+      setCurrentPage(result.pagination.page)
+      setProviders(result.providers)
+    } catch (error) {
+      if (requestId !== requestIdRef.current) return
+      setListError(errorMessage(error, 'Gagal memuat daftar model.'))
+    } finally {
+      if (requestId === requestIdRef.current) setIsFetchingList(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setDebouncedSearch(search.trim()),
+      ADMIN_MODEL_SEARCH_DEBOUNCE_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      return
+    }
+    void fetchList({
+      page: 1,
+      search: debouncedSearch,
+      provider: providerFilter,
+      status: statusFilter,
+      pageSize,
+    })
+  }, [debouncedSearch, providerFilter, statusFilter, pageSize, fetchList])
+
+  const refreshList = useCallback(async () => {
+    await fetchList({
+      page: pagination.page,
+      search: debouncedSearch,
+      provider: providerFilter,
+      status: statusFilter,
+      pageSize,
+    })
+  }, [
+    fetchList,
+    pagination.page,
+    debouncedSearch,
+    providerFilter,
+    statusFilter,
+    pageSize,
+  ])
+
+  const resetFilters = () => {
+    setSearch('')
+    setDebouncedSearch('')
+    setProviderFilter('all')
+    setStatusFilter('all')
   }
 
   const isModelActive = (modelId: string): boolean =>
@@ -283,21 +400,7 @@ export function AdminModelsView({
           contextWindow: discovered?.contextWindow ?? null,
         },
       })
-      setModels((current) => [
-        ...current,
-        {
-          id: modelId,
-          name: addForm.displayName.trim(),
-          provider: addForm.provider.trim(),
-          vendor: addForm.vendor.trim(),
-          cost: null,
-          contextWindow: discovered?.contextWindow ?? null,
-          evaluationStatus: 'pending',
-          status: 'active',
-          description: addForm.description.trim(),
-          lastCheckedAt: probeResult?.checkedAt ?? null,
-        },
-      ])
+      await refreshList()
       setSettingsMap((current) => {
         const next = new Map(current)
         next.set(modelId, { isActive: true, disabledReason: null })
@@ -339,6 +442,7 @@ export function AdminModelsView({
       })
       setTargetModelToDisable(null)
       invalidateRelatedQueries()
+      await refreshList()
     } catch (error) {
       setStatusMessage({
         type: 'error',
@@ -378,25 +482,14 @@ export function AdminModelsView({
             .filter(Boolean),
         },
       })
-      setModels((current) =>
-        current.map((model) =>
-          model.id === editTarget.id
-            ? {
-                ...model,
-                name: editForm.displayName.trim(),
-                vendor: editForm.vendor.trim(),
-                provider: editForm.provider.trim(),
-                description: editForm.description.trim(),
-              }
-            : model,
-        ),
-      )
+
       setStatusMessage({
         type: 'success',
         text: `Metadata ${editTarget.id} berhasil diperbarui.`,
       })
       setEditTarget(null)
       invalidateRelatedQueries()
+      await refreshList()
     } catch (error) {
       setStatusMessage({
         type: 'error',
@@ -440,13 +533,7 @@ export function AdminModelsView({
     setStatusMessage(null)
     try {
       await retireAdminModelFn({ data: { modelId: deleteTarget.id } })
-      setModels((current) =>
-        current.map((model) =>
-          model.id === deleteTarget.id
-            ? { ...model, status: 'retired' }
-            : model,
-        ),
-      )
+
       setSettingsMap((current) => {
         const next = new Map(current)
         next.set(deleteTarget.id, {
@@ -461,6 +548,7 @@ export function AdminModelsView({
       })
       setDeleteTarget(null)
       invalidateRelatedQueries()
+      await refreshList()
     } catch (error) {
       setStatusMessage({
         type: 'error',
@@ -470,17 +558,6 @@ export function AdminModelsView({
       setIsSubmitting(false)
     }
   }
-
-  const filteredCatalog = models.filter((model) => {
-    const matchesSearch =
-      model.name.toLowerCase().includes(search.toLowerCase()) ||
-      model.id.toLowerCase().includes(search.toLowerCase())
-    const matchesProvider =
-      providerFilter === 'all' ||
-      model.provider === providerFilter ||
-      model.vendor === providerFilter
-    return matchesSearch && matchesProvider && model.status !== 'retired'
-  })
 
   return (
     <div className="space-y-6">
@@ -542,6 +619,7 @@ export function AdminModelsView({
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Cari model"
             placeholder="Cari model berdasarkan nama atau ID..."
+            data-testid="model-search"
             className="h-9 w-full rounded-md border border-hairline bg-paper pr-3 pl-9 text-[13px] text-ink transition-colors placeholder:text-stone focus:border-hairline-strong focus:bg-pure-white focus:outline-none"
           />
         </div>
@@ -552,6 +630,7 @@ export function AdminModelsView({
           </label>
           <NativeSelect
             id="provider-filter"
+            data-testid="model-provider-filter"
             value={providerFilter}
             onChange={(e) => setProviderFilter(e.target.value)}
           >
@@ -561,6 +640,19 @@ export function AdminModelsView({
                 {p}
               </NativeSelectOption>
             ))}
+          </NativeSelect>
+          <NativeSelect
+            id="status-filter"
+            data-testid="model-status-filter"
+            value={statusFilter}
+            onChange={(e) => {
+              const value = e.target.value
+              if (isStatusFilter(value)) setStatusFilter(value)
+            }}
+          >
+            <NativeSelectOption value="all">Semua status</NativeSelectOption>
+            <NativeSelectOption value="active">Aktif</NativeSelectOption>
+            <NativeSelectOption value="inactive">Nonaktif</NativeSelectOption>
           </NativeSelect>
         </div>
       </div>
@@ -582,20 +674,36 @@ export function AdminModelsView({
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline">
-              {filteredCatalog.length === 0 ? (
+              {models.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-stone">
-                    Tidak ada model yang cocok dengan pencarian.
+                  <td colSpan={6} className="px-4 py-8 text-center">
+                    <p className="font-medium text-ink">0 model</p>
+                    <p className="mt-1 text-[13px] text-stone">
+                      Tidak ada model yang cocok
+                    </p>
+                    {(search.trim() !== '' ||
+                      providerFilter !== 'all' ||
+                      statusFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className="mt-3 text-[13px] font-medium text-notion-blue hover:underline"
+                      >
+                        Hapus filter
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
-                filteredCatalog.map((model) => {
+                models.map((model) => {
                   const active = isModelActive(model.id)
                   const reason = getModelDisabledReason(model.id)
                   const evaluated = isEvaluated(model.evaluationStatus)
                   return (
                     <tr
                       key={model.id}
+                      data-testid={`model-row-${model.id}`}
+                      data-page={pagination.page}
                       className="transition-colors hover:bg-paper/40"
                     >
                       <td className="px-4 py-3">
@@ -728,6 +836,47 @@ export function AdminModelsView({
               )}
             </tbody>
           </table>
+        </div>
+        {listError && (
+          <div
+            data-testid="model-list-error"
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline bg-danger-soft px-4 py-2.5 text-[13px] text-coral"
+          >
+            <span>{listError}</span>
+            <button
+              type="button"
+              data-testid="model-list-retry"
+              onClick={() => void refreshList()}
+              className="font-medium underline"
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
+        <div className="border-t border-hairline">
+          <TablePagination
+            ariaLabel="Navigasi halaman model"
+            page={currentPage}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            pageSize={pageSize}
+            pageSizes={ADMIN_MODEL_PAGE_SIZES}
+            pageSizeTestId="model-page-size"
+            disabled={isFetchingList}
+            onPageChange={(page) =>
+              void fetchList({
+                page,
+                search: debouncedSearch,
+                provider: providerFilter,
+                status: statusFilter,
+                pageSize,
+              })
+            }
+            onPageSizeChange={(size) => {
+              if (isPageSize(size)) setPageSize(size)
+            }}
+          />
         </div>
       </div>
 
@@ -1196,7 +1345,7 @@ function AdminModelsPage() {
   const loaderData = Route.useLoaderData()
   return (
     <AdminModelsView
-      catalog={loaderData.catalog}
+      initialData={loaderData.list}
       initialSettings={loaderData.settings}
     />
   )

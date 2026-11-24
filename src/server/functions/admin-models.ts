@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { z } from 'zod'
+import { listAdminModelsSchema } from '../../lib/admin/model-list-contract'
 import {
   adminModelIdSchema,
   createAdminModelInputSchema,
@@ -38,12 +39,12 @@ export const getModelSettingsFn = createServerFn({ method: 'GET' }).handler(
   },
 )
 
-export const getAdminModelsFn = createServerFn({ method: 'GET' }).handler(
-  async () => {
+export const getAdminModelsFn = createServerFn({ method: 'GET' })
+  .validator((data: unknown) => listAdminModelsSchema.parse(data ?? {}))
+  .handler(async ({ data }) => {
     const request = getRequest()
-    return listAdminModelsCore({ request })
-  },
-)
+    return listAdminModelsCore({ request, ...data })
+  })
 
 export const discoverAdminGatewayModelsFn = createServerFn({
   method: 'GET',

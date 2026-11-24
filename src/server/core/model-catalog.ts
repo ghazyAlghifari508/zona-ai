@@ -68,7 +68,7 @@ export function invalidateCatalogCache(): void {
   pendingSnapshot = null
 }
 
-function normalizeCatalogRow(
+export function normalizeCatalogRow(
   row: CatalogRow,
   status: CatalogStatus,
   disabledReason: string | null,

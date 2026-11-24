@@ -1,14 +1,36 @@
-import { eq } from 'drizzle-orm'
+import {
+  and,
+  asc,
+  count,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm'
 import { z } from 'zod'
 import {
   type AuditLogValue,
   createAuditMetadata,
   sanitizeAuditText,
 } from '../../lib/admin/audit-metadata'
+import {
+  type AdminModelListResponse,
+  adminModelListResponseSchema,
+  type ListAdminModelsInput,
+  listAdminModelsSchema,
+} from '../../lib/admin/model-list-contract'
 import { requireAdminSession } from '../../lib/auth/admin-guard'
 import type { AuthSession } from '../../lib/auth/session'
 import { db } from '../../lib/db/index'
-import { auditLogs, modelCatalog, modelSettings } from '../../lib/db/schema'
+import {
+  auditLogs,
+  modelAliases,
+  modelCatalog,
+  modelSettings,
+} from '../../lib/db/schema'
 import {
   adminModelIdSchema,
   type CreateAdminModelInput,
@@ -19,7 +41,10 @@ import {
   type UpdateAdminModelInput,
   updateAdminModelInputSchema,
 } from '../../lib/models/admin-model-input'
-import type { CatalogEntryDto } from '../../lib/models/catalog-contract'
+import {
+  catalogStatusSchema,
+  toCatalogEntryDto,
+} from '../../lib/models/catalog-contract'
 import {
   type ConnectionProbe,
   discoverGatewayModels,
@@ -35,9 +60,9 @@ import { AppError } from '../../lib/utils/errors'
 import {
   findHistoricalModelLabel,
   getEligibleModel,
-  getPublicCatalog,
   invalidateCatalogCache,
   loadCatalogSnapshot,
+  normalizeCatalogRow,
 } from './model-catalog'
 
 function modelAuditMetadata(
@@ -177,8 +202,6 @@ const UNEVALUATED_CATALOG_VALUES = {
   provenance: 'admin-import',
 } as const
 
-type AdminCatalogEntry = CatalogEntryDto & { lastCheckedAt: string | null }
-
 type AdminMutationResult = {
   success: true
   modelId: string
@@ -234,22 +257,132 @@ export async function getModelSettingsCore({
   return db.select().from(modelSettings)
 }
 
+function escapeLikeTerm(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
+function buildModelSearchCondition(search: string) {
+  const pattern = `%${escapeLikeTerm(search)}%`
+  return or(
+    ilike(modelCatalog.displayName, pattern),
+    ilike(modelCatalog.id, pattern),
+    ilike(modelCatalog.routerModelId, pattern),
+    ilike(modelCatalog.provider, pattern),
+    ilike(modelCatalog.vendor, pattern),
+    sql`${modelCatalog.searchAliases}::text ilike ${pattern}`,
+    sql`exists (select 1 from ${modelAliases} where ${modelAliases.modelId} = ${modelCatalog.id} and ${modelAliases.alias} ilike ${pattern})`,
+  )
+}
+
 export async function listAdminModelsCore({
   request,
+  ...input
 }: {
   request: Request
-}): Promise<AdminCatalogEntry[]> {
+} & Partial<ListAdminModelsInput>): Promise<AdminModelListResponse> {
   await requireAdminSession(request)
-  const [entries, settings] = await Promise.all([
-    getPublicCatalog(undefined, true),
-    db.select().from(modelSettings),
+  const {
+    page: requestedPage,
+    pageSize,
+    search,
+    provider,
+    status,
+  } = listAdminModelsSchema.parse(input)
+
+  const activeFilter = or(
+    isNull(modelSettings.status),
+    ne(modelSettings.status, 'retired'),
+  )
+  const filters = [activeFilter]
+  if (search) filters.push(buildModelSearchCondition(search))
+  if (provider) {
+    filters.push(
+      or(
+        eq(modelCatalog.provider, provider),
+        eq(modelCatalog.vendor, provider),
+      ),
+    )
+  }
+  if (status) filters.push(eq(modelSettings.status, status))
+  const where = and(...filters)
+
+  const [countRows, providerRows] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(modelCatalog)
+      .leftJoin(modelSettings, eq(modelSettings.modelId, modelCatalog.id))
+      .where(where),
+    db
+      .selectDistinct({
+        provider: modelCatalog.provider,
+        vendor: modelCatalog.vendor,
+      })
+      .from(modelCatalog)
+      .leftJoin(modelSettings, eq(modelSettings.modelId, modelCatalog.id))
+      .where(activeFilter),
   ])
-  const byModelId = new Map(settings.map((row) => [row.modelId, row]))
-  return entries.map((entry) => ({
-    ...entry,
-    lastCheckedAt:
-      byModelId.get(entry.id)?.lastCheckedAt?.toISOString() ?? null,
+
+  const total = Number(countRows[0]?.value ?? 0)
+  const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0
+  const page =
+    totalPages === 0 ? 1 : Math.min(Math.max(1, requestedPage), totalPages)
+  const offset = (page - 1) * pageSize
+
+  const rows = await db
+    .select({
+      row: modelCatalog,
+      status: modelSettings.status,
+      disabledReason: modelSettings.disabledReason,
+      lastCheckedAt: modelSettings.lastCheckedAt,
+    })
+    .from(modelCatalog)
+    .leftJoin(modelSettings, eq(modelSettings.modelId, modelCatalog.id))
+    .where(where)
+    .orderBy(asc(modelCatalog.displayName), asc(modelCatalog.id))
+    .limit(pageSize)
+    .offset(offset)
+
+  const pageIds = rows.map((row) => row.row.id)
+  const aliasRows =
+    pageIds.length > 0
+      ? await db
+          .select({ alias: modelAliases.alias, modelId: modelAliases.modelId })
+          .from(modelAliases)
+          .where(inArray(modelAliases.modelId, pageIds))
+      : []
+  const aliasesByModel = new Map<string, string[]>()
+  for (const alias of aliasRows) {
+    const current = aliasesByModel.get(alias.modelId) ?? []
+    current.push(alias.alias)
+    aliasesByModel.set(alias.modelId, current)
+  }
+
+  const items = rows.map((entry) => ({
+    ...toCatalogEntryDto(
+      normalizeCatalogRow(
+        entry.row,
+        catalogStatusSchema.parse(entry.status ?? 'active'),
+        entry.disabledReason,
+      ),
+      aliasesByModel.get(entry.row.id) ?? [],
+    ),
+    lastCheckedAt: entry.lastCheckedAt?.toISOString() ?? null,
   }))
+
+  return adminModelListResponseSchema.parse({
+    items,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+      start: total === 0 ? 0 : offset + 1,
+      end: total === 0 ? 0 : Math.min(offset + pageSize, total),
+    },
+    providers: Array.from(
+      new Set(providerRows.map((row) => row.vendor || row.provider)),
+    ).sort((a, b) => a.localeCompare(b)),
+  })
 }
 
 export async function discoverAdminGatewayModelsCore({
