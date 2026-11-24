@@ -19,6 +19,8 @@ import {
 import * as auditMetadata from '../../src/lib/admin/audit-metadata'
 import type { auth as AuthModule } from '../../src/lib/auth/auth'
 import * as schema from '../../src/lib/db/schema'
+import type { retireAdminModelCore as RetireAdminModelCore } from '../../src/server/core/admin-models'
+import type { deleteUserCore as DeleteUserCore } from '../../src/server/core/admin-users'
 import type { resetDevCreditsCore as ResetDevCreditsCore } from '../../src/server/core/credits'
 import type { updateFeedbackStatusCore as UpdateFeedbackStatusCore } from '../../src/server/core/feedback'
 
@@ -60,6 +62,8 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
   let sql: Sql
   let database: PgDatabase<typeof schema>
   let auth: typeof AuthModule
+  let retireAdminModelCore: typeof RetireAdminModelCore
+  let deleteUserCore: typeof DeleteUserCore
   let resetDevCreditsCore: typeof ResetDevCreditsCore
   let updateFeedbackStatusCore: typeof UpdateFeedbackStatusCore
   let fixtureUserId: string
@@ -89,6 +93,10 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
     }
     fixtureUserId = String(publicUser.id)
     auth = await import('../../src/lib/auth/auth')
+    ;({ retireAdminModelCore } = await import(
+      '../../src/server/core/admin-models'
+    ))
+    ;({ deleteUserCore } = await import('../../src/server/core/admin-users'))
     ;({ resetDevCreditsCore } = await import('../../src/server/core/credits'))
     ;({ updateFeedbackStatusCore } = await import(
       '../../src/server/core/feedback'
@@ -96,7 +104,7 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
   }, 60_000)
 
   beforeEach(async () => {
-    await sql`TRUNCATE TABLE zona_p6_audit_tx_test.audit_logs, zona_p6_audit_tx_test.credit_transactions, zona_p6_audit_tx_test.feedback, zona_p6_audit_tx_test.users CASCADE`
+    await sql`TRUNCATE TABLE zona_p6_audit_tx_test.audit_logs, zona_p6_audit_tx_test.credit_transactions, zona_p6_audit_tx_test.feedback, zona_p6_audit_tx_test.model_settings, zona_p6_audit_tx_test.model_catalog, zona_p6_audit_tx_test.users CASCADE`
     vi.restoreAllMocks()
   })
 
@@ -128,6 +136,57 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
       description: 'Deskripsi uji',
       status: 'new',
     })
+  }
+
+  async function seedDeletableUser() {
+    await database.insert(schema.users).values({
+      id: 'legacy-user',
+      email: 'legacy@example.test',
+      name: 'Pengguna Lama',
+      role: 'user',
+      credits: 50,
+    })
+  }
+
+  async function seedRetirableModel() {
+    await database.insert(schema.modelCatalog).values({
+      id: 'model-row-1',
+      routerModelId: 'probe/model-1',
+      displayName: 'Model Uji',
+      provider: 'probe',
+      vendor: 'Uji',
+      description: 'Model untuk bukti audit',
+      intelligenceLevel: 2,
+      intelligenceScore: 70,
+      intelligenceBars: 3,
+      confidence: 'medium',
+      creditCostMin: 1,
+      creditCostMax: 3,
+      creditTier: 'economy',
+      capabilities: {
+        text: true,
+        vision: false,
+        files: false,
+        tools: false,
+        reasoning: false,
+        structuredOutput: false,
+      },
+      searchAliases: [],
+      category: 'general',
+      speedClass: 'fast',
+      routingProfile: 'general',
+      provenance: 'isolated-test',
+    })
+    await database.insert(schema.modelSettings).values({
+      modelId: 'model-row-1',
+      isActive: true,
+      status: 'active',
+      updatedBy: fixtureUserId,
+    })
+    const { invalidateCatalogCache } = await import(
+      '../../src/server/core/model-catalog'
+    )
+    invalidateCatalogCache()
   }
 
   function mockAdmin(adminId: string) {
@@ -214,5 +273,90 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
 
     const logs = await database.select().from(schema.auditLogs)
     expect(logs).toHaveLength(0)
+  })
+
+  it('keeps the deleted user snapshot after a real isolated deletion', async () => {
+    await seed()
+    await seedDeletableUser()
+    mockAdmin(fixtureUserId)
+
+    await deleteUserCore({ request, data: { userId: 'legacy-user' } })
+
+    const users = await database
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.id, 'legacy-user'))
+    expect(users).toHaveLength(0)
+
+    const logs = await database.select().from(schema.auditLogs)
+    expect(logs).toHaveLength(1)
+    expect(logs[0]?.action).toBe('user.delete')
+    expect(
+      auditMetadata.parseAuditLogMetadataValue(logs[0]?.metadata).metadata,
+    ).toMatchObject({
+      targetSnapshot: { id: 'legacy-user', displayName: 'Pengguna Lama' },
+      actorSnapshot: { id: fixtureUserId, displayName: 'Admin Utama' },
+    })
+  })
+
+  it('rolls back a real user deletion when audit metadata fails', async () => {
+    await seed()
+    await seedDeletableUser()
+    mockAdmin(fixtureUserId)
+    failAuditMetadata()
+
+    await expect(
+      deleteUserCore({ request, data: { userId: 'legacy-user' } }),
+    ).rejects.toBeDefined()
+
+    const users = await database
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(eq(schema.users.id, 'legacy-user'))
+    expect(users).toHaveLength(1)
+    expect(await database.select().from(schema.auditLogs)).toHaveLength(0)
+  })
+
+  it('keeps the model snapshot after a real isolated retirement', async () => {
+    await seed()
+    await seedRetirableModel()
+    mockAdmin(fixtureUserId)
+
+    await retireAdminModelCore({ request, modelId: 'probe/model-1' })
+
+    const [setting] = await database
+      .select({ status: schema.modelSettings.status })
+      .from(schema.modelSettings)
+      .where(eq(schema.modelSettings.modelId, 'model-row-1'))
+    expect(setting?.status).toBe('retired')
+
+    const logs = await database.select().from(schema.auditLogs)
+    expect(logs).toHaveLength(1)
+    expect(logs[0]?.action).toBe('model.delete')
+    expect(
+      auditMetadata.parseAuditLogMetadataValue(logs[0]?.metadata).metadata,
+    ).toMatchObject({
+      targetSnapshot: { id: 'model-row-1', displayName: 'Model Uji' },
+      previousStatus: 'active',
+      status: 'retired',
+    })
+  })
+
+  it('rolls back a real model retirement when audit metadata fails', async () => {
+    await seed()
+    await seedRetirableModel()
+    mockAdmin(fixtureUserId)
+    failAuditMetadata()
+
+    await expect(
+      retireAdminModelCore({ request, modelId: 'probe/model-1' }),
+    ).rejects.toBeDefined()
+
+    const [setting] = await database
+      .select({ status: schema.modelSettings.status })
+      .from(schema.modelSettings)
+      .where(eq(schema.modelSettings.modelId, 'model-row-1'))
+    expect(setting?.status).toBe('active')
+    expect(await database.select().from(schema.auditLogs)).toHaveLength(0)
   })
 })
