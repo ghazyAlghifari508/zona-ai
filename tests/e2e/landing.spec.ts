@@ -56,7 +56,7 @@ test('home renders the public chat workspace instead of a poster', async ({
 
   // Close sidebar on mobile so heading/composer are not intercepted
   if (isMobileViewport) {
-    await page.getByTestId('hamburger').click()
+    await page.getByTestId('guest-sidebar-mobile-close').click()
     await expect(page.getByTestId('guest-sidebar')).toBeHidden()
   }
 
@@ -158,12 +158,10 @@ test('home renders the public chat workspace instead of a poster', async ({
   await page.getByTestId('compare-switch').click()
   await expect(page.getByTestId('compare-counter')).toHaveText('0/4')
   await expect(page.getByTestId('model-option-auto')).toHaveCount(0)
-  await page.getByTestId('model-option-cx/gpt-6.2-sol').click()
-  await page.getByTestId('model-option-cent-ai/qwen3.8-flash').click()
-  await expect(page.getByTestId('compare-counter')).toHaveText('2/4')
-  await expect(page.getByTestId('model-selector-trigger')).toContainText(
-    '2 model dipilih',
-  )
+  // Guests have no credits yet, so paid routes stay listed but disabled with a reason.
+  await expect(
+    page.getByTestId('model-option-cx/gpt-6.2-sol'),
+  ).toBeDisabled()
 })
 
 test('starter cards prefill the composer', async ({ page }) => {
