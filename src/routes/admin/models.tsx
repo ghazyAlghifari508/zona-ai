@@ -640,6 +640,9 @@ export function AdminModelsView({
               </NativeSelectOption>
             ))}
           </NativeSelect>
+          <label htmlFor="status-filter" className="text-[12px] text-stone">
+            Status:
+          </label>
           <NativeSelect
             id="status-filter"
             data-testid="model-status-filter"

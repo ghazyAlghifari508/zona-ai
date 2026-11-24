@@ -246,8 +246,14 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-pure-white p-4 shadow-xs">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] text-stone">Status:</span>
+            <label
+              htmlFor="admin-feedback-status-filter"
+              className="text-[12px] text-stone"
+            >
+              Status:
+            </label>
             <NativeSelect
+              id="admin-feedback-status-filter"
               data-testid="admin-feedback-status-filter"
               value={statusFilter}
               onChange={(e) =>
@@ -267,8 +273,14 @@ export function AdminFeedbackView({ initialData }: AdminFeedbackViewProps) {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] text-stone">Kategori:</span>
+            <label
+              htmlFor="admin-feedback-type-filter"
+              className="text-[12px] text-stone"
+            >
+              Kategori:
+            </label>
             <NativeSelect
+              id="admin-feedback-type-filter"
               data-testid="admin-feedback-type-filter"
               value={typeFilter}
               onChange={(e) =>

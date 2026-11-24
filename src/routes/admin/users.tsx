@@ -288,8 +288,14 @@ export function AdminUsersView({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] text-stone">Peran:</span>
+            <label
+              htmlFor="admin-users-role-filter"
+              className="text-[12px] text-stone"
+            >
+              Peran:
+            </label>
             <NativeSelect
+              id="admin-users-role-filter"
               data-testid="admin-users-role-filter"
               value={roleFilter}
               onChange={(e) =>
@@ -303,8 +309,14 @@ export function AdminUsersView({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] text-stone">Status:</span>
+            <label
+              htmlFor="admin-users-status-filter"
+              className="text-[12px] text-stone"
+            >
+              Status:
+            </label>
             <NativeSelect
+              id="admin-users-status-filter"
               data-testid="admin-users-status-filter"
               value={statusFilter}
               onChange={(e) =>
