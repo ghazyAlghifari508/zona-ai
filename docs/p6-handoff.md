@@ -1,6 +1,6 @@
 # P6 — Audit Activity Redesign: acceptance and handoff
 
-Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwright, screenshots, app opening, push, merge, or deployment. Branch `main`; baseline `08b2fea`; code commit under final verification `5f87c454f7`; this handoff is committed separately.
+Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwright, screenshots, app opening, push, merge, or deployment. Branch `main`; baseline `08b2fea`; code commit under final verification `1c49ce33d7`; this handoff is committed separately.
 
 ## Acceptance status
 
@@ -8,7 +8,7 @@ Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwrig
 |---|---|---|
 | 1. Shared typed action dictionary, stable internal codes, `user.delete`, unknown label | PASS | `src/lib/admin/audit-activity.ts`; unit tests in `tests/unit/admin-audit-activity.test.ts`; filter options and table/detail/Ringkasan all call the same presenter. Unknown events render `Aktivitas lainnya`; raw code stays in technical info. |
 | 2. Typed backwards-compatible metadata, real snapshots, atomic audit writes | PASS | `src/lib/admin/audit-metadata.ts`; producer updates in `admin-models.ts`, `admin-users.ts`, `credits.ts`, `feedback.ts`; `tests/integration/admin-audit-producers.test.ts` and `tests/integration/admin-audit-transactions.test.ts` (7 tests) prove preserved snapshots after real isolated delete/retire and rollback when audit metadata fails. New `user.delete` rows omit `deletedEmail`; legacy `deletedEmail` is read and redacted only. Legacy/null metadata does not erase the event. No fabricated before/after values. |
-| 3. Server-side search, filter composition, safe pagination, race handling | PASS | `src/server/core/admin-audit.ts`, `src/server/functions/admin-audit.ts`; isolated PostgreSQL proof in `tests/integration/admin-audit-search.test.ts`: 9 tests including current-target lookup/search, wildcard escaping, snapshot/deleted-name search, page clamp, tie-break, unreadable metadata, and admin-only rejection. |
+| 3. Server-side search, filter composition, safe pagination, race handling | PASS | `src/server/core/admin-audit.ts`, `src/server/functions/admin-audit.ts`; isolated PostgreSQL proof in `tests/integration/admin-audit-search.test.ts`: 9 tests including current-target lookup/search, wildcard escaping, snapshot/deleted-name search, page clamp, tie-break, unreadable metadata, and admin-only rejection. Component test proves a stale filter response cannot overwrite a newer empty result. |
 | 4. UI/detail presentation with ready-made primitives | PASS (non-browser) | `src/routes/admin/audit-log.tsx` uses shadcn Table, existing Dialog, Base UI Accordion, P5 NativeSelect, existing UserAvatar; component tests in `tests/unit/admin-audit-log-view.test.tsx` cover `Lihat detail` accessible name and hidden raw IDs on first sight. Visual/light-dark/responsive review deferred to P9 by prompt. |
 | Authorization preserved | PASS | `requireAdminSession` remains the first call in `listAuditLogsCore`; isolated DB test proves non-admin search is rejected. |
 | PII/secret redaction | PASS | `safeTechnicalMetadata` redacts emails, tokens, headers, notes, prompts, chat/document text; component test proves `adminNotes` never reaches technical JSON or clipboard. |
@@ -24,9 +24,9 @@ Scope executed: P6 only, following `docs/prompts/p6.md`. No browser QA, Playwrig
 |---|---|
 | `bun x tsc --noEmit` | exit 0, no diagnostics |
 | `bun x biome check ./src` | exit 0, no fixes applied |
-| `bun x vitest run --maxWorkers=1` on the eight non-DB P6 files (`admin-audit-metadata`, `admin-audit-activity`, `admin-audit-log-view`, `admin-audit-producers`, `admin-users`, `admin-credits`, `feedback`, `admin-dashboard`) | 8 files, 98 tests passed, 93.42s, exit 0 |
+| `bun x vitest run --maxWorkers=1` on the eight non-DB P6 files (`admin-audit-metadata`, `admin-audit-activity`, `admin-audit-log-view`, `admin-audit-producers`, `admin-users`, `admin-credits`, `feedback`, `admin-dashboard`) | 8 files, 99 tests passed, 72.92s, exit 0 |
 | `bun x vitest run --maxWorkers=1` on `admin-audit-search`, `admin-audit-transactions` with `ZONA_P6_TEST_DATABASE_URL="$DATABASE_URL"` | 2 files, 16 tests passed, 21.70s, exit 0 |
-| `bun x vitest run --maxWorkers=1` on `admin-audit-search`, `admin-dashboard`, `admin-audit-log-view` with `ZONA_P6_TEST_DATABASE_URL="$DATABASE_URL"` | 3 files, 31 tests passed, 49.83s, exit 0 |
+| `bun x vitest run --maxWorkers=1` on `admin-audit-search`, `admin-dashboard`, `admin-audit-log-view` with `ZONA_P6_TEST_DATABASE_URL="$DATABASE_URL"` | 3 files, 32 tests passed, 15.77s, exit 0 |
 | `bun run build` | exit 0, 35.73s wall, `✓ built in 6.92s` |
 | `rg` bypass scan on P6 production files | no matches; test-only drizzle mock casts documented above |
 
@@ -66,6 +66,7 @@ No SQL migration is required: `audit_logs.metadata` remains `jsonb`; table name,
 - `5a255b17fe` `feat(admin): resolve current audit target names in one query`
 - `3b1804521a` `docs(p6): record current-target lookup and acceptance evidence`
 - `5f87c454f7` `fix(admin): align Ringkasan activity copy and target fallback`
+- `1c49ce33d7` `test(admin): prove stale activity responses are ignored`
 
 ## Root cause fixed beyond presentation
 
