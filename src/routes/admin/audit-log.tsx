@@ -1,7 +1,13 @@
 import { Copy01Icon, EyeIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Accordion,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from '../../components/ui/cnippet-accordion'
 import {
   Dialog,
   DialogClose,
@@ -15,7 +21,18 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '../../components/ui/native-select'
-import { UserAvatar } from '../../components/ui/UserAvatar'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table'
+import {
+  AUDIT_ACTION_FILTER_OPTIONS,
+  type AuditActionFilterValue,
+} from '../../lib/admin/audit-activity'
 import type { AuditLogItem } from '../../server/core/admin-audit'
 import { listAuditLogsFn } from '../../server/functions/admin-audit'
 
@@ -55,83 +72,116 @@ function formatDate(date: Date | string | null): string {
   }).format(d)
 }
 
-const COMMON_ACTIONS = [
-  { value: 'all', label: 'Semua Aksi' },
-  { value: 'user.ban', label: 'user.ban (Blokir Akun)' },
-  { value: 'user.unban', label: 'user.unban (Buka Blokir)' },
-  { value: 'model.enable', label: 'model.enable (Aktifkan Model)' },
-  { value: 'model.disable', label: 'model.disable (Nonaktifkan Model)' },
-  { value: 'credit.adjust', label: 'credit.adjust (Penyesuaian Kredit)' },
-  { value: 'credit.reset', label: 'credit.reset (Reset Kredit Dev)' },
-  {
-    value: 'feedback.status_update',
-    label: 'feedback.status_update (Update Feedback)',
-  },
-]
+function presentLog(log: AuditLogItem) {
+  return presentAuditActivity({
+    action: log.action,
+    metadata: log.metadata,
+    metadataUnreadable: log.metadataUnreadable,
+    adminId: log.adminId,
+    adminEmail: log.adminEmail,
+    currentActorName: log.adminName,
+    targetId: log.targetId,
+    targetType: log.targetType,
+    currentTargetName: null,
+  })
+}
 
 export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
   const [logs, setLogs] = useState<AuditLogItem[]>(initialData.items)
   const [pagination, setPagination] = useState(initialData.pagination)
-  const [actionFilter, setActionFilter] = useState('all')
-  const [adminSearch, setAdminSearch] = useState('')
+  const [actionFilter, setActionFilter] =
+    useState<AuditActionFilterValue>('all')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedLogForMeta, setSelectedLogForMeta] =
-    useState<AuditLogItem | null>(null)
-  const [copiedMeta, setCopiedMeta] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null)
+  const [copied, setCopied] = useState(false)
+  const requestIdRef = useRef(0)
 
-  const fetchLogs = async (
+  useEffect(() => {
+    return () => {
+      requestIdRef.current += 1
+    }
+  }, [])
+
+  async function fetchLogs(
     targetPage: number,
-    targetAction: string,
-    targetAdmin: string,
-  ) => {
+    targetSearch: string,
+    targetAction: AuditActionFilterValue,
+  ) {
+    const requestId = ++requestIdRef.current
     setIsLoading(true)
+    setError(null)
     try {
-      const res = await listAuditLogsFn({
+      const result = await listAuditLogsFn({
         data: {
           page: targetPage,
           limit: pagination.limit,
+          search: targetSearch.trim() ? targetSearch.trim() : null,
           action: targetAction === 'all' ? null : targetAction,
-          adminId: targetAdmin.trim() ? targetAdmin.trim() : null,
         },
       })
-      setLogs(res.items)
-      setPagination(res.pagination)
+      if (requestId !== requestIdRef.current) return
+      setLogs(result.items)
+      setPagination(result.pagination)
+    } catch {
+      if (requestId !== requestIdRef.current) return
+      setError('Aktivitas tidak dapat dimuat. Silakan coba lagi.')
     } finally {
-      setIsLoading(false)
+      if (requestId === requestIdRef.current) setIsLoading(false)
     }
   }
 
-  const handleActionChange = (newAction: string) => {
-    setActionFilter(newAction)
-    void fetchLogs(1, newAction, adminSearch)
+  function handleSearchSubmit(event: { preventDefault(): void }) {
+    event.preventDefault()
+    void fetchLogs(1, searchInput, actionFilter)
+    setSearch(searchInput)
   }
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    void fetchLogs(1, actionFilter, adminSearch)
+  function handleActionChange(nextAction: string) {
+    const action = AUDIT_ACTION_FILTER_OPTIONS.find(
+      (option) => option.value === nextAction,
+    )
+    if (action === undefined) return
+    setActionFilter(action.value)
+    void fetchLogs(1, search, action.value)
   }
 
-  const handleCopyMeta = () => {
-    if (!selectedLogForMeta) return
-    const json = JSON.stringify(selectedLogForMeta.metadata, null, 2)
-    void navigator.clipboard.writeText(json)
-    setCopiedMeta(true)
-    setTimeout(() => setCopiedMeta(false), 2000)
+  function handleRetry() {
+    void fetchLogs(pagination.page, search, actionFilter)
   }
+
+  async function handleCopy() {
+    if (selectedLog === null) return
+    const json = JSON.stringify(presentLog(selectedLog).technical, null, 2)
+    try {
+      await navigator.clipboard.writeText(json)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  const selectedPresentation =
+    selectedLog === null ? null : presentLog(selectedLog)
+  const page = Math.min(
+    Math.max(1, pagination.page),
+    Math.max(1, pagination.totalPages),
+  )
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-[22px] font-bold tracking-tight text-ink">
-          Log Audit Sistem
+          Log Aktivitas
         </h1>
         <p className="mt-1 text-[13px] text-stone">
-          Catatan kronologis dan terperinci mengenai setiap tindakan
-          administratif yang dilakukan dalam sistem Zona.ai.
+          Riwayat perubahan yang dilakukan administrator.
         </p>
       </div>
 
-      {/* Filter and search toolbar */}
       <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-pure-white p-4 shadow-xs md:flex-row md:items-center md:justify-between">
         <form onSubmit={handleSearchSubmit} className="relative flex-1">
           <HugeiconsIcon
@@ -141,33 +191,60 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
             className="absolute top-1/2 left-3 -translate-y-1/2 text-stone"
           />
           <input
-            type="text"
-            value={adminSearch}
-            onChange={(e) => setAdminSearch(e.target.value)}
-            placeholder="Cari berdasarkan Admin ID..."
+            data-testid="admin-audit-search"
+            aria-label="Cari administrator atau target"
+            type="search"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Cari administrator atau target..."
             className="h-9 w-full rounded-md border border-hairline bg-paper pr-3 pl-9 text-[13px] text-ink placeholder:text-stone focus:border-hairline-strong focus:bg-pure-white focus:outline-none"
           />
         </form>
 
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-stone">Aksi:</span>
+          <label
+            htmlFor="admin-audit-action-filter"
+            className="text-[12px] text-stone"
+          >
+            Aktivitas:
+          </label>
           <NativeSelect
+            id="admin-audit-action-filter"
             data-testid="admin-audit-action-filter"
             value={actionFilter}
-            onChange={(e) => handleActionChange(e.target.value)}
+            disabled={isLoading}
+            onChange={(event) => handleActionChange(event.target.value)}
           >
-            {COMMON_ACTIONS.map((act) => (
-              <NativeSelectOption key={act.value} value={act.value}>
-                {act.label}
+            {AUDIT_ACTION_FILTER_OPTIONS.map((option) => (
+              <NativeSelectOption key={option.value} value={option.value}>
+                {option.label}
               </NativeSelectOption>
             ))}
           </NativeSelect>
         </div>
       </div>
 
-      {/* Table */}
+      {error !== null && (
+        <div
+          data-testid="admin-audit-error"
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-paper px-4 py-3 text-[13px] text-ink"
+        >
+          <span>{error}</span>
+          <button
+            data-testid="admin-audit-retry"
+            type="button"
+            onClick={handleRetry}
+            className="rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-stone/5"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
+
       <div
         data-testid="admin-audit-table"
+        aria-busy={isLoading}
         className="overflow-hidden rounded-lg border border-hairline bg-pure-white shadow-xs"
       >
         <div className="overflow-x-auto">
@@ -186,77 +263,75 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-stone">
                     {isLoading
-                      ? 'Memuat log audit...'
-                      : 'Tidak ada entri log yang ditemukan.'}
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => (
-                  <tr
+                      ? 'Memuat aktivitas...'
+                      : 'Tidak ada aktivitas yang ditemukan.'}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              logs.map((log) => {
+                const presentation = presentLog(log)
+                return (
+                  <TableRow
                     key={log.id}
-                    className="transition-colors hover:bg-paper/40"
+                    data-testid="admin-audit-row"
+                    className="hover:bg-paper/40"
                   >
-                    <td className="px-4 py-3 whitespace-nowrap text-[12px] text-stone font-mono">
+                    <TableCell className="whitespace-nowrap text-[12px] text-stone">
                       {formatDate(log.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <UserAvatar
                           user={{
-                            name: log.adminName || log.adminEmail,
+                            name: presentation.actorLabel,
                             image: log.adminImage,
                           }}
                           className="h-6 w-6 text-[10px]"
                         />
-                        <div className="min-w-0">
-                          <p className="font-medium text-ink text-[12px] truncate">
-                            {log.adminName || log.adminEmail}
-                          </p>
-                          <p className="text-[10px] text-stone font-mono truncate">
-                            {log.adminId ?? 'Deleted User'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="font-mono text-[11px] text-stone">
-                        {log.action}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-[12px]">
-                        <span className="font-semibold text-ink text-[11px] mr-1.5">
-                          {log.targetType}
-                        </span>
-                        <span className="font-mono text-stone text-[11px]">
-                          {log.targetId}
+                        <span className="block max-w-40 truncate text-[12px] font-medium text-ink">
+                          {presentation.actorLabel}
                         </span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {log.metadata ? (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLogForMeta(log)}
-                          className="inline-flex items-center gap-1 text-[12px] text-notion-blue hover:underline font-mono"
-                        >
-                          <HugeiconsIcon
-                            icon={EyeIcon}
-                            size={14}
-                            strokeWidth={1.75}
-                          />
-                          <span>Lihat JSON</span>
-                        </button>
-                      ) : (
-                        <span className="text-[12px] text-stone">-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-[13px] font-medium text-ink">
+                        {presentation.actionLabel}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-64 truncate text-[12px] text-ink">
+                        {presentation.targetLabel}
+                      </div>
+                      <div className="text-[11px] text-stone">
+                        {log.targetType} · {log.targetId}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <button
+                        data-testid="admin-audit-detail-button"
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => {
+                          setSelectedLog(log)
+                          setCopied(false)
+                        }}
+                        className="inline-flex items-center gap-1 text-[12px] text-notion-blue hover:underline disabled:opacity-40"
+                      >
+                        <HugeiconsIcon
+                          icon={EyeIcon}
+                          size={14}
+                          strokeWidth={1.75}
+                        />
+                        Detail
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
 
         {/* Pagination */}
         <div className="flex items-center justify-between border-t border-hairline bg-paper px-4 py-3 text-[12px] text-stone">
@@ -265,24 +340,19 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
           </span>
           <div className="flex items-center gap-2">
             <button
+              data-testid="admin-audit-prev"
               type="button"
-              disabled={pagination.page <= 1 || isLoading}
-              onClick={() =>
-                fetchLogs(pagination.page - 1, actionFilter, adminSearch)
-              }
+              disabled={page <= 1 || isLoading}
+              onClick={() => void fetchLogs(page - 1, search, actionFilter)}
               className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
             >
               Sebelumnya
             </button>
-            <span>
-              Halaman {pagination.page} dari {pagination.totalPages}
-            </span>
             <button
+              data-testid="admin-audit-next"
               type="button"
-              disabled={pagination.page >= pagination.totalPages || isLoading}
-              onClick={() =>
-                fetchLogs(pagination.page + 1, actionFilter, adminSearch)
-              }
+              disabled={page >= pagination.totalPages || isLoading}
+              onClick={() => void fetchLogs(page + 1, search, actionFilter)}
               className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
             >
               Berikutnya
@@ -291,43 +361,96 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
         </div>
       </div>
 
-      {/* Metadata JSON Viewer Dialog */}
       <Dialog
-        open={selectedLogForMeta !== null}
+        open={selectedLog !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setSelectedLogForMeta(null)
-            setCopiedMeta(false)
+            setSelectedLog(null)
+            setCopied(false)
           }
         }}
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[17px] font-bold text-ink">
-              Detail Metadata Log Audit
+              Detail aktivitas
             </DialogTitle>
-            <DialogDescription className="text-[12px] text-stone font-mono">
-              Aksi: {selectedLogForMeta?.action} | Target:{' '}
-              {selectedLogForMeta?.targetType}
+            <DialogDescription className="text-[12px] text-stone">
+              {selectedPresentation?.actionLabel} ·{' '}
+              {formatDate(selectedLog?.createdAt ?? null)}
             </DialogDescription>
           </DialogHeader>
 
-          {selectedLogForMeta && (
-            <div className="relative mt-2">
-              <pre className="max-h-96 overflow-auto rounded-md border border-hairline bg-paper p-4 font-mono text-[12px] text-ink leading-relaxed">
-                {JSON.stringify(selectedLogForMeta.metadata, null, 2)}
-              </pre>
+          {selectedPresentation !== null && (
+            <div className="space-y-4">
+              <dl className="space-y-3 text-[13px]">
+                <div>
+                  <dt className="text-stone">Administrator</dt>
+                  <dd
+                    data-testid="admin-audit-detail-value"
+                    className="font-medium text-ink"
+                  >
+                    {selectedPresentation.actorLabel}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-stone">Target</dt>
+                  <dd
+                    data-testid="admin-audit-detail-value"
+                    className="font-medium text-ink"
+                  >
+                    {selectedPresentation.targetLabel}
+                  </dd>
+                </div>
+                {selectedPresentation.details.map((item) => (
+                  <div key={item.label}>
+                    <dt className="text-stone">{item.label}</dt>
+                    <dd
+                      data-testid="admin-audit-detail-value"
+                      className="font-medium text-ink"
+                    >
+                      {item.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {selectedLog?.metadataUnreadable === true && (
+                <p className="text-[12px] text-stone">
+                  Metadata tidak dapat dibaca.
+                </p>
+              )}
+
+              <Accordion defaultValue={[]}>
+                <AccordionItem value="technical">
+                  <AccordionTrigger
+                    data-testid="admin-audit-technical-trigger"
+                    className="text-[13px]"
+                  >
+                    Informasi teknis
+                  </AccordionTrigger>
+                  <AccordionPanel>
+                    <pre
+                      data-testid="admin-audit-technical-json"
+                      className="max-h-64 overflow-auto rounded-md border border-hairline bg-paper p-3 font-mono text-[11px] text-ink"
+                    >
+                      {JSON.stringify(selectedPresentation.technical, null, 2)}
+                    </pre>
+                  </AccordionPanel>
+                </AccordionItem>
+              </Accordion>
             </div>
           )}
 
           <DialogFooter className="gap-2">
             <button
+              data-testid="admin-audit-copy"
               type="button"
-              onClick={handleCopyMeta}
+              onClick={() => void handleCopy()}
               className="flex items-center gap-1.5 rounded-md border border-hairline bg-pure-white px-3 py-1.5 text-[13px] font-medium text-ink hover:bg-stone/5"
             >
               <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={1.75} />
-              <span>{copiedMeta ? 'Tersalin!' : 'Salin JSON'}</span>
+              {copied ? 'Tersalin' : 'Salin informasi teknis'}
             </button>
             <DialogClose asChild>
               <button

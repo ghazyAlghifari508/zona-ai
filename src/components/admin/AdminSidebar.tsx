@@ -57,7 +57,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     testId: 'admin-nav-credits',
   },
   {
-    name: 'Log Audit',
+    name: 'Log Aktivitas',
     to: '/admin/audit-log',
     icon: Clock01Icon,
     testId: 'admin-nav-audit-log',

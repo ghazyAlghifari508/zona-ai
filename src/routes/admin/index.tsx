@@ -11,6 +11,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AdminActivityChart } from '../../components/admin/AdminActivityChart'
+import { presentAuditActivity } from '../../lib/admin/audit-activity'
 import type { AdminDashboardMetrics } from '../../server/core/admin-dashboard'
 import { getAdminDashboardMetricsFn } from '../../server/functions/admin-dashboard'
 
@@ -143,7 +144,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-semibold text-ink">
-            Aktivitas Terkini (Log Audit)
+            Aktivitas Terkini
           </h2>
           <Link
             to="/admin/audit-log"
@@ -160,42 +161,55 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
         >
           {data.recentAuditLogs.length === 0 ? (
             <div className="p-8 text-center text-[13px] text-stone">
-              Belum ada riwayat aktivitas log audit.
+              Belum ada riwayat aktivitas.
             </div>
           ) : (
             <div className="divide-y divide-hairline overflow-x-auto">
-              {data.recentAuditLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-center justify-between gap-4 p-4 text-[13px] transition-colors hover:bg-paper/40"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-paper text-stone">
-                      <HugeiconsIcon
-                        icon={SecurityCheckIcon}
-                        size={16}
-                        strokeWidth={1.75}
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-ink truncate">
-                          {log.adminName || log.adminEmail}
-                        </span>
-                        <span className="font-mono text-[11px] text-stone">
-                          {log.action}
-                        </span>
+              {data.recentAuditLogs.map((log) => {
+                const activity = presentAuditActivity({
+                  action: log.action,
+                  metadata: log.metadata,
+                  metadataUnreadable: log.metadataUnreadable,
+                  adminId: log.adminId,
+                  adminEmail: log.adminEmail,
+                  currentActorName: log.adminName,
+                  targetId: log.targetId,
+                  targetType: log.targetType,
+                  currentTargetName: null,
+                })
+                return (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between gap-4 p-4 text-[13px] transition-colors hover:bg-paper/40"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-paper text-stone">
+                        <HugeiconsIcon
+                          icon={SecurityCheckIcon}
+                          size={16}
+                          strokeWidth={1.75}
+                        />
                       </div>
-                      <p className="mt-0.5 text-[12px] text-stone truncate">
-                        Target: {log.targetType} ({log.targetId})
-                      </p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-ink truncate">
+                            {activity.actorLabel}
+                          </span>
+                          <span className="text-[11px] text-stone">
+                            {activity.actionLabel}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-stone truncate">
+                          Target: {activity.targetLabel}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right text-[11px] text-stone whitespace-nowrap">
+                      {formatDate(log.createdAt)}
                     </div>
                   </div>
-                  <div className="shrink-0 text-right text-[11px] text-stone whitespace-nowrap">
-                    {formatDate(log.createdAt)}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
