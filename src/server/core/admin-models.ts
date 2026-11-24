@@ -800,42 +800,49 @@ export async function probeAdminModelCore({
   }
 
   const label = await findHistoricalModelLabel(modelId)
-  if (!label || label.status === 'retired') {
+  if (label?.status === 'retired') {
     throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
   }
 
   const result = await probeModelConnection(modelId, getGatewayProbeConfig())
+  if (!label && !result.listed) {
+    throw new AppError('Model tidak ditemukan', 404, 'ERR-003')
+  }
+
+  const targetId = label?.id ?? modelId
   await db.transaction(async (tx) => {
     const now = new Date()
-    await tx
-      .insert(modelSettings)
-      .values({
-        modelId: label.id,
-        isActive: true,
-        status: 'active',
-        disabledReason: null,
-        updatedBy: session.user.id,
-        lastCheckedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: modelSettings.modelId,
-        set: {
-          lastCheckedAt: now,
+    if (label) {
+      await tx
+        .insert(modelSettings)
+        .values({
+          modelId: label.id,
+          isActive: true,
+          status: 'active',
+          disabledReason: null,
           updatedBy: session.user.id,
+          lastCheckedAt: now,
+          createdAt: now,
           updatedAt: now,
-        },
-      })
+        })
+        .onConflictDoUpdate({
+          target: modelSettings.modelId,
+          set: {
+            lastCheckedAt: now,
+            updatedBy: session.user.id,
+            updatedAt: now,
+          },
+        })
+    }
     await tx.insert(auditLogs).values({
       adminId: session.user.id,
       adminEmail: session.user.email,
       action: 'model.connection_test',
-      targetId: label.id,
+      targetId,
       targetType: 'model',
       metadata: modelAuditMetadata(
         session,
-        { id: label.id, displayName: label.displayName },
+        { id: targetId, displayName: label?.displayName ?? modelId },
         {
           modelId,
           outcome: result.outcome,
