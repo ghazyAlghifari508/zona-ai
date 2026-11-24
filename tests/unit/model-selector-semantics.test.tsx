@@ -40,6 +40,7 @@ const deepSeekZro: ModelCatalogEntry = {
   id: 'zro-prod/zro/deepseek-v4.1-flash',
   intelligenceScore: 73,
   intelligenceBars: 3,
+  creditTier: 'balanced',
   creditCost: 6,
   visionStatus: 'supported',
   capabilities: {
@@ -106,7 +107,7 @@ async function openMenu() {
 describe('P4 model selector semantics', () => {
   afterEach(cleanup)
 
-  it('shows name-first rows with route labels and real credit costs', async () => {
+  it('shows name-first rows with tier labels and no raw gateway routes', async () => {
     renderSelector()
     await openMenu()
 
@@ -114,11 +115,12 @@ describe('P4 model selector semantics', () => {
     const zroOption = screen.getByTestId(`model-option-${deepSeekZro.id}`)
 
     expect(corOption.textContent).toContain('DeepSeek V4.1 Flash')
-    expect(corOption.textContent).toContain('cor-prod')
-    expect(corOption.textContent).toContain('15 kredit / permintaan')
-    expect(zroOption.textContent).toContain('zro-prod')
-    expect(zroOption.textContent).toContain('6 kredit / permintaan')
-    expect(corOption.textContent).not.toContain('Premium')
+    expect(corOption.textContent).toContain('Premium')
+    expect(corOption.textContent).not.toContain('kredit / permintaan')
+    expect(corOption.textContent).not.toContain('cor-prod')
+    expect(zroOption.textContent).toContain('Seimbang')
+    expect(zroOption.textContent).not.toContain('kredit / permintaan')
+    expect(zroOption.textContent).not.toContain('zro-prod')
     expect(zroOption.textContent).toContain('Vision')
   })
 

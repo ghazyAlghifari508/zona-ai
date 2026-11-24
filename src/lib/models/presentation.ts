@@ -1,7 +1,5 @@
 import type { ModelCatalogEntry } from './types'
 
-type CreditCost = ModelCatalogEntry['creditCost'] | undefined
-
 export type ModelAvailability = {
   state: 'ready' | 'inactive' | 'pending' | 'unverified'
   label: string
@@ -11,11 +9,16 @@ export type ModelAvailability = {
 
 const numberFormatter = new Intl.NumberFormat('id-ID')
 
-export function formatCreditCost(cost: CreditCost): string {
-  if (cost === null || cost === undefined) return ''
-  if (typeof cost === 'number') return `${cost} kredit / permintaan`
-  if (cost.min === cost.max) return `${cost.min} kredit / permintaan`
-  return `${cost.min}–${cost.max} kredit / permintaan`
+const CREDIT_TIER_LABELS: Record<string, string> = {
+  premium: 'Premium',
+  balanced: 'Seimbang',
+  economy: 'Ekonomi',
+  adaptive: 'Adaptif',
+}
+
+export function formatCreditTier(tier: string | null | undefined): string {
+  if (!tier) return ''
+  return CREDIT_TIER_LABELS[tier] ?? ''
 }
 
 export function formatContextWindowTokens(
@@ -72,20 +75,4 @@ export function getModelAvailability(
     }
   }
   return { state: 'ready', label: 'Aktif', reason: null, selectable: true }
-}
-
-export function getModelRouteLabel(
-  entry: ModelCatalogEntry,
-  catalog: readonly ModelCatalogEntry[],
-): string | null {
-  const duplicateNames = new Map<string, number>()
-  for (const candidate of catalog) {
-    duplicateNames.set(
-      candidate.displayName,
-      (duplicateNames.get(candidate.displayName) ?? 0) + 1,
-    )
-  }
-  if ((duplicateNames.get(entry.displayName) ?? 0) < 2) return null
-  const [route] = entry.id.split('/')
-  return route === entry.id ? null : route
 }

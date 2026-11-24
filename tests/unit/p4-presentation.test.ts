@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatContextWindowTokens,
-  formatCreditCost,
   getModelAvailability,
-  getModelRouteLabel,
   hasVerifiedVision,
 } from '../../src/lib/models/presentation'
 import type { ModelCatalogEntry } from '../../src/lib/models/types'
@@ -37,18 +35,6 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
 }
 
 describe('P4 model presentation contracts', () => {
-  it('formats credit cost from actual catalog values with request units', () => {
-    expect(formatCreditCost(15)).toBe('15 kredit / permintaan')
-    expect(formatCreditCost({ min: 15, max: 15 })).toBe(
-      '15 kredit / permintaan',
-    )
-    expect(formatCreditCost({ min: 3, max: 15 })).toBe(
-      '3–15 kredit / permintaan',
-    )
-    expect(formatCreditCost(null)).toBe('')
-    expect(formatCreditCost(undefined)).toBe('')
-  })
-
   it('formats context windows with Indonesian grouping and explicit missing value', () => {
     expect(formatContextWindowTokens(1_048_576)).toBe('1.048.576 token')
     expect(formatContextWindowTokens(400_000)).toBe('400.000 token')
@@ -86,26 +72,6 @@ describe('P4 model presentation contracts', () => {
         entry({ capabilities: { ...entry().capabilities, vision: false } }),
       ),
     ).toBe(false)
-  })
-
-  it('labels duplicate display names by their exact catalog route', () => {
-    const catalog = [
-      entry({
-        id: 'cor-prod/deepseek-v4-1-flash-1017',
-        displayName: 'DeepSeek V4.1 Flash',
-      }),
-      entry({
-        id: 'zro-prod/zro/deepseek-v4.1-flash',
-        displayName: 'DeepSeek V4.1 Flash',
-      }),
-      entry({
-        id: 'ag/gemini-3.7-flash-high',
-        displayName: 'Gemini 3.7 Flash High',
-      }),
-    ]
-    expect(getModelRouteLabel(catalog[0], catalog)).toBe('cor-prod')
-    expect(getModelRouteLabel(catalog[1], catalog)).toBe('zro-prod')
-    expect(getModelRouteLabel(catalog[2], catalog)).toBeNull()
   })
 
   it('maps availability from real state instead of hardcoded premium labels', () => {

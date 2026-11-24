@@ -20,9 +20,8 @@ import {
 import { filterModelCatalogEntry } from '@/lib/models/filter'
 import { resolveModelFallback } from '@/lib/models/preference'
 import {
-  formatCreditCost,
+  formatCreditTier,
   getModelAvailability,
-  getModelRouteLabel,
   hasVerifiedVision,
 } from '@/lib/models/presentation'
 import type { ModelCatalogEntry } from '@/lib/models/types'
@@ -32,13 +31,15 @@ import { findCatalogEntry, useModelCatalog } from './useModelCatalog'
 
 const VENDOR_ORDER = [
   'OpenAI',
-  'Google',
   'Anthropic',
+  'Google',
   'xAI',
   'DeepSeek',
+  'Alibaba',
+  'MiniMax',
   'Meta',
+  'Inception Labs',
   'Shanghai AI Lab',
-  'Qwen',
   'Xiaomi',
   'Tencent',
   'Zhipu AI',
@@ -165,14 +166,12 @@ export function ModelSelector({
       insufficient ||
       (compareEnabled && isCompareModelBlocked(compareModelIds, m.id))
     const shortId = m.id.includes('/') ? m.id.split('/')[1] : null
-    const routeLabel = getModelRouteLabel(m, catalog)
-    const costLabel = formatCreditCost(m.creditCost)
+    const tierLabel = formatCreditTier(m.creditTier)
     const accessibleName = [
       m.displayName,
-      routeLabel,
       availability.label,
       availability.reason,
-      costLabel,
+      tierLabel,
     ]
       .filter(Boolean)
       .join(' — ')
@@ -272,8 +271,7 @@ export function ModelSelector({
                 Vision
               </span>
             )}
-            {routeLabel && <span>{routeLabel}</span>}
-            {costLabel && <span>{costLabel}</span>}
+            {tierLabel && <span>{tierLabel}</span>}
             {availability.state !== 'ready' && (
               <span
                 data-testid={
