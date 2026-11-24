@@ -399,7 +399,7 @@ test('compare exposes four independent successful artifact cards', async ({
 
   const openAll = page.getByTestId('compare-open-all')
   await expect(openAll).toBeVisible()
-  await openAll.click()
+  await page.getByTestId('compare-open-all').click()
   const tabs = page.getByTestId('artifact-tabs').getByRole('tab')
   await expect(tabs).toHaveCount(4)
   await expect(page.getByRole('tab', { selected: true })).toHaveCount(1)
@@ -416,7 +416,9 @@ test('compare exposes four independent successful artifact cards', async ({
     ).toBeVisible()
   }
 
-  await page.getByTestId('artifact-close-panel').click()
+  for (const artifact of seededArtifacts) {
+    await page.getByTestId(`artifact-close-${artifact.artifactId}`).click()
+  }
   await expect(page.getByTestId('artifact-canvas')).toBeHidden()
 
   await reloadAndWaitForArtifactHydration(page)
@@ -533,12 +535,13 @@ test('one failed compare generation leaves successful siblings openable', async 
   if (!lastArtifact || !previousArtifact) {
     throw new Error('compare artifact fixtures failed')
   }
-  await page
-    .getByTestId(`artifact-header-close-${lastArtifact.artifactId}`)
-    .click()
+  await page.getByTestId(`artifact-close-${lastArtifact.artifactId}`).click()
   await expect(page.getByTestId('artifact-header-title')).toHaveText(
     previousArtifact.title,
   )
-  await page.getByTestId('artifact-close-panel').click()
+  for (const artifact of seededArtifacts) {
+    const close = page.getByTestId(`artifact-close-${artifact.artifactId}`)
+    if ((await close.count()) > 0) await close.click()
+  }
   await expect(page.getByTestId('artifact-canvas')).toBeHidden()
 })

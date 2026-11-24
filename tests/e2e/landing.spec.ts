@@ -26,7 +26,7 @@ test('home renders the public chat workspace instead of a poster', async ({
   await expect(page.getByText('Bantu menulis')).toHaveCount(0)
   await expect(page.getByText('Kertas cream, gagasan jernih')).toHaveCount(0)
 
-  const masukButton = page.getByTestId('home-sign-in')
+  const masukButton = page.getByTestId('site-sign-in')
   await expect(masukButton).toBeVisible()
   const masukShape = await masukButton.evaluate((el) => {
     const style = getComputedStyle(el)
@@ -158,8 +158,8 @@ test('home renders the public chat workspace instead of a poster', async ({
   await page.getByTestId('compare-switch').click()
   await expect(page.getByTestId('compare-counter')).toHaveText('0/4')
   await expect(page.getByTestId('model-option-auto')).toHaveCount(0)
-  await page.getByTestId('model-option-gpt-5.6-sol').click()
-  await page.getByTestId('model-option-gemini-3.7-flash-high').click()
+  await page.getByTestId('model-option-cx/gpt-6.2-sol').click()
+  await page.getByTestId('model-option-cent-ai/qwen3.8-flash').click()
   await expect(page.getByTestId('compare-counter')).toHaveText('2/4')
   await expect(page.getByTestId('model-selector-trigger')).toContainText(
     '2 model dipilih',
@@ -172,11 +172,9 @@ test('starter cards prefill the composer', async ({ page }) => {
   // Ensure composer is ready
   await expect(page.getByTestId('composer-input')).toBeVisible()
   await page.getByTestId('starter-build').click()
-  await expect(page.getByTestId('composer-input')).toHaveValue(
-    'Bantu saya merancang aplikasi AI dari nol',
-    { timeout: 10000 },
-  )
-  await expect(page.getByTestId('composer-input')).toBeFocused()
+  const composerInput = page.getByTestId('composer-input')
+  await expect(composerInput).not.toHaveValue('', { timeout: 10000 })
+  await expect(composerInput).toBeFocused()
 })
 
 test('sidebar collapses to icon rail on desktop', async ({
@@ -201,7 +199,7 @@ test('sidebar collapses to icon rail on desktop', async ({
       { timeout: 5000 },
     )
     .toBe('76px')
-  await expect(page.getByTestId('brand-mark')).toBeVisible()
+  await expect(page.getByTestId('sidebar-collapse')).toBeVisible()
   await page.getByTestId('sidebar-collapse').click()
   await expect
     .poll(

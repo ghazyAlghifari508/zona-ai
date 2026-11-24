@@ -6,7 +6,7 @@ test('sign-in renders Google button only, no password input', async ({
   await page.goto('/auth/sign-in')
   await expect(
     page.getByRole('button', {
-      name: /Continue with Google|Masuk dengan Google/i,
+      name: /Continue with Google|Masuk dengan Google|Lanjutkan dengan Google/i,
     }),
   ).toBeVisible()
   await expect(page.locator('input[type="password"]')).toHaveCount(0)

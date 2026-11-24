@@ -214,17 +214,21 @@ test.describe('Structured @artifact Mentions E2E Journeys', () => {
     await expect(chips).toBeVisible()
     await expect(chips.getByText('@Mobile App PRD')).toBeVisible()
 
-    // Chip defaults to Context mode
-    const modeBtn = chips.getByRole('button', { name: /Ganti mode mention/i })
-    await expect(modeBtn).toHaveText('Context')
+    // Chip defaults to Referensi mode
+    const modeBtn = chips.getByRole('button', { name: 'Referensi' })
+    await expect(modeBtn).toHaveText('Referensi')
 
-    // Click to toggle to Revise
+    // Click to toggle to Revisi
     await modeBtn.click()
-    await expect(modeBtn).toHaveText('Revise')
+    await expect(chips.getByRole('button', { name: 'Revisi' })).toHaveText(
+      'Revisi',
+    )
 
-    // Click again to toggle back to Context
-    await modeBtn.click()
-    await expect(modeBtn).toHaveText('Context')
+    // Click again to toggle back to Referensi
+    await chips.getByRole('button', { name: 'Revisi' }).click()
+    await expect(chips.getByRole('button', { name: 'Referensi' })).toHaveText(
+      'Referensi',
+    )
   })
 
   test('clicking historical mention token opens Canvas with exact referenced version', async ({

@@ -336,7 +336,7 @@ test('file card opens canvas instead of downloading and separate download return
   )
   expect(downloads).toHaveLength(0)
 
-  await page.getByTestId('artifact-close-panel').click()
+  await page.getByTestId(`artifact-close-${artifact.artifactId}`).click()
   await expect(canvas).toBeHidden()
 
   const { download, bytes } = await downloadFrom(
@@ -505,7 +505,7 @@ test('canvas tabs open, dedupe, switch, select versions, and close', async ({
   ).toHaveAttribute('aria-selected', 'true')
   await expect(versionSelect).toHaveValue(alphaOne.versionId)
 
-  await versionSelect.selectOption({ label: 'Version 2' })
+  await versionSelect.selectOption({ label: 'v2' })
   await expect(versionSelect).toHaveValue(alphaTwo.versionId)
   await expect(page.getByTestId('artifact-preview')).toContainText(
     'Seeded alpha two body for tab verification.',
@@ -517,7 +517,7 @@ test('canvas tabs open, dedupe, switch, select versions, and close', async ({
     page.getByTestId(`artifact-tab-${alpha.artifactId}`),
   ).toHaveAttribute('aria-selected', 'true')
 
-  await page.getByTestId(`artifact-header-close-${alpha.artifactId}`).click()
+  await page.getByTestId(`artifact-close-${alpha.artifactId}`).click()
   await expect(page.getByTestId('artifact-canvas')).toBeHidden()
   await expect(
     page.getByTestId('conversation-artifact-layout'),
@@ -569,7 +569,7 @@ test('seeded artifact opens current v2 while v1 stays selectable and downloadabl
     'Seeded version two body for revision verification.',
   )
 
-  await versionSelect.selectOption({ label: 'Version 1' })
+  await versionSelect.selectOption({ label: 'v1' })
   await expect(versionSelect).toHaveValue(v1.versionId)
   await expect(page.getByTestId('artifact-preview')).toContainText(
     'Seeded version one body for revision verification.',
@@ -580,7 +580,7 @@ test('seeded artifact opens current v2 while v1 stays selectable and downloadabl
   expect(download.suggestedFilename()).toBe(v1.fileName)
   expect(bytes.equals(Buffer.from(markdownV1, 'utf8'))).toBe(true)
 
-  await versionSelect.selectOption({ label: 'Version 2' })
+  await versionSelect.selectOption({ label: 'v2' })
   await expect(page.getByTestId('artifact-preview')).toContainText(
     'Seeded version two body for revision verification.',
   )
@@ -662,7 +662,7 @@ test('refresh closes ephemeral tabs but persisted cards and version history reop
   const versionSelect = page.getByTestId('artifact-version-select')
   await expect(versionSelect).toHaveValue(alphaTwo.versionId)
   await expect(versionSelect.getByRole('option')).toHaveCount(2)
-  await versionSelect.selectOption({ label: 'Version 1' })
+  await versionSelect.selectOption({ label: 'v1' })
   await expect(versionSelect).toHaveValue(alphaOne.versionId)
   await expect(page.getByTestId('artifact-preview')).toContainText(
     'Seeded reload alpha one body.',
