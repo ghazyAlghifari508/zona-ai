@@ -339,32 +339,16 @@ export function AdminAuditLogView({ initialData }: AdminAuditLogViewProps) {
           </TableBody>
         </Table>
 
-        <div className="flex flex-col gap-3 border-t border-hairline bg-paper px-4 py-3 text-[12px] text-stone sm:flex-row sm:items-center sm:justify-between">
-          <span data-testid="admin-audit-page-info">
-            Menampilkan {logs.length} dari {pagination.total} aktivitas ·
-            Halaman {page} dari {Math.max(1, pagination.totalPages)}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              data-testid="admin-audit-prev"
-              type="button"
-              disabled={page <= 1 || isLoading}
-              onClick={() => void fetchLogs(page - 1, search, actionFilter)}
-              className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
-            >
-              Sebelumnya
-            </button>
-            <button
-              data-testid="admin-audit-next"
-              type="button"
-              disabled={page >= pagination.totalPages || isLoading}
-              onClick={() => void fetchLogs(page + 1, search, actionFilter)}
-              className="rounded border border-hairline bg-pure-white px-2.5 py-1 text-ink disabled:opacity-40 hover:bg-stone/5"
-            >
-              Berikutnya
-            </button>
-          </div>
+        <div className="border-t border-hairline bg-paper">
+          <TablePagination
+            ariaLabel="Navigasi aktivitas"
+            page={page}
+            totalPages={Math.max(1, pagination.totalPages)}
+            total={pagination.total}
+            pageSize={pagination.limit}
+            disabled={isLoading}
             onPageChange={(next) => void fetchLogs(next, search, actionFilter)}
+          />
         </div>
       </div>
 
