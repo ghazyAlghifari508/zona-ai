@@ -80,10 +80,12 @@ describeDb('Audit mutation rollback on isolated PostgreSQL', () => {
       migrationsSchema: schemaName,
     })
     const publicUsers =
-      await sql`SELECT id FROM public.users ORDER BY id LIMIT 1`
+      await sql`SELECT id FROM public.users WHERE email NOT LIKE '%@example.com' ORDER BY created_at ASC LIMIT 1`
     const publicUser = publicUsers[0]
     if (!publicUser) {
-      throw new Error('No public user available for isolated FK fixture')
+      throw new Error(
+        'No durable public user available for isolated FK fixture',
+      )
     }
     fixtureUserId = String(publicUser.id)
     auth = await import('../../src/lib/auth/auth')
