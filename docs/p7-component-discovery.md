@@ -31,9 +31,9 @@ Ditulis sebelum implementasi UI. Fokus: footer pagination untuk tabel Model AI d
 Karena kedua surface P7 memakai state/server function, bukan URL navigation, `PaginationPrevious`/`PaginationNext` dan link halaman diadaptasi menjadi **tombol native** (`onClick`, `disabled`, `aria-current="page"`). Ini sesuai persistensi filter dan state dan mencegah prev/next aktif saat loading. Perubahan ini dicatat sebagai adaptasi, bukan komponen baru dari nol.
 
 1. Salin komposisi resmi shadcn Pagination ke `src/components/ui/pagination.tsx` tanpa installer remote. Struktur: `Pagination` (`<nav>`), `PaginationContent` (`<ul>`), `PaginationItem` (`<li>`), `PaginationLink`, `PaginationPrevious`, `PaginationNext`, `PaginationEllipsis`.
-2. Karena kedua surface P7 memakai state/server function, bukan URL navigation, `PaginationPrevious`/`PaginationNext` dan link halaman diadaptasi menjadi **tombol.native** (`onClick`, `disabled`, `aria-current="page"`). Ini sesuai persistensi filter担 state dan mencegah prev/next aktif saat loading. Perubahan ini dicatat sebagai adaptasi, bukan komponen baru dari nol.
-3. `src/components/admin/TablePagination.tsx` menjadi satu footer bersama: range (`1–10 dari 53` / `0 dari 0` bila kosong), `Halaman X dari Y`, prev/next berlabel, dan opsional pemilih ukuran halaman memakai `NativeSelect`. Footer ditempatkan tepat di bawah tabel/feed dengan jarak minimal sesuai Carbon.
-4. `NativeSelect` dipakai hanya di Model AI; Ringkasan memakai ukuran tetap 5 dari konstanta dan tidak menampilkan pemilih ukuran.
+
+2. `src/components/admin/TablePagination.tsx` menjadi satu footer bersama: range (`1–10 dari 53` / `0 dari 0` bila kosong), `Halaman X dari Y`, prev/next berlabel, dan opsional pemilih ukuran halaman memakai `NativeSelect`. Footer ditempatkan tepat di bawah tabel/feed dengan jarak minimal sesuai Carbon.
+3. `NativeSelect` dipakai hanya di Model AI; Ringkasan memakai ukuran tetap 5 dari konstanta dan tidak menampilkan pemilih ukuran.
 
 ## Kompatibilitas, lisensi, aksesibilitas, dependency
 
@@ -54,3 +54,7 @@ Karena kedua surface P7 memakai state/server function, bukan URL navigation, `Pa
 | `src/lib/admin/audit-activity.ts` | `presentAuditActivity` untuk render feed Ringkasan |
 
 Tidak ada komponen HeroUI/affectUI yang dipasang atau diimpor.
+
+## Batas offset pagination
+
+Model AI dan Ringkasan memakai `LIMIT/OFFSET` dengan `ORDER BY` deterministik (`displayName, id` untuk model; `createdAt DESC, id DESC` untuk audit). `total` dihitung ulang dari filter aktif sebelum paging, sehingga mencerminkan keadaan database saat permintaan. Pagination ini **bukan snapshot**: penyisipan, penghapusan, atau perubahan status antara dua permintaan dapat menggeser baris ke halaman lain atau mengubah `totalPages`. Klien melindungi diri dari respons lama dengan nomor permintaan dan melakukan satu refetch setelah mutasi; server membatasi halaman sekali bila halaman terakhir menjadi kosong. Tidak ada jaminan urutan lintas mutasi, dan tidak ada klaim stabilitas snapshot.
