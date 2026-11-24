@@ -303,6 +303,58 @@ describeDb('P7 pagination on isolated PostgreSQL', () => {
     expect(after.items).toHaveLength(10)
   })
 
+  it('reflects an added model in totals and provider options', async () => {
+    await seedModels()
+    const before = await adminModels.listAdminModelsCore({
+      request,
+      pageSize: 10,
+    })
+    expect(before.pagination.total).toBe(53)
+
+    const id = 'test/model-new'
+    await database.insert(schema.modelCatalog).values({
+      id,
+      routerModelId: id,
+      displayName: 'Model New',
+      provider: 'gamma',
+      vendor: 'Gamma',
+      description: 'synthetic fixture',
+      intelligenceLevel: 1,
+      intelligenceScore: 1,
+      intelligenceBars: 1,
+      confidence: 'medium',
+      creditCostMin: 1,
+      creditCostMax: 1,
+      creditTier: 'balanced',
+      capabilities: {
+        text: true,
+        vision: false,
+        files: false,
+        tools: false,
+        reasoning: false,
+        structuredOutput: false,
+      },
+      searchAliases: [],
+      contextWindow: 1000,
+      category: 'general',
+      speedClass: 'medium',
+      routingProfile: 'general',
+      evaluationStatus: 'legacy',
+      visionStatus: 'unverified',
+      provenance: 'synthetic-fixture',
+    })
+    await database
+      .insert(schema.modelSettings)
+      .values({ modelId: id, status: 'active', isActive: true })
+
+    const after = await adminModels.listAdminModelsCore({
+      request,
+      pageSize: 10,
+    })
+    expect(after.pagination).toMatchObject({ total: 54, totalPages: 6 })
+    expect(after.providers).toEqual(['Alpha', 'Beta', 'Gamma'])
+  })
+
   async function seedAuditEvents() {
     const ids = Array.from({ length: 13 }, () => randomUUID())
     const createdAt = new Date('2026-11-25T00:00:00.000Z')
