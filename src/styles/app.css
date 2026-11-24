@@ -143,7 +143,7 @@
 }
 
 body {
-  background: var(--pure-white);
+  background: var(--paper);
   font-family: var(--font-inter);
   color: var(--ink);
 }
