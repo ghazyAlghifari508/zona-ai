@@ -143,9 +143,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-ink">
-            Aktivitas Terkini
-          </h2>
+          <h2 className="text-[15px] font-semibold text-ink">Log Aktivitas</h2>
           <Link
             to="/admin/audit-log"
             className="flex items-center gap-1 text-[12px] font-medium text-notion-blue hover:underline"
@@ -175,7 +173,7 @@ export function AdminDashboardOverview({ data }: AdminDashboardOverviewProps) {
                   currentActorName: log.adminName,
                   targetId: log.targetId,
                   targetType: log.targetType,
-                  currentTargetName: null,
+                  currentTargetName: log.currentTargetName,
                 })
                 return (
                   <div
