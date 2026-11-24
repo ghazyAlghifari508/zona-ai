@@ -98,6 +98,12 @@ describe('AdminAuditLogView', () => {
     expect(screen.queryByText('user.ban')).toBeNull()
   })
 
+  it('exposes an accessible detail trigger', () => {
+    renderView()
+
+    expect(screen.getByRole('button', { name: 'Lihat detail' })).toBeTruthy()
+  })
+
   it('opens event details from the table', () => {
     renderView()
 
