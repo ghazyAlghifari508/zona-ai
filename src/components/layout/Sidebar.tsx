@@ -4,7 +4,7 @@ import {
   Delete02Icon,
   Loading03Icon,
   Logout01Icon,
-  MoreHorizontalIcon,
+  MoreVerticalIcon,
   PencilEdit01Icon,
   PlusSignIcon,
   Search01Icon,
@@ -536,10 +536,10 @@ export function Sidebar({
                           <button
                             type="button"
                             aria-label={`Menu ${conversation.title ?? 'New Chat'}`}
-                            className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100"
+                            className="mr-1 rounded-md p-1.5 text-stone opacity-0 hover:text-ink focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 not-hover:opacity-100"
                           >
                             <HugeiconsIcon
-                              icon={MoreHorizontalIcon}
+                              icon={MoreVerticalIcon}
                               size={16}
                               strokeWidth={1.75}
                               aria-hidden="true"

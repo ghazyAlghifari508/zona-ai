@@ -1,3 +1,7 @@
+import {
+  MoreHorizontalIcon,
+  MoreVerticalIcon,
+} from '@hugeicons/core-free-icons'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
@@ -6,6 +10,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Sidebar } from '../../src/components/layout/Sidebar'
 
@@ -21,12 +26,35 @@ const routerMocks = vi.hoisted(() => ({
   preloadRoute: vi.fn().mockResolvedValue(undefined),
 }))
 
+const iconMocks = vi.hoisted(() => ({
+  calls: [] as Array<{
+    icon: unknown
+    ariaHidden: unknown
+  }>,
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => routerMocks.navigate,
   useRouter: () => ({
     preloadRoute: routerMocks.preloadRoute,
   }),
 }))
+
+vi.mock('@hugeicons/react', async () => {
+  const actual =
+    await vi.importActual<typeof import('@hugeicons/react')>('@hugeicons/react')
+  const { createElement } = await import('react')
+  return {
+    ...actual,
+    HugeiconsIcon: (props: ComponentProps<typeof actual.HugeiconsIcon>) => {
+      iconMocks.calls.push({
+        icon: props.icon,
+        ariaHidden: props['aria-hidden'],
+      })
+      return createElement(actual.HugeiconsIcon, props)
+    },
+  }
+})
 
 vi.mock('../../src/server/functions/conversations', () => ({
   createConversation: serverMocks.createConversation,
@@ -63,6 +91,7 @@ describe('Sidebar persistence', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    iconMocks.calls.length = 0
     serverMocks.getConversations.mockResolvedValue({
       conversations: [],
       nextCursor: undefined,
@@ -409,5 +438,98 @@ describe('Sidebar persistence', () => {
       params: { conversationId: 'conv-prefetch' },
     })
   })
+  it('uses the installed vertical ellipsis export with an accessible fallback label', async () => {
+    const id = '10000000-0000-4000-8000-000000000015'
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id,
+          title: null,
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+
+    renderSidebar()
+
+    const trigger = await screen.findByRole('button', { name: 'Menu New Chat' })
+    expect(trigger).toBeTruthy()
+
+    const ellipsisCalls = iconMocks.calls.filter(
+      (call) =>
+        call.icon === MoreHorizontalIcon || call.icon === MoreVerticalIcon,
+    )
+    expect(ellipsisCalls.length).toBeGreaterThan(0)
+    expect(ellipsisCalls.some((call) => call.icon === MoreHorizontalIcon)).toBe(
+      false,
+    )
+    expect(ellipsisCalls.every((call) => call.icon === MoreVerticalIcon)).toBe(
+      true,
+    )
+    expect(ellipsisCalls[0]?.ariaHidden).toBe('true')
+  })
+
+  it('opens the history menu from the keyboard and restores focus', async () => {
+    const id = '10000000-0000-4000-8000-000000000016'
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id,
+          title: 'Keyboard Chat',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+
+    renderSidebar()
+
+    const trigger = await screen.findByRole('button', {
+      name: 'Menu Keyboard Chat',
+    })
+    trigger.focus()
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeTruthy()
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: 'Escape',
+    })
+    await waitFor(() =>
+      expect(trigger.getAttribute('aria-expanded')).toBe('false'),
+    )
+    expect(document.activeElement).toBe(trigger)
+  }, 10000)
+
+  it('opens the history menu from a touch pointer without hover', async () => {
+    const id = '10000000-0000-4000-8000-000000000017'
+    serverMocks.getConversations.mockResolvedValue({
+      conversations: [
+        {
+          id,
+          title: 'Touch Chat',
+          updatedAt: new Date('2026-08-29T00:00:00Z'),
+        },
+      ],
+      nextCursor: undefined,
+    })
+
+    renderSidebar()
+
+    const trigger = await screen.findByRole('button', {
+      name: 'Menu Touch Chat',
+    })
+    fireEvent.pointerDown(trigger, {
+      button: 0,
+      ctrlKey: false,
+      pointerType: 'touch',
+    })
+
+    expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeTruthy()
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+  }, 10000)
 })
 
